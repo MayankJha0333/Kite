@@ -6751,3 +6751,9 @@ button.dl-name:not(:disabled):hover {
   gap: 6px;
   flex-wrap: wrap;
 }
+
+.adblock {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}

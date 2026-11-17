@@ -7,7 +7,7 @@
 // rebuilds the filter off the main thread; the status line shows progress.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ChevronRight, Download, ExternalLink, Plus, RefreshCw, Search, Trash2, Upload } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Download, Plus, RefreshCw, Search, Trash2, Upload } from 'lucide-react';
 import {
   COOKIE_MINUTES,
   FILTER_GROUPS,
@@ -24,7 +24,7 @@ import {
 } from '@shared/shields';
 import { updateSettings } from '@shared/settings';
 import type { ListStatus, ShieldsStatus } from '@shared/ipc';
-import { act, getS, toast, useKite } from '../store';
+import { act, getS, setUi, toast, useKite } from '../store';
 import { bridge } from '../platform';
 import { Group, Row, Segmented, SwitchRow, Toggle } from './Sheet';
 
@@ -313,9 +313,13 @@ function TrackingGroup({ sh, off }: { sh: Shields; off: boolean }) {
       <Row title="Limit third-party cookies" desc="Cookies set by other sites are deleted after this long" off={off}>
         <Segmented testId="shields-cookie-life" value={String(sh.cookieMinutes)} onChange={(v) => setSh({ cookieMinutes: Number(v) })} options={COOKIE_MINUTES.map((m) => ({ value: String(m), label: cookieLabel(m) }))} />
       </Row>
-      <Row title="Ask sites not to track me" desc={gpc ? 'On: Global Privacy Control and Do Not Track are sent. Change it under Privacy & Security.' : 'Off. Turn on Global Privacy Control under Privacy & Security.'}>
-        <ExternalLink size={14} className="muted" />
-      </Row>
+      <button className="set-row set-link" data-testid="shields-gpc-link" onClick={() => setUi({ panel: 'settings', panelArg: 'privacy' })}>
+        <span className="set-row-text">
+          <span className="set-row-title">Ask sites not to track me</span>
+          <span className="set-row-desc">{gpc ? 'On: Global Privacy Control and Do Not Track are sent.' : 'Off.'} Change it under Privacy & Security.</span>
+        </span>
+        <ChevronRight size={15} className="set-link-chevron" />
+      </button>
     </Group>
   );
 }

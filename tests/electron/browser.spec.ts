@@ -98,7 +98,10 @@ test.afterAll(async () => {
 // Every test starts in the first Space with no panel open.
 test.beforeEach(async () => {
   if (await win.getByTestId('site-info').count()) await win.keyboard.press('Escape');
-  if (await win.getByTestId('sheet-close').count()) await win.getByTestId('sheet-close').click();
+  // A page that is already closing (its leave animation) is left to finish.
+  const open = win.locator(':not([data-leaving]) > [data-testid="sheet-close"]');
+  if (await open.count()) await open.first().click({ timeout: 3000 }).catch(() => undefined);
+  await expect(win.getByTestId('sheet-close')).toHaveCount(0);
   await win.keyboard.press('Control+1');
 });
 

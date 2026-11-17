@@ -294,3 +294,57 @@ libraries and Lottie files in the resource bundles. Full colour table:
 
 ### 8.4 Not copied, on purpose
 Arc's fonts, icons (`icomoon.ttf`, `ionicons.ttf`), Lottie art, videos (`orb.mp4`, `background.mp4`), sounds (`event.m4a`, `capture.wav`), shader code and name. Only measurements and structure are used.
+
+---
+
+## 9. Ad blocking, modelled on AdGuard (17 Nov 2026)
+
+Reference: **AdGuard AdBlocker 5.5.3.42** (Manifest V3), installed in Dia at
+`~/Library/Application Support/Dia/User Data/Default/Extensions/bgnkhhnnamicmpeenaelnjfhikgbkllg/`.
+Tools: REA `analyze_javascript_application` on `manifest.json`, `pages/options.js` and the
+content scripts (evidence `ev_0a7f45e4da79…`, summary `ev_c52802b8e0be…`), plus the
+extension's English strings (`_locales/en/messages.json`, 317 option strings), filter
+catalog (`filters/filters_i18n.json`) and settings schema/defaults in `pages/background.js`.
+Only behaviour and structure are used. No AdGuard code, text or art is copied.
+
+### 9.1 What AdGuard has
+
+| Area | Finding | Evidence |
+|---|---|---|
+| General | Master switch; "Block search ads and self-promotion" (= disabling the *unblocking* filter 10); "Activate the most appropriate filters automatically" (by language); auto-update period Disabled / 1 / 6 / 12 / 24 / 48 h; phishing check (online, off by default); statistics | `options_*` strings; `FiltersUpdateTime` enum; `defaultSettings` |
+| Filters | 7 groups: Ad blocking, Privacy, Social widgets, Annoyances, Security, Other, Language-specific; per-list rules count + "updated" date; search box | `filters_i18n.json`; `options_filters_*` |
+| First run | Turns on **AdGuard Base (2)** + **Search ads & self-promotion (10)** + language lists for the UI and browser languages | `initDefaultFilters()` in `background.js` |
+| Custom lists | Add by URL or file; rejects a URL that returns a web page ("The URL returned a web page instead of a filter list"); optional "trusted" | `options_add_custom_filter_*` |
+| User rules | Editor with import / export, line wrap, count of rules, limit warnings | `options_user_rules_*`, `options_userfilter_*` |
+| Allowlist | Domains where nothing is blocked; **can be inverted** (block only on listed sites); stored as two separate lists | `allowlist-domains`, `block-list-domains`, `default-allowlist-mode` |
+| Tracking protection ("stealth") | Off by default as a whole. Inside: hide search queries, hide referrer from third parties, send GPC + DNT, remove X-Client-Data, block WebRTC, third-party cookie lifetime (default 2880 min), first-party cookie lifetime (4320 min, off), block trackers, strip tracking parameters | `StealthOption` enum; `DEFAULT_*_COOKIES_SELF_DESTRUCT_MIN` |
+
+### 9.2 Two engine problems found while testing (and fixed in Kite)
+
+| Problem | Effect | Fix |
+|---|---|---|
+| AdGuard's lists use **CRLF** line endings; the engine keeps the `\r` inside rule options | e.g. `$removeparam=fbclid\r` never matches; many AdGuard rules silently fail | Line endings are normalised before parsing (`shieldsWorker.ts`) |
+| With optimizations on, the engine merges generic `$removeparam` rules and then applies almost none of them (bisected: adding `$removeparam=pjclid` stopped `fbclid` removal in AdGuard's URL Tracking list) | tracking parameters not stripped | `$removeparam` rules go into a second engine with `enableOptimizations: false` |
+
+Measured on this Mac: parsing AdGuard Base + EasyPrivacy + uBlock + URL Tracking + Cookie notices takes **~0.7 s** (35 MB of lists: ~2 s); loading the saved engine takes **10–40 ms**. Hence: build in a worker thread, save the result, load it at start.
+
+### 9.3 What Kite does now
+
+| Feature | How |
+|---|---|
+| On out of the box | AdGuard Base, uBlock filters + unbreak + quick fixes, EasyPrivacy, uBlock badware; language lists for macOS's languages; tracking parameters stripped. A small built-in list blocks from the first second, before anything downloads. |
+| 29 lists in 6 groups | `FILTER_LISTS` in `shared/shields.ts`; AdGuard lists are fetched in their uBlock-syntax builds (`filters.adtidy.org/extension/ublock/…`) |
+| Lists on disk + auto-update | `main/filterLists.ts`: per-list cache, `lists.json` metadata, retry back-off, rejects web pages, 40 MB cap; checked hourly, refreshed per "Update lists" |
+| Build off the main thread | `main/shieldsWorker.ts` (worker thread), result saved to `engine.bin` / `params.bin` and reused when the lists and rules match |
+| Page fixes before page scripts | `main/pagePreload.ts`, registered per session with `registerPreloadScript`: synchronous ask at document start → scriptlets run in the page world, CSS inserted as user styles; a MutationObserver asks for generic hiding rules as the page adds elements. It exposes nothing to the page. |
+| Network | `main/network.ts`: block / redirect, `$csp` rules, tracking-parameter removal on page and frame navigations, referrer and search-query hiding, third-party cookie lifetime cap, WebRTC IP policy, GPC + DNT |
+| Your lists, your rules, allowlist (+ invert) | Settings → **Ad blocking**; rules apply after Save without a restart; unreadable lines are listed |
+| Statistics and per-site log | Total blocked (kept across restarts, can be cleared); the address-bar popover lists blocked hosts on the page |
+
+### 9.4 Not done (on purpose or for now)
+
+- **Online phishing check** (sends addresses to a server): replaced by offline Security lists.
+- **First-party cookie lifetime** and **X-Client-Data** (Electron doesn't send that header).
+- **Extended CSS selectors** (`:has-text`, `:upward`…) are skipped; native `:has()` rules work.
+- A full **filtering log** window: Kite shows blocked hosts per page instead.
+- "Trusted" custom lists: every list gets the same powers (scriptlets only come from uBlock's library, never from the list itself).

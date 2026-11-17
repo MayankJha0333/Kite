@@ -190,17 +190,18 @@ test.describe('settings layout and search', () => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
     const tabs = page.locator('.settings-tab');
-    await expect(tabs).toHaveCount(11);
+    await expect(tabs).toHaveCount(12);
     await page.getByTestId('settings-search').fill('cookie');
-    await expect(tabs).toHaveCount(1);
-    await expect(page.getByTestId('settings-privacy')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.settings-head-title')).toHaveText('Privacy & Security');
-    await expect(page.locator('[data-hit]')).toContainText('Cookie banners');
+    // Cookie notices and lifetimes live in Ad blocking; clearing cookies in Privacy & Security.
+    await expect(tabs).toHaveCount(2);
+    await expect(page.getByTestId('settings-adblock')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.settings-head-title')).toHaveText('Ad blocking');
+    await expect(page.locator('[data-hit]')).toContainText('cookies');
     await page.getByTestId('settings-search').fill('nothing like this');
     await expect(page.getByTestId('settings-nomatch')).toBeVisible();
     await page.getByTestId('settings-search').press('Escape');
     await expect(page.getByTestId('settings-search')).toHaveValue('');
-    await expect(tabs).toHaveCount(11);
+    await expect(tabs).toHaveCount(12);
     await expect(page.getByTestId('settings')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('settings')).toHaveCount(0);
