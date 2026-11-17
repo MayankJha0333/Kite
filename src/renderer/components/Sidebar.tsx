@@ -1,7 +1,7 @@
-import { ArrowLeft, ArrowRight, RotateCw, PanelLeft, Plus, Search, ShieldCheck, Settings2, Archive, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, RotateCw, PanelLeft, Plus, Search, ShieldCheck, Settings2, SlidersHorizontal, Archive, Wand2 } from 'lucide-react';
 import { boostsFor } from '@shared/boosts';
 import * as ops from '@shared/ops';
-import { displayUrl, isNewTabUrl } from '@shared/url';
+import { displayUrl, hostOf, isNewTabUrl } from '@shared/url';
 import { activeSpace } from '@shared/tree';
 import { act, setUi, useKite } from '../store';
 import { actions } from '../commands';
@@ -64,7 +64,7 @@ export function Sidebar() {
           <span className="sb-divider-line" />
           {space.today.length > 0 && (
             <button className="sb-clear" data-testid="btn-clear-today" onClick={() => actions.clearToday?.()} title="Archive all unpinned tabs">
-              <Sparkles size={12} /> Clear
+              <ArrowDown size={11} strokeWidth={2.4} /> Clear
             </button>
           )}
         </div>
@@ -126,6 +126,26 @@ function UrlPill() {
   const boosted = useKite((st) => (tab ? boostsFor(st.s, tab.url).length > 0 : false));
   const { level } = useSecurity();
   const blocked = useKite((st) => (tab ? st.ui.blocked[tab.id] ?? 0 : 0));
+  // Like Arc: a secure page shows just its address; site controls wait on the right.
+  // Anything less than secure keeps its warning up front.
+  const warn = level === 'insecure' || level === 'broken';
+  const siteButton = (
+    <span
+      className="url-sec"
+      role="button"
+      aria-label="About this site"
+      title="About this site"
+      data-level={level}
+      data-side={warn ? 'start' : 'end'}
+      data-testid="url-security"
+      onClick={(e) => {
+        e.stopPropagation();
+        actions.siteInfo();
+      }}
+    >
+      {warn ? <SecurityIcon level={level} /> : <SlidersHorizontal size={12} className="url-lock" />}
+    </span>
+  );
   return (
     <button
       className="url-pill"
@@ -134,28 +154,12 @@ function UrlPill() {
       onContextMenu={(e) => tab && openMenu(e, [{ label: 'Copy URL', onSelect: actions.copyUrl }])}
       title={tab?.url ?? 'Search or enter address'}
     >
-      {tab ? (
-        <span
-          className="url-sec"
-          role="button"
-          aria-label="About this site"
-          title="About this site"
-          data-level={level}
-          data-testid="url-security"
-          onClick={(e) => {
-            e.stopPropagation();
-            actions.siteInfo();
-          }}
-        >
-          <SecurityIcon level={level} />
-        </span>
-      ) : (
-        <Search size={12} className="url-lock" />
-      )}
-      <span className="url-text">{tab ? displayUrl(tab.url) : 'Search or enter address'}</span>
+      {!tab && <Search size={12} className="url-lock" />}
+      {tab && warn && siteButton}
+      <UrlText url={tab?.url ?? null} />
       {tab && blocked > 0 && (
         <span className="url-shield" role="button" title={`${blocked} blocked on this page`} data-testid="url-blocked" onClick={(e) => { e.stopPropagation(); actions.siteInfo(); }}>
-          <ShieldCheck size={12} /> {blocked > 99 ? '99+' : blocked}
+          <ShieldCheck size={11} /> {blocked > 99 ? '99+' : blocked}
         </span>
       )}
       {boosted && (
@@ -172,7 +176,23 @@ function UrlPill() {
           <Wand2 size={12} />
         </span>
       )}
+      {tab && !warn && siteButton}
     </button>
+  );
+}
+
+/** The site's domain reads first, as in Arc; the rest of the address trails off, quieter. */
+function UrlText({ url }: { url: string | null }) {
+  if (!url) return <span className="url-text">Search or enter address</span>;
+  const full = displayUrl(url);
+  const host = hostOf(url);
+  const rest = host && full.startsWith(host) ? full.slice(host.length) : null;
+  if (rest === null) return <span className="url-text">{full}</span>;
+  return (
+    <span className="url-text">
+      <span className="url-host">{host}</span>
+      {rest && <span className="url-path">{rest}</span>}
+    </span>
   );
 }
 

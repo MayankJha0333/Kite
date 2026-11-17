@@ -144,3 +144,79 @@ describe('drag and drop', () => {
     expect(s.spaces[0].today).toEqual([]);
   });
 });
+
+describe('Arc-style folder and Space moves', () => {
+  it('a drop at the start of an open folder puts the item first in it', async () => {
+    const { canDrop } = await import('@shared/folders');
+    let [s, [a, b]] = setup(2);
+    let f: string;
+    [s, f] = run(s, (d) => createFolder(d, { items: [a], now: T0 }));
+    expect(canDrop(s, b, { type: 'into', folderId: f, at: 'start' })).toBe(true);
+    [s] = run(s, (d) => dropItem(d, b, { type: 'into', folderId: f, at: 'start' }));
+    expect((s.items[f] as { children: string[] }).children).toEqual([b, a]);
+  });
+
+  it('canDrop refuses a folder into itself, next to its own contents, or into Today', async () => {
+    const { canDrop } = await import('@shared/folders');
+    let [s, [a, b]] = setup(2);
+    let outer: string, inner: string;
+    [s, outer] = run(s, (d) => createFolder(d, { items: [a], now: T0 }));
+    [s, inner] = run(s, (d) => createFolder(d, { parentId: outer, now: T0 }));
+    expect(canDrop(s, outer, { type: 'into', folderId: inner })).toBe(false);
+    expect(canDrop(s, outer, { type: 'into', folderId: outer })).toBe(false);
+    expect(canDrop(s, outer, { type: 'before', id: a })).toBe(false);
+    expect(canDrop(s, outer, { type: 'before', id: b })).toBe(false); // b is in Today
+    expect(canDrop(s, b, { type: 'into', folderId: inner })).toBe(true);
+  });
+
+  it('dropItems moves several items together, keeping their order, and skips ones inside a moved folder', async () => {
+    const { dropItems } = await import('@shared/folders');
+    let [s, ids] = setup(4); // today: s3 s2 s1 s0
+    const [a, b, c, d0] = ids;
+    let f: string, g: string;
+    [s, f] = run(s, (d) => createFolder(d, { now: T0 }));
+    [s, g] = run(s, (d) => createFolder(d, { items: [c], now: T0 }));
+    [s] = run(s, (d) => dropItems(d, [b, a], { type: 'into', folderId: f }));
+    expect((s.items[f] as { children: string[] }).children).toEqual([b, a]);
+    // A folder and its own child picked together: the child just rides along.
+    [s] = run(s, (d) => dropItems(d, [g, c, d0], { type: 'into', folderId: f }));
+    expect((s.items[f] as { children: string[] }).children).toEqual([b, a, g, d0]);
+    expect((s.items[g] as { children: string[] }).children).toEqual([c]);
+  });
+
+  it('duplicateItem copies a folder deeply with new ids, right after it', async () => {
+    const { duplicateItem } = await import('@shared/folders');
+    let [s, [a]] = setup(1);
+    let f: string, copy: string | null;
+    [s, f] = run(s, (d) => createFolder(d, { title: 'Work', items: [a], now: T0 }));
+    [s, copy] = run(s, (d) => duplicateItem(d, f, T0));
+    expect(s.spaces[0].pinned).toEqual([f, copy]);
+    const c = s.items[copy!] as { title: string; children: string[] };
+    expect(c.title).toBe('Work copy');
+    expect(c.children).toHaveLength(1);
+    expect(c.children[0]).not.toBe(a);
+    expect(s.items[c.children[0]]).toMatchObject({ kind: 'tab', url: 'https://s0.com' });
+  });
+
+  it('folderToSpace and spaceToFolder turn one into the other and back', async () => {
+    const { folderToSpace, spaceToFolder, folderLinks } = await import('@shared/folders');
+    let [s, [a, b]] = setup(2);
+    let f: string, sp: string | null;
+    [s, f] = run(s, (d) => createFolder(d, { title: 'Trip', items: [a], now: T0 }));
+    expect(folderLinks(s, f)).toEqual([{ title: expect.any(String), url: 'https://s0.com' }]);
+    const home = s.spaces[0].id;
+    [s, sp] = run(s, (d) => folderToSpace(d, f));
+    expect(s.spaces.map((x) => x.name)).toEqual([s.spaces[0].name, 'Trip']);
+    expect(s.activeSpaceId).toBe(sp);
+    expect(s.spaces[1].pinned).toEqual([a]);
+    expect(s.items[f]).toBeUndefined();
+    // Back again, with a Today tab too.
+    [s] = run(s, (d) => dropItem(d, b, { type: 'space', spaceId: sp! }));
+    let nf: string | null;
+    [s, nf] = run(s, (d) => spaceToFolder(d, sp!, home, T0));
+    expect(s.spaces).toHaveLength(1);
+    expect(s.activeSpaceId).toBe(home);
+    expect(s.items[nf!]).toMatchObject({ kind: 'folder', title: 'Trip', children: [a, b] });
+    expect(s.items[b]).toMatchObject({ homeUrl: 'https://s1.com' });
+  });
+});

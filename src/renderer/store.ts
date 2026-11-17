@@ -42,6 +42,12 @@ export interface UiState {
   loading: Record<ID, boolean>;
   nav: Record<ID, { back: boolean; forward: boolean }>;
   renaming: ID | null;
+  /** Rows picked with ⌘-click / ⇧-click, moved, foldered or closed together (Arc's multi-select). */
+  selected: ID[];
+  /** Where a ⇧-click range starts. */
+  selAnchor: ID | null;
+  /** The Space name being edited in place. */
+  renamingSpace: ID | null;
   menu: null | { x: number; y: number; items: ContextMenuItem[] };
   sidebarPeek: boolean; // hidden sidebar temporarily shown by hovering the edge
   findOpen: boolean;
@@ -86,6 +92,9 @@ export const useKite = create<Store>((set, get) => ({
     loading: {},
     nav: {},
     renaming: null,
+    selected: [],
+    selAnchor: null,
+    renamingSpace: null,
     menu: null,
     sidebarPeek: false,
     findOpen: false,

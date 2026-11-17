@@ -242,7 +242,8 @@ test.describe('Spaces with separate logins, and animation settings', () => {
     const s = await savedState(page);
     expect(s.spaces.map((x: { isolated?: boolean }) => !!x.isolated)).toEqual([false, true]);
     // Turning it off puts the tab back on the shared jar (it reloads).
-    await page.getByTestId('space-name').dblclick();
+    await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-edit-space').click();
     await page.getByTestId('space-isolated').click();
     await page.getByTestId('space-done').click();
     await expect(page.getByTestId('space-isolated-badge')).toHaveCount(0);

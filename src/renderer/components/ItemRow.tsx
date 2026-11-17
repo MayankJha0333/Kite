@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { X, Undo2, Loader2, StickyNote, Columns2, Folder, FolderOpen, Volume2, VolumeX, PictureInPicture2 } from 'lucide-react';
+import { X, Undo2, Loader2, StickyNote, Columns2, Folder, FolderOpen, Volume2, VolumeX, PictureInPicture2, MoreHorizontal } from 'lucide-react';
 import { toggleMute } from '../pipRuntime';
 
 const shallowEq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -9,7 +9,8 @@ import { act, setUi, useKite } from '../store';
 import { closeItemCmd, selectItem, navigateTab } from '../commands';
 import { SiteIcon } from './SiteIcon';
 import { openMenu } from './ContextMenu';
-import { itemMenu } from '../itemMenus';
+import { itemMenu, selectionMenu } from '../itemMenus';
+import { clickRow } from '../selection';
 import * as ops from '@shared/ops';
 import { hostOf } from '@shared/url';
 import { useDragRow } from '../dnd';
@@ -19,9 +20,19 @@ interface Props {
   id: ID;
   list: ListName;
   depth: number;
+  /** The folder this row is in, and whether it's the folder's last row (for dropping after the folder). */
+  parentId?: ID;
+  last?: boolean;
 }
 
-export const ItemRow = memo(function ItemRow({ id, list, depth }: Props) {
+const indent = (depth: number) => 8 + depth * 14;
+
+/** Attributes that tell a drag where this row sits in the tree. */
+function treeAttrs(depth: number, parentId?: ID, last?: boolean) {
+  return { 'data-dnd-parent': parentId, 'data-dnd-last': last ? 'true' : undefined, 'data-dnd-indent': indent(depth) };
+}
+
+export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }: Props) {
   const item = useKite((st) => st.s.items[id]);
   const active = useKite((st) => st.s.activeBySpace[st.s.activeSpaceId] === id);
   const loading = useKite((st) => !!st.ui.loading[id]);
@@ -36,6 +47,7 @@ export const ItemRow = memo(function ItemRow({ id, list, depth }: Props) {
     return playingTab ? { tab: playingTab, muted: !!st.ui.muted[playingTab], pipped: st.ui.pipped.includes(playingTab) } : null;
   }, shallowEq);
   const drag = useDragRow(id, item?.kind === 'folder');
+  const picked = useKite((st) => st.ui.selected.includes(id));
   const liveTitle = useKite((st) => {
     const it = st.s.items[id];
     return !it ? '' : it.kind === 'split' ? splitTitle(it, st.s.items) : displayTitle(it);
@@ -43,7 +55,7 @@ export const ItemRow = memo(function ItemRow({ id, list, depth }: Props) {
   if (!item) return null;
   const title = liveTitle;
 
-  if (item.kind === 'folder') return <FolderRow item={item} depth={depth} renaming={renaming} drag={drag} />;
+  if (item.kind === 'folder') return <FolderRow item={item} depth={depth} renaming={renaming} drag={drag} picked={picked} tree={treeAttrs(depth, parentId, last)} />;
 
   const awayFromHome = item.kind === 'tab' && item.homeUrl && hostOf(item.homeUrl) !== '' && item.url !== item.homeUrl;
 
@@ -51,20 +63,22 @@ export const ItemRow = memo(function ItemRow({ id, list, depth }: Props) {
     <div
       ref={drag.setRef}
       {...drag.handlers}
+      {...treeAttrs(depth, parentId, last)}
       className="row"
       role="treeitem"
-      aria-selected={active}
+      aria-selected={active || picked}
       data-active={active || undefined}
+      data-picked={picked || undefined}
       data-kind={item.kind}
       data-asleep={asleep || undefined}
       data-drop={drag.dropHint ?? undefined}
       data-testid={`row-${id}`}
       data-title={title}
-      style={{ paddingLeft: 8 + depth * 14 }}
-      onClick={() => selectItem(id)}
+      style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px` }}
+      onClick={(e) => clickRow(e, id, () => selectItem(id))}
       onAuxClick={(e) => e.button === 1 && closeItemCmd(id)}
-      onDoubleClick={() => setUi({ renaming: id })}
-      onContextMenu={(e) => openMenu(e, itemMenu(id))}
+      onDoubleClick={(e) => !(e.metaKey || e.ctrlKey || e.shiftKey) && setUi({ renaming: id })}
+      onContextMenu={(e) => openMenu(e, picked ? selectionMenu(id) : itemMenu(id))}
       title={item.kind === 'tab' ? `${title}\n${item.url}${asleep ? '\nAsleep to save memory. Opens instantly when you click.' : ''}` : title}
     >
       <RowIcon item={item} />
@@ -140,40 +154,85 @@ function RowIcon({ item }: { item: Item }) {
   return null;
 }
 
-function FolderRow({ item, depth, renaming, drag }: { item: Extract<Item, { kind: 'folder' }>; depth: number; renaming: boolean; drag: ReturnType<typeof useDragRow> }) {
+function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extract<Item, { kind: 'folder' }>; depth: number; renaming: boolean; drag: ReturnType<typeof useDragRow>; picked: boolean; tree: ReturnType<typeof treeAttrs> }) {
   const Icon = item.collapsed ? Folder : FolderOpen;
+  // Arc: a closed folder still shows the open tab inside it, just under the folder.
+  const peekId = useKite((st) => {
+    if (!item.collapsed) return null;
+    const a = st.s.activeBySpace[st.s.activeSpaceId];
+    if (!a) return null;
+    const find = (ids: ID[]): ID | null => {
+      for (const c of ids) {
+        const it = st.s.items[c];
+        if (c === a || (it?.kind === 'split' && it.panes.includes(a))) return c;
+        if (it?.kind === 'folder') {
+          const f = find(it.children);
+          if (f) return f;
+        }
+      }
+      return null;
+    };
+    return find(item.children);
+  });
+  const holdsActive = peekId !== null;
+  const dropping = drag.dropHint === 'into' || drag.dropHint === 'into-start';
+  const menu = (e: React.MouseEvent) => openMenu(e, picked ? selectionMenu(item.id) : itemMenu(item.id));
   return (
-    <div className="folder" data-testid={`folder-${item.id}`} data-collapsed={item.collapsed || undefined}>
+    <div className="folder" data-testid={`folder-${item.id}`} data-collapsed={item.collapsed || undefined} data-drop-target={dropping || undefined}>
       <div
         ref={drag.setRef}
         {...drag.handlers}
+        {...tree}
+        data-dnd-collapsed={item.collapsed ? 'true' : 'false'}
         className="row folder-row"
         role="treeitem"
         aria-expanded={!item.collapsed}
+        aria-selected={picked}
+        data-picked={picked || undefined}
+        data-holds-active={holdsActive || undefined}
         data-drop={drag.dropHint ?? undefined}
         data-testid={`row-${item.id}`}
         data-title={item.title}
-        style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => act((d) => ops.toggleFolder(d, item.id))}
+        style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px`, ['--child-indent' as string]: `${indent(depth + 1)}px` }}
+        onClick={(e) => clickRow(e, item.id, () => act((d) => ops.toggleFolder(d, item.id)))}
         onDoubleClick={(e) => {
           e.stopPropagation();
-          setUi({ renaming: item.id });
+          if (!(e.metaKey || e.ctrlKey || e.shiftKey)) setUi({ renaming: item.id });
         }}
-        onContextMenu={(e) => openMenu(e, itemMenu(item.id))}
+        onContextMenu={menu}
       >
-        <Icon size={15} className="row-glyph" />
+        <Icon size={15} className="row-glyph folder-glyph" />
         {renaming ? <RenameInput id={item.id} initial={item.title} /> : <span className="row-title">{item.title}</span>}
-        <span className="row-count">{item.children.length || ''}</span>
+        {item.collapsed && item.children.length > 0 && <span className="row-count">{item.children.length}</span>}
+        <button
+          className="row-btn folder-more"
+          aria-label="Folder options"
+          title="Folder options"
+          data-testid={`folder-more-${item.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            openMenu({ clientX: r.left, clientY: r.bottom + 4 }, itemMenu(item.id));
+          }}
+        >
+          <MoreHorizontal size={14} />
+        </button>
       </div>
+      {peekId && (
+        <div className="folder-children folder-peek" role="group" data-testid={`folder-peek-${item.id}`}>
+          <ItemRow id={peekId} list="pinned" depth={depth + 1} parentId={item.id} last />
+        </div>
+      )}
       {!item.collapsed && (
-        <div className="folder-children" role="group">
+        // Dropping anywhere in an open folder's contents puts the tab inside it.
+        <div className="folder-children" role="group" data-dnd-into={item.id} data-testid={`folder-children-${item.id}`}>
           {item.children.length === 0 && (
-            <div className="folder-empty" style={{ paddingLeft: 30 + depth * 14 }}>
+            <div className="folder-empty" data-testid={`folder-empty-${item.id}`} style={{ paddingLeft: indent(depth + 1) + 22 }}>
               Drop tabs here
             </div>
           )}
-          {item.children.map((c) => (
-            <ItemRow key={c} id={c} list="pinned" depth={depth + 1} />
+          {item.children.map((c, i) => (
+            <ItemRow key={c} id={c} list="pinned" depth={depth + 1} parentId={item.id} last={i === item.children.length - 1} />
           ))}
         </div>
       )}

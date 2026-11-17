@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronRight, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import type { ID, Space } from '@shared/types';
 import { ARCHIVE_CHOICES, THEME_PRESETS } from '@shared/defaults';
 import { createSpace, deleteSpace, setSpaceTheme, updateSpace, moveSpace } from '@shared/spaces';
-import { act, getS, setUi, toast, useKite } from '../store';
+import { spaceToFolder } from '@shared/folders';
+import { act, getS, setUi, toast, useKite, type ContextMenuItem } from '../store';
 import { actions, undoable, switchSpaceCmd } from '../commands';
 import { openMenu } from './ContextMenu';
 import { DropZone } from '../dnd';
@@ -11,16 +12,82 @@ import { Sheet, Field, Segmented, Toggle } from './Sheet';
 import { now } from '../platform';
 
 export function SpaceHeader({ space }: { space: Space }) {
+  const renaming = useKite((st) => st.ui.renamingSpace === space.id);
   return (
-    <div className="space-header" data-testid="space-header" onDoubleClick={() => openSpaceEditor(space.id)}>
+    <div
+      className="space-header"
+      data-testid="space-header"
+      data-renaming={renaming || undefined}
+      role="button"
+      tabIndex={0}
+      aria-haspopup="menu"
+      aria-label={`${space.name} Space options`}
+      title="Click for Space options · double-click to rename"
+      // Arc: the Space's name is a button — click it for the Space's menu, just under the name.
+      onClick={(e) => {
+        // The second click of a double-click renames the Space instead.
+        if (renaming || e.detail > 1 || (e.target as HTMLElement).closest('.space-more, .space-badge, input')) return;
+        openSpaceMenuBelow(e.currentTarget, space.id);
+      }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        openSpaceMenuBelow(e.currentTarget, space.id);
+      }}
+      onContextMenu={(e) => !renaming && openMenu(e, spaceMenu(space.id))}
+      onDoubleClick={(e) => {
+        if ((e.target as HTMLElement).closest('.space-more, input')) return;
+        setUi({ menu: null, renamingSpace: space.id });
+      }}
+    >
       <span className="space-icon">{space.icon}</span>
-      <span className="space-name" data-testid="space-name">{space.name}</span>
-      {space.isolated && <span className="space-badge" title="This Space has its own logins and cookies" data-testid="space-isolated-badge">Separate logins</span>}
-      <button className="icon-btn space-more" aria-label="Space menu" data-testid="space-menu" onClick={(e) => openMenu(e, spaceMenu(space.id))}>
-        <MoreHorizontal size={16} />
-      </button>
+      {renaming ? <SpaceNameInput space={space} /> : <span className="space-name" data-testid="space-name">{space.name}</span>}
+      {space.isolated && !renaming && <span className="space-badge" title="This Space has its own logins and cookies" data-testid="space-isolated-badge">Separate logins</span>}
+      {!renaming && (
+        <button className="icon-btn space-more" aria-label="Space menu" data-testid="space-menu" onClick={(e) => openMenu(e, spaceMenu(space.id))}>
+          <MoreHorizontal size={16} />
+        </button>
+      )}
     </div>
   );
+}
+
+/** Arc renames a Space right in its header: Enter keeps it, Esc puts it back. */
+function SpaceNameInput({ space }: { space: Space }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const done = useRef(false);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+  const finish = (save: boolean) => {
+    if (done.current) return;
+    done.current = true;
+    const v = ref.current?.value ?? '';
+    if (save && v.trim()) act((d) => updateSpace(d, space.id, { name: v }));
+    setUi({ renamingSpace: null });
+  };
+  return (
+    <input
+      ref={ref}
+      className="rename space-rename"
+      data-testid="space-rename-input"
+      aria-label="Space name"
+      defaultValue={space.name}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') finish(true);
+        if (e.key === 'Escape') finish(false);
+      }}
+      onBlur={() => finish(true)}
+    />
+  );
+}
+
+function openSpaceMenuBelow(el: HTMLElement, id: ID) {
+  const r = el.getBoundingClientRect();
+  openMenu({ clientX: r.left + 4, clientY: r.bottom + 4 }, spaceMenu(id));
 }
 
 export function openSpaceEditor(id: ID) {
@@ -40,15 +107,33 @@ export function deleteSpaceCmd(id: ID) {
   undoable(`Deleted Space “${sp.name}”`, (d) => void deleteSpace(d, id, now()));
 }
 
-function spaceMenu(id: ID) {
+export function spaceMenu(id: ID): ContextMenuItem[] {
   const s = getS();
   const i = s.spaces.findIndex((x) => x.id === id);
+  const sp = s.spaces[i];
+  const others = s.spaces.filter((x) => x.id !== id);
   return [
-    { label: 'Edit Name, Icon & Colors…', testId: 'menu-edit-space', onSelect: () => openSpaceEditor(id) },
+    { label: 'Rename Space', testId: 'menu-rename-space', onSelect: () => setUi({ renamingSpace: id, menu: null }) },
+    { label: 'Change Space Icon…', testId: 'menu-space-icon', onSelect: () => openSpaceEditor(id) },
+    { label: 'Edit Theme Color…', testId: 'menu-edit-space', onSelect: () => openSpaceEditor(id) },
+    { separator: true, label: '' },
     { label: 'New Folder', testId: 'menu-new-folder', onSelect: actions.newFolder },
     { label: 'Collapse All Folders', testId: 'menu-collapse-all', onSelect: actions.collapseFolders },
     { label: 'Expand All Folders', testId: 'menu-expand-all', onSelect: actions.expandFolders },
     { separator: true, label: '' },
+    {
+      label: 'Turn into Folder',
+      testId: 'menu-space-to-folder',
+      disabled: others.length === 0,
+      submenu: others.map((o) => ({
+        label: `${o.icon}  in ${o.name}`,
+        testId: `menu-space-to-folder-${o.id}`,
+        onSelect: () => {
+          undoable(`“${sp?.name}” is now a folder in ${o.name}`, (d) => void spaceToFolder(d, id, o.id, now()));
+          switchSpaceCmd(getS().activeSpaceId);
+        },
+      })),
+    },
     { label: 'Move Left', disabled: i <= 0, testId: 'menu-space-left', onSelect: () => act((d) => moveSpace(d, id, i - 1)) },
     { label: 'Move Right', disabled: i >= s.spaces.length - 1, testId: 'menu-space-right', onSelect: () => act((d) => moveSpace(d, id, i + 1)) },
     { separator: true, label: '' },
@@ -60,8 +145,50 @@ function spaceMenu(id: ID) {
 export function SpaceBar() {
   const spaces = useKite((st) => st.s.spaces);
   const activeId = useKite((st) => st.s.activeSpaceId);
+  const bar = useRef<HTMLDivElement>(null);
+  const [reordering, setReordering] = useState<ID | null>(null);
+  const justDragged = useRef(false);
+
+  // Arc: drag a Space's icon sideways to reorder Spaces.
+  const startReorder = (e: React.PointerEvent, id: ID) => {
+    if (e.button !== 0) return;
+    const sx = e.clientX;
+    let started = false;
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.abs(ev.clientX - sx) < 6) return;
+        started = true;
+        setReordering(id);
+        document.body.classList.add('dragging');
+      }
+      const dots = [...(bar.current?.querySelectorAll<HTMLElement>('[data-space-dot]') ?? [])];
+      const from = getS().spaces.findIndex((x) => x.id === id);
+      let to = dots.findIndex((d) => {
+        const r = d.getBoundingClientRect();
+        return ev.clientX < r.left + r.width / 2;
+      });
+      if (to < 0) to = dots.length - 1;
+      else if (to > from) to -= 1;
+      if (to !== from) act((d) => moveSpace(d, id, to));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (started) {
+        justDragged.current = true;
+        setTimeout(() => (justDragged.current = false), 0);
+        document.body.classList.remove('dragging');
+        setReordering(null);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
+
   return (
-    <div className="space-bar" role="tablist" aria-label="Spaces" data-testid="space-bar">
+    <div className="space-bar" role="tablist" aria-label="Spaces" data-testid="space-bar" ref={bar}>
       {spaces.map((sp) => (
         <DropZone key={sp.id} zone={{ type: 'space', spaceId: sp.id }} className="space-dot-wrap">
           <button
@@ -69,11 +196,14 @@ export function SpaceBar() {
             aria-selected={sp.id === activeId}
             aria-label={sp.name}
             className="space-dot"
+            data-space-dot
             data-active={sp.id === activeId || undefined}
+            data-reordering={reordering === sp.id || undefined}
             data-testid={`space-${sp.id}`}
             data-name={sp.name}
-            title={sp.name}
-            onClick={() => switchSpaceCmd(sp.id)}
+            title={`${sp.name} — drag to reorder`}
+            onPointerDown={(e) => startReorder(e, sp.id)}
+            onClick={() => !justDragged.current && switchSpaceCmd(sp.id)}
             onDoubleClick={() => openSpaceEditor(sp.id)}
             onContextMenu={(e) => openMenu(e, spaceMenu(sp.id))}
           >

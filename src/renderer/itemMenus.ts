@@ -5,11 +5,14 @@ import { locate } from '@shared/tree';
 import type { ID } from '@shared/types';
 import type { ContextMenuItem } from './store';
 import { act, getS, getUi, setUi } from './store';
-import { closeItemCmd, selectItem, copyActiveUrl, copyActiveMarkdown, sleepTab, navigateTab, newFolderCmd, deleteFolderCmd, splitWithCmd } from './commands';
+import { closeItemCmd, selectItem, copyActiveUrl, copyActiveMarkdown, sleepTab, navigateTab, newFolderCmd, deleteFolderCmd, splitWithCmd, switchSpaceCmd, undoable } from './commands';
+import { toast } from './store';
+import { visibleRows } from './selection';
 import { setOrientation } from '@shared/split';
-import { ungroupFolder } from '@shared/folders';
+import { dropItems, duplicateItem, folderLinks, folderToSpace, ungroupFolder } from '@shared/folders';
 import { getSpace } from '@shared/tree';
 import { dropItem } from '@shared/folders';
+import { archiveItem } from '@shared/archive';
 import { formatShortcut } from '@shared/shortcuts';
 import { isMac } from './platform';
 import { now } from './platform';
@@ -79,10 +82,23 @@ export function itemMenu(id: ID): ContextMenuItem[] {
     });
   }
   if (it.kind === 'folder') {
+    const links = folderLinks(s, id);
     items.push(
-      { label: 'New Folder Inside', testId: 'menu-subfolder', onSelect: () => newFolderCmd({ parentId: id }) },
-      { label: it.collapsed ? 'Expand' : 'Collapse', onSelect: () => act((d) => ops.toggleFolder(d, id)) },
+      { label: 'New Nested Folder', testId: 'menu-subfolder', onSelect: () => newFolderCmd({ parentId: id }) },
+      { label: it.collapsed ? 'Open Folder' : 'Close Folder', testId: 'menu-folder-toggle', onSelect: () => act((d) => ops.toggleFolder(d, id)) },
+      { separator: true, label: '' },
+      { label: 'Copy Links', testId: 'menu-copy-links', disabled: links.length === 0, onSelect: () => void copyText(links.map((l) => l.url).join('\n'), `Copied ${links.length} link${links.length === 1 ? '' : 's'}`) },
+      { label: 'Copy Links as Markdown', testId: 'menu-copy-links-md', disabled: links.length === 0, onSelect: () => void copyText(links.map((l) => `- [${l.title.replace(/([\[\]])/g, '\\$1')}](${l.url.replace(/\)/g, '%29')})`).join('\n'), 'Copied as Markdown') },
+      { label: 'Duplicate Folder', testId: 'menu-duplicate-folder', onSelect: () => act((d) => duplicateItem(d, id, now())) },
+      { separator: true, label: '' },
+      { label: 'Turn into Space', testId: 'menu-folder-to-space', onSelect: () => undoable(`“${it.title}” is now a Space`, (d) => void folderToSpace(d, id)) },
       { label: 'Ungroup (keep contents)', testId: 'menu-ungroup', onSelect: () => act((d) => ungroupFolder(d, id)) },
+    );
+  }
+  const spaces = moveToSpaceMenu([id]);
+  if (spaces) items.push(spaces);
+  if (it.kind === 'folder') {
+    items.push(
       { separator: true, label: '' },
       { label: 'Delete Folder…', danger: true, testId: 'menu-delete-folder', onSelect: () => deleteFolderCmd(id) },
     );
@@ -109,4 +125,80 @@ function foldersIn(spaceId: ID): { id: ID; title: string; depth: number }[] {
   };
   walk(getSpace(s, spaceId).pinned, 0);
   return out;
+}
+
+async function copyText(text: string, done: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    /* clipboard may be unavailable in tests */
+  }
+  toast(done);
+}
+
+/** "Move to Space ▸": Pinned (or Today) of another Space, as in Arc. */
+function moveToSpaceMenu(ids: ID[]): ContextMenuItem | null {
+  const s = getS();
+  const first = locate(s, ids[0]);
+  if (!first || first.list === 'favorites') return null;
+  const others = s.spaces.filter((sp) => sp.id !== first.spaceId);
+  if (others.length === 0) return null;
+  const hasFolder = ids.some((x) => s.items[x]?.kind === 'folder');
+  const sub: ContextMenuItem[] = [];
+  for (const sp of others) {
+    sub.push({
+      label: `${sp.icon}  ${sp.name}`,
+      testId: `menu-to-space-${sp.id}`,
+      submenu: [
+        { label: 'Pinned', testId: `menu-to-space-${sp.id}-pinned`, onSelect: () => moveAll(ids, { type: 'end', list: 'pinned', spaceId: sp.id }, sp.id) },
+        { label: 'Today', testId: `menu-to-space-${sp.id}-today`, disabled: hasFolder, onSelect: () => moveAll(ids, { type: 'end', list: 'today', spaceId: sp.id }, sp.id) },
+      ],
+    });
+  }
+  return { label: 'Move to Space', testId: 'menu-move-space', submenu: sub };
+}
+
+function moveAll(ids: ID[], target: Parameters<typeof dropItems>[2], spaceId: ID) {
+  const ok = act((d) => dropItems(d, ids, target));
+  setUi({ selected: [], selAnchor: null });
+  const sp = getS().spaces.find((x) => x.id === spaceId);
+  if (ok && sp) toast(`Moved to ${sp.name}`, 'Show', () => switchSpaceCmd(spaceId));
+}
+
+/** The menu for several picked rows (Arc: right-click a multi-selection). */
+export function selectionMenu(id: ID): ContextMenuItem[] {
+  const s = getS();
+  const order = visibleRows(s);
+  const ids = getUi().selected.filter((x) => s.items[x]).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  if (!ids.includes(id) || ids.length < 2) return itemMenu(id);
+  const n = ids.length;
+  const inFavorites = ids.some((x) => locate(s, x)?.list === 'favorites');
+  const items: ContextMenuItem[] = [
+    {
+      label: `New Folder with ${n} Items`,
+      testId: 'menu-sel-folder',
+      disabled: inFavorites,
+      onSelect: () => {
+        setUi({ selected: [], selAnchor: null });
+        newFolderCmd({ items: ids });
+      },
+    },
+  ];
+  const spaces = moveToSpaceMenu(ids);
+  if (spaces && !inFavorites) items.push(spaces);
+  items.push(
+    { separator: true, label: '' },
+    {
+      label: `Archive ${n} Items`,
+      testId: 'menu-sel-archive',
+      onSelect: () => {
+        setUi({ selected: [], selAnchor: null });
+        undoable(`Archived ${n} item${n === 1 ? '' : 's'}`, (d) => {
+          for (const x of ids) if (d.items[x]) archiveItem(d, x, now(), 'manual');
+        });
+      },
+    },
+    { label: 'Deselect', testId: 'menu-sel-clear', onSelect: () => setUi({ selected: [], selAnchor: null }) },
+  );
+  return items;
 }

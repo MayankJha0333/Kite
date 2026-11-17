@@ -14,7 +14,8 @@ export function Favorites() {
   return (
     <DropZone zone={{ type: 'end', list: 'favorites', spaceId: null }} className="favorites-zone" testId="favorites" data-empty={favs.length === 0 || undefined}>
       {favs.length > 0 ? (
-        <div className="favorites" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} role="list">
+        // Like Arc, a short row stretches to fill the width; more wrap onto the next row.
+        <div className="favorites" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(cols, favs.length))}, minmax(0, 1fr))` }} role="list">
           {favs.map((id) => (
             <FavTile key={id} id={id} />
           ))}

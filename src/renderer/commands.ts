@@ -10,7 +10,7 @@ import { createSpace, nthSpace, stepSpace, switchSpace } from '@shared/spaces';
 import { clearToday, runAutoArchive } from '@shared/archive';
 import * as split from '@shared/split';
 import { createNote } from '@shared/notes';
-import { onStageDrop } from './dnd';
+import { onSpringSpace, onStageDrop } from './dnd';
 import type { AppState } from '@shared/types';
 import { surface } from './surfaces';
 import { bridge, now } from './platform';
@@ -171,6 +171,9 @@ export function switchSpaceCmd(id: ID) {
   act((d) => switchSpace(d, id));
   afterSpaceChange();
 }
+
+// Holding a dragged tab over a Space switches to it, with its page.
+onSpringSpace((id) => switchSpaceCmd(id));
 
 /** Archive stale Today tabs now (also runs every minute). */
 export function autoArchiveNow() {

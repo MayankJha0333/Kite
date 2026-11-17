@@ -30,6 +30,37 @@ test.describe('spaces', () => {
     expect(await activeRowTitle(page)).toBe('work.com');
   });
 
+  test('clicking the Space name opens its menu just below it; double-click renames it in place', async ({ page }) => {
+    await openApp(page);
+    await page.getByTestId('space-name').click();
+    const menu = page.getByTestId('menu-edit-space');
+    await expect(menu).toBeVisible();
+    const header = (await page.getByTestId('space-header').boundingBox())!;
+    const item = (await menu.boundingBox())!;
+    expect(item.y).toBeGreaterThan(header.y + header.height - 1);
+    await menu.click();
+    await expect(page.getByTestId('space-editor')).toBeVisible();
+    await page.getByTestId('space-done').click();
+    await expect(page.getByTestId('space-editor')).toHaveCount(0);
+
+    // Arc renames a Space right in its header.
+    await page.getByTestId('space-name').dblclick();
+    await expect(page.getByTestId('menu-edit-space')).toHaveCount(0);
+    await expect(page.getByTestId('space-rename-input')).toBeFocused();
+    await page.getByTestId('space-rename-input').fill('Personal');
+    await page.getByTestId('space-rename-input').press('Enter');
+    await expect(page.getByTestId('space-name')).toHaveText('Personal');
+    // Esc puts the old name back.
+    await page.getByTestId('space-name').dblclick();
+    await page.getByTestId('space-rename-input').fill('Nope');
+    await page.getByTestId('space-rename-input').press('Escape');
+    await expect(page.getByTestId('space-name')).toHaveText('Personal');
+
+    await page.getByTestId('space-header').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('menu-edit-space')).toBeVisible();
+  });
+
   test('each Space has its own colors on the window', async ({ page }) => {
     await openApp(page);
     const before = await page.getByTestId('app').evaluate((el) => getComputedStyle(el).getPropertyValue('--tint-1'));

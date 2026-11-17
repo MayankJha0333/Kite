@@ -281,7 +281,8 @@ test('Spaces: a Space with separate logins has its own cookies; other Spaces sha
   await expect(row(win, 'cookie:who=first')).toHaveCount(1, { timeout: 15000 });
 
   // Turn on separate logins: its tab reloads with an empty cookie jar.
-  await win.getByTestId('space-name').dblclick();
+  await win.getByTestId('space-menu').click();
+  await win.getByTestId('menu-edit-space').click();
   await win.getByTestId('space-isolated').click();
   await win.getByTestId('space-done').click();
   await expect(win.getByTestId('space-isolated-badge')).toBeVisible();

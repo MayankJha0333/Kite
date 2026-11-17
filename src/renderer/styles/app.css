@@ -334,16 +334,17 @@ kbd {
 
 .favorites {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
+/* Arc's favourites: soft translucent tiles; the open one turns solid with a gentle lift. */
 .fav {
   position: relative;
   display: grid;
   place-items: center;
-  height: 44px;
+  height: 48px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--hover);
   transition: background calc(0.15s * var(--speed, 1)), transform calc(0.12s * var(--speed, 1)), box-shadow calc(0.15s * var(--speed, 1));
 }
@@ -358,17 +359,11 @@ kbd {
 
 .fav[data-active] {
   background: var(--active);
-  box-shadow: var(--active-shadow), 0 0 0 1.5px var(--accent) inset;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.07), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5);
 }
 
-.fav[data-loaded]::after {
-  content: '';
-  position: absolute;
-  bottom: 5px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--ink-3);
+.app[data-theme='dark'] .fav[data-active] {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
 }
 
 .fav[data-drop='before'] {
@@ -411,21 +406,36 @@ body.dragging .favorites-empty {
 .space-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
+  gap: 7px;
+  height: 30px;
   padding: 0 8px;
+  color: var(--ink-2);
   margin-bottom: 2px;
   border-radius: var(--r-sm, 8px);
+}
+
+.space-header {
+  cursor: default;
+  user-select: none;
+  outline: none;
 }
 
 .space-header:hover {
   background: var(--hover);
 }
 
+.space-header:active {
+  background: var(--active, var(--hover));
+}
+
+.space-header:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
 .space-icon {
-  width: 20px;
+  width: 18px;
   text-align: center;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .space-name {
@@ -434,10 +444,11 @@ body.dragging .favorites-empty {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'Bricolage Grotesque', var(--font);
-  font-weight: 700;
-  font-size: calc(14.5px * var(--scale));
-  letter-spacing: -0.01em;
+  /* Arc: the Space's name is a quiet label over its tabs, not a headline. */
+  font-family: var(--font);
+  font-weight: 650;
+  font-size: calc(13px * var(--scale));
+  letter-spacing: -0.005em;
 }
 
 /* ---- rows ---- */
@@ -473,16 +484,22 @@ body.dragging .favorites-empty {
   opacity: 0.35;
 }
 
+/* Drop indicators, as in Arc / macOS outline views: a line with a small ring at its start,
+   indented to the level the item will land at. */
 .row[data-drop='before']::before,
-.row[data-drop='after']::after {
+.row[data-drop='after']::after,
+.row[data-drop='into-start']::after {
   content: '';
   position: absolute;
-  left: 8px;
+  left: calc(var(--indent, 8px) - 4px);
   right: 8px;
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--accent) 40%, transparent);
   pointer-events: none;
+  z-index: 2;
+  animation: drop-line-in calc(0.12s * var(--speed, 1)) var(--ease-out, ease-out);
 }
 
 .row[data-drop='before']::before {
@@ -493,9 +510,81 @@ body.dragging .favorites-empty {
   bottom: -1px;
 }
 
-.row[data-drop='into'] {
-  background: var(--hover);
-  box-shadow: 0 0 0 2px var(--accent) inset;
+.row[data-drop='into-start']::after {
+  left: calc(var(--child-indent, 22px) - 4px);
+  bottom: -1px;
+}
+
+@keyframes drop-line-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6);
+    transform-origin: left;
+  }
+}
+
+/* "On" a folder: the folder lights up, and so does everything already in it. */
+.row[data-drop='into'],
+.row[data-drop='into-start'] {
+  background: color-mix(in srgb, var(--accent) 16%, var(--hover));
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 70%, transparent) inset;
+}
+
+.folder[data-drop-target] > .folder-children {
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.row[data-drop='into'] .folder-glyph {
+  color: var(--accent);
+  transform: scale(1.12);
+}
+
+.folder-glyph {
+  transition: transform calc(0.15s * var(--speed, 1)) var(--ease-out, ease-out);
+}
+
+/* Picked rows (⌘-click / ⇧-click), like Arc's multi-select. */
+.row[data-picked] {
+  background: color-mix(in srgb, var(--accent) 14%, var(--hover));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent) inset;
+}
+
+.row[data-picked][data-active] {
+  background: color-mix(in srgb, var(--accent) 10%, var(--active));
+}
+
+/* The folder's "…" waits until you point at the folder; its count steps aside. */
+.folder-row .folder-more {
+  margin-left: auto;
+}
+
+.folder-row:hover .row-count {
+  display: none;
+}
+
+.folder-row[data-holds-active] .row-title {
+  font-weight: 600;
+}
+
+/* A closed folder still shows its open tab, just under it (Arc's "peek"). */
+.folder-peek > .row {
+  animation: none;
+}
+
+.drag-ghost[data-count]::after {
+  content: attr(data-count);
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .row-title {
@@ -669,25 +758,44 @@ body.dragging .drop-hint {
 }
 
 .sb-divider {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 24px;
-  margin: 2px 6px 4px;
+  height: 22px;
+  margin: 2px 8px 2px;
 }
 
 .sb-divider-line {
   flex: 1;
   height: 1px;
+  border-radius: 1px;
   background: var(--line);
+  transition: margin-right calc(0.2s * var(--speed, 1)) var(--ease-out, ease);
+}
+
+/* Arc's "↓ Clear" waits until you point at the divider; the line steps aside for it. */
+.sb-clear {
+  position: absolute;
+  right: -6px;
+  top: 0;
+  opacity: 0;
+  transition: opacity calc(0.15s * var(--speed, 1)), background calc(0.15s * var(--speed, 1)), color calc(0.15s * var(--speed, 1));
+}
+.sb-divider:hover .sb-clear,
+.sb-clear:focus-visible {
+  opacity: 1;
+}
+.sb-divider:hover .sb-divider-line,
+.sb-divider:focus-within .sb-divider-line {
+  margin-right: 62px;
 }
 
 .sb-clear {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px;
+  gap: 3px;
+  height: 22px;
+  padding: 0 7px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -1250,6 +1358,20 @@ body.dragging .surface {
   box-shadow: 0 0 0 2px var(--accent) inset;
   opacity: 1;
   filter: none;
+  transform: scale(1.15);
+}
+
+.space-dot[data-reordering] {
+  transform: scale(1.18) translateY(-2px);
+  opacity: 1;
+  filter: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  cursor: grabbing;
+}
+
+.space-rename {
+  height: 22px;
+  font-weight: 650;
 }
 
 .space-add {
@@ -4575,6 +4697,47 @@ html.pip-frame-doc #root {
 
 .url-text {
   flex: 1;
+  min-width: 0;
+}
+
+/* The domain in full ink, the rest of the address faded (Arc shows only the domain). */
+.url-host {
+  color: var(--ink);
+}
+.url-path {
+  color: var(--ink-3);
+}
+
+.url-shield:hover {
+  background: var(--active);
+  color: var(--ink-2);
+}
+
+/* Site controls sit at the right end and appear when you point at the address bar;
+   whatever else is on the right makes room for them. */
+.url-pill:has(.url-sec[data-side='end']) {
+  position: relative;
+  transition: background calc(0.15s * var(--speed, 1)), padding calc(0.18s * var(--speed, 1)) var(--ease-out, ease);
+}
+.url-sec[data-side='end'] {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  margin: -10px 0 0;
+  opacity: 0;
+  color: var(--ink-2);
+  transition: opacity calc(0.15s * var(--speed, 1)), background calc(0.15s * var(--speed, 1));
+}
+.url-pill:hover:has(.url-sec[data-side='end']),
+.url-pill:focus-visible:has(.url-sec[data-side='end']) {
+  padding-right: 32px;
+}
+.url-pill:hover .url-sec[data-side='end'],
+.url-pill:focus-visible .url-sec[data-side='end'] {
+  opacity: 1;
+}
+.url-sec[data-side='end'] .url-lock {
+  opacity: 1;
 }
 
 .url-shield {
@@ -4582,12 +4745,13 @@ html.pip-frame-doc #root {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 6px;
-  border-radius: 7px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
   font-size: calc(11px * var(--scale));
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   animation: pop-in calc(var(--dur, 220ms) * 1) var(--ease, ease-out);

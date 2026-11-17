@@ -40,8 +40,11 @@ test.describe('folders', () => {
     await expect(todayRows(page)).toHaveCount(0);
     await folder.locator('.folder-row').click();
     await expect(folder).toHaveAttribute('data-collapsed', 'true');
-    await expect(folder.locator('.folder-children')).toHaveCount(0);
+    await expect(folder.locator('.folder-children:not(.folder-peek)')).toHaveCount(0);
+    // Arc: the open tab still peeks out from under its closed folder.
+    await expect(folder.locator('.folder-peek [data-title="a.com"]')).toHaveCount(1);
     await folder.locator('.folder-row').click();
+    await expect(folder.locator('.folder-peek')).toHaveCount(0);
     await expect(folder.locator('.folder-children [data-testid^="row-"]')).toHaveCount(1);
   });
 
