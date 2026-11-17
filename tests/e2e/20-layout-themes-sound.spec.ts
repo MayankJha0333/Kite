@@ -25,8 +25,10 @@ test.describe('layout: no wasted space around the page', () => {
     expect([card.x, card.y, vp.width - card.x - card.width, vp.height - card.y - card.height]).toEqual([8, 8, 8, 8]);
     // The window buttons hide with the sidebar instead of needing that band…
     expect(await lastButtons(page)).toMatchObject({ visible: false });
-    // …and come back, inside the sidebar, when it slides out.
-    await page.getByTestId('edge-hotzone').hover();
+    // …and come back, inside the sidebar, when it slides out (move to the edge like a hand would:
+    // the sidebar then covers the edge strip, so a plain hover check would see it "intercepting").
+    await page.mouse.move(600, 300);
+    await page.mouse.move(4, 300, { steps: 2 });
     await expect(page.getByTestId('app')).toHaveAttribute('data-sidebar-peek', 'true');
     expect(await lastButtons(page)).toEqual({ visible: true, x: 22, y: 22 });
     await page.keyboard.press(`${MOD}+s`);

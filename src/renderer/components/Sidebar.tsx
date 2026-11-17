@@ -126,6 +126,7 @@ function UrlPill() {
   const boosted = useKite((st) => (tab ? boostsFor(st.s, tab.url).length > 0 : false));
   const { level } = useSecurity();
   const blocked = useKite((st) => (tab ? st.ui.blocked[tab.id] ?? 0 : 0));
+  const zoom = useKite((st) => (tab ? st.ui.zoom[tab.id] ?? 100 : 100));
   // Like Arc: a secure page shows just its address; site controls wait on the right.
   // Anything less than secure keeps its warning up front.
   const warn = level === 'insecure' || level === 'broken';
@@ -160,6 +161,11 @@ function UrlPill() {
       {tab && blocked > 0 && (
         <span className="url-shield" role="button" title={`${blocked} blocked on this page`} data-testid="url-blocked" onClick={(e) => { e.stopPropagation(); actions.siteInfo(); }}>
           <ShieldCheck size={11} /> {blocked > 99 ? '99+' : blocked}
+        </span>
+      )}
+      {tab && zoom !== 100 && (
+        <span className="url-shield url-zoom" role="button" title="Zoomed · click for actual size" data-testid="url-zoom" onClick={(e) => { e.stopPropagation(); actions.zoomReset(); }}>
+          {zoom}%
         </span>
       )}
       {boosted && (

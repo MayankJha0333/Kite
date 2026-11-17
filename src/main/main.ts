@@ -17,6 +17,7 @@ import {
   type WebContents,
 } from 'electron';
 import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Storage } from './storage';
@@ -32,7 +33,8 @@ import { createExtensions } from './extensions';
 import { createPermissions } from './permissions';
 import { DEFAULT_PARTITION, isKitePartition, partitionForSpace } from '../shared/profiles';
 import { defaultShields, sanitizeShields, siteKey } from '../shared/shields';
-import type { ClearWhat, Prefs, Result } from '../shared/ipc';
+import type { AppInfo, ClearWhat, Prefs, Result } from '../shared/ipc';
+import { DEFAULT_SHORTCUTS } from '../shared/defaults';
 import { MEDIA_PLAYING_SCRIPT, MEDIA_TRACKER_SCRIPT, PIP_CLOSE_SCRIPT, PIP_ENTER_SCRIPT, PIP_EXIT_SCRIPT, pipPopped } from '../shared/pip';
 
 const isMac = process.platform === 'darwin';
@@ -229,6 +231,24 @@ function createMainWindow(): BrowserWindow {
   win.webContents.on('did-finish-load', () => {
     while (pendingExternal.length) win.webContents.send('external-url', pendingExternal.shift());
   });
+  // Kite's own UI process died (it should never, but a page can't take it down either way):
+  // reload it. Everything is saved to disk, so nothing is lost. Twice in a minute means
+  // something is really wrong; say so instead of looping.
+  let uiCrashes: number[] = [];
+  win.webContents.on('render-process-gone', (_e, details) => {
+    errorLog(`UI process gone: ${details.reason} (exit ${details.exitCode})`);
+    if (details.reason === 'clean-exit' || win.isDestroyed()) return;
+    const now = Date.now();
+    uiCrashes = uiCrashes.filter((t) => now - t < 60_000);
+    uiCrashes.push(now);
+    if (uiCrashes.length > 2) {
+      dialog.showMessageBox(win, { type: 'error', message: 'Kite keeps crashing', detail: `The window stopped working several times in a row (${details.reason}). Your tabs are saved. Please restart Kite; if it continues, send kite-errors.log from Kite’s data folder (Settings → About).`, buttons: ['Quit'] }).then(() => app.quit());
+      return;
+    }
+    win.webContents.reload();
+  });
+  win.webContents.on('unresponsive', () => errorLog('UI unresponsive'));
+  win.webContents.on('responsive', () => debugLog('UI responsive again'));
   // Switching to another app pops the playing video out (see autoPipOnLeave).
   // On macOS the app-level "resign active" event is used instead: it fires
   // first, before macOS marks Kite's covered window as hidden.
@@ -249,6 +269,19 @@ function isKiteWindow(w: BrowserWindow) {
 }
 
 // ---- Picture-in-picture -------------------------------------------------------
+
+/**
+ * Problems worth keeping: crashes and unexpected errors go to kite-errors.log in Kite's
+ * data folder, in every build, so a bug report can include them (Settings → About).
+ */
+function errorLog(msg: string) {
+  try {
+    appendFileSync(join(app.getPath('userData'), 'kite-errors.log'), `${new Date().toISOString()} ${msg}\n`);
+  } catch {
+    /* nowhere to write */
+  }
+  debugLog(`error: ${msg}`);
+}
 
 /** When running from source, every pop-out attempt is written to kite-debug.log. */
 function debugLog(msg: string) {
@@ -522,6 +555,25 @@ function sendOpen(host: WebContents, req: OpenRequest) {
   host.send('open-request', req);
 }
 
+/** "Save Page As…": a complete web page (HTML plus the files it needs) where you choose. */
+async function savePage(wc: WebContents): Promise<string | null> {
+  if (wc.isDestroyed()) return 'That page is gone.';
+  const url = wc.getURL();
+  if (!isWebUrl(url)) return 'Only web pages can be saved.';
+  const win = BrowserWindow.fromWebContents(pages.get(wc.id)?.host ?? wc) ?? mainWindow ?? undefined;
+  const title = (wc.getTitle() || basename(new URL(url).pathname) || 'page').replace(/[/\\:*?"<>|]+/g, '-').trim().slice(0, 120) || 'page';
+  const opts = { defaultPath: join(app.getPath('downloads'), `${title}.html`), filters: [{ name: 'Web page, complete', extensions: ['html'] }] };
+  const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
+  if (res.canceled || !res.filePath) return null;
+  try {
+    await wc.savePage(res.filePath, 'HTMLComplete');
+    return null;
+  } catch (err) {
+    errorLog(`save page failed: ${(err as Error).message}`);
+    return `Couldn’t save the page: ${(err as Error).message}`;
+  }
+}
+
 /** Links to other apps (mailto:, zoommtg: …): safe ones open, anything else asks first. */
 const SAFE_SCHEMES = /^(mailto|tel|sms|facetime|facetime-audio|webcal|maps|zoommtg|zoomus|msteams|slack|spotify|tg|whatsapp):/i;
 async function openOutside(url: string, from: WebContents) {
@@ -663,9 +715,14 @@ function hardenWebview(contents: WebContents) {
     if (items.length && items[items.length - 1].type !== 'separator') items.push({ type: 'separator' });
     items.push(
       { label: 'Back', enabled: contents.navigationHistory.canGoBack(), click: () => contents.navigationHistory.goBack() },
+      { label: 'Forward', enabled: contents.navigationHistory.canGoForward(), click: () => contents.navigationHistory.goForward() },
       { label: 'Reload', click: () => contents.reload() },
-      { label: 'Boost This Site…', click: () => host.send('shortcut', 'boostEditor') },
       { type: 'separator' },
+      { label: 'Boost This Site…', click: () => host.send('shortcut', 'boostEditor') },
+      { label: 'Save Page As…', click: () => void savePage(contents) },
+      { label: 'Print…', click: () => contents.print() },
+      { type: 'separator' },
+      { label: 'View Page Source', enabled: isWebUrl(contents.getURL()), click: () => host.send('shortcut', 'viewSource') },
       { label: 'Inspect Element', click: () => contents.inspectElement(params.x, params.y) },
     );
     Menu.buildFromTemplate(items).popup();
@@ -903,7 +960,9 @@ function setupIpc() {
     pipTargetsHost = e.sender;
   });
   on('shortcuts:set', (_e, map: Record<string, string>, hotkey: string) => {
+    const changed = JSON.stringify(map) !== JSON.stringify(shortcuts);
     shortcuts = map;
+    if (changed) buildAppMenu();
     if (hotkey !== littleHotkey) {
       littleHotkey = hotkey;
       registerGlobalHotkey();
@@ -939,6 +998,36 @@ function setupIpc() {
   });
   handle('browser:set-default', () => app.setAsDefaultProtocolClient('http') && app.setAsDefaultProtocolClient('https'));
   handle('browser:is-default', () => app.isDefaultProtocolClient('https'));
+  handle('app:info', (): AppInfo => ({
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chromium: process.versions.chrome,
+    node: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+    dataDir: app.getPath('userData'),
+    packaged: app.isPackaged,
+  }));
+  on('app:reveal-data', () => shell.showItemInFolder(storage.file));
+  on('page:print', (e, id: number) => pageOf(e, id)?.print());
+  // "View Page Source": the HTML as the server sent it (not the live DOM), through the Space's cookie jar.
+  handle('page:source', async (_e, url: string, partition: string): Promise<Result<{ text: string; status: number; contentType: string; truncated: boolean }>> => {
+    if (typeof url !== 'string' || !isWebUrl(url) || url.length > 8192) return { error: 'Only web pages have source to show.' };
+    const ses = ensureJar(isKitePartition(partition) ? partition : PARTITION);
+    const MAX = 4 * 1024 * 1024;
+    try {
+      const res = await ses.fetch(url, { headers: { Accept: 'text/html,*/*;q=0.8' }, redirect: 'follow' });
+      const buf = Buffer.from(await res.arrayBuffer());
+      const truncated = buf.length > MAX;
+      return { value: { text: buf.subarray(0, MAX).toString('utf8'), status: res.status, contentType: res.headers.get('content-type') ?? '', truncated } };
+    } catch (err) {
+      return { error: `Couldn’t fetch the page: ${(err as Error).message}` };
+    }
+  });
+  handle('page:save', (e, id: number) => {
+    const wc = pageOf(e, id);
+    return wc ? savePage(wc) : 'That page is gone.';
+  });
   // The user picks where the file goes in a Save dialog; the name is only a suggestion.
   handle('file:export', async (e, name: string, text: string) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
@@ -950,39 +1039,167 @@ function setupIpc() {
   });
 }
 
+/**
+ * The menu bar: every Kite action, with its shortcut shown beside it.
+ *
+ * Keys are handled by Kite's own window (and forwarded from pages), so the menu shows
+ * the shortcuts without registering them (macOS); elsewhere the menu bar is hidden
+ * and only its items are used. Rebuilt whenever shortcuts change.
+ */
 function buildAppMenu() {
   const send = (action: string) => () => {
     const w = BrowserWindow.getFocusedWindow() ?? mainWindow;
     w?.webContents.send('shortcut', action);
   };
+  const keyOf = (action: string): Partial<Electron.MenuItemConstructorOptions> => {
+    const combo = shortcuts[action] ?? DEFAULT_SHORTCUTS[action] ?? '';
+    const acc = combo ? toAccelerator(combo) : null;
+    // macOS: shown, not registered (the window handles keys). Other systems: no menu accelerators at all.
+    return isMac && acc ? { accelerator: acc, registerAccelerator: false } : {};
+  };
+  const item = (label: string, action: string, extra: Partial<Electron.MenuItemConstructorOptions> = {}): Electron.MenuItemConstructorOptions => ({ label, click: send(action), ...keyOf(action), ...extra });
+  const sep = (): Electron.MenuItemConstructorOptions => ({ type: 'separator' });
+  const pageDevTools = () => {
+    const host = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (!host) return;
+    // The page shown in the focused window: the most recently focused webview it hosts.
+    const guest = [...pages].filter(([, p]) => p.host === host.webContents).map(([id]) => allWebContents.fromId(id)).filter((w): w is WebContents => !!w && !w.isDestroyed() && w.isFocused())[0]
+      ?? [...pages].filter(([, p]) => p.host === host.webContents).map(([id]) => allWebContents.fromId(id)).filter((w): w is WebContents => !!w && !w.isDestroyed()).pop();
+    guest?.toggleDevTools();
+  };
   const template: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: 'appMenu' as const }] : []),
+    ...(isMac
+      ? [{
+          label: app.name,
+          submenu: [
+            { role: 'about' as const },
+            sep(),
+            item('Settings…', 'settings'),
+            sep(),
+            { role: 'services' as const },
+            sep(),
+            { role: 'hide' as const },
+            { role: 'hideOthers' as const },
+            { role: 'unhide' as const },
+            sep(),
+            { role: 'quit' as const },
+          ],
+        }]
+      : []),
     {
       label: 'File',
       submenu: [
-        { label: 'New Tab…', click: send('commandBar') },
-        { label: 'New Little Window', click: () => void createLittleWindow('kite://new') },
-        { label: 'New Note', click: send('newNote') },
-        { type: 'separator' },
-        { label: 'Import from Arc…', click: send('importArc') },
-        { type: 'separator' },
-        { label: 'Downloads', click: send('downloadsPanel') },
-        { label: 'Extensions', click: send('extensionsPanel') },
-        { type: 'separator' },
+        item('New Tab…', 'commandBar'),
+        item('New Little Window', 'littleWindow', { click: () => void createLittleWindow('kite://new') }),
+        item('New Note', 'newNote'),
+        item('New Folder', 'newFolder'),
+        item('New Space', 'newSpace'),
+        sep(),
+        item('Open Address…', 'editUrl'),
+        item('Reopen Closed Tab', 'reopenClosed'),
+        item('Close Tab', 'closeTab'),
+        sep(),
+        item('Save Page As…', 'savePage'),
+        item('Print Page…', 'print'),
+        sep(),
+        item('Import from Arc…', 'importArc'),
+        item('Set as Default Browser', 'setDefaultBrowser'),
+        sep(),
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
     },
-    { role: 'editMenu' },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' }, { role: 'redo' }, sep(),
+        { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'pasteAndMatchStyle' }, { role: 'delete' }, { role: 'selectAll' },
+        sep(),
+        item('Find in Page…', 'findInPage'),
+        item('Copy URL', 'copyUrl'),
+        item('Copy URL as Markdown', 'copyMarkdown'),
+        ...(isMac ? [sep(), { role: 'startSpeaking' as const }, { role: 'stopSpeaking' as const }] : []),
+      ],
+    },
     {
       label: 'View',
       submenu: [
-        { label: 'Toggle Sidebar', click: send('toggleSidebar') },
-        { type: 'separator' },
+        item('Reload Page', 'reload'),
+        item('Force Refresh the Page', 'hardReload'),
+        item('Stop Loading', 'stopLoading'),
+        sep(),
+        item('Zoom In', 'zoomIn'),
+        item('Zoom Out', 'zoomOut'),
+        item('Zoom to Actual Size', 'zoomReset'),
+        sep(),
+        item('Toggle Light / Dark Mode', 'toggleTheme'),
+        item('Show / Hide Sidebar', 'toggleSidebar'),
+        item('Add Split View', 'newSplit'),
+        item('Separate Split View', 'unsplit'),
+        sep(),
+        item('Pop Out Video', 'popOutVideo'),
+        item('Mute / Unmute Tab', 'toggleMute'),
+        sep(),
         { role: 'togglefullscreen' },
-        { label: 'Toggle Kite Developer Tools', accelerator: 'Alt+CommandOrControl+Shift+I', click: () => BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools() },
+        sep(),
+        item('View Source', 'viewSource'),
+        { label: 'Developer Tools', accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I', click: pageDevTools },
+        { label: 'Developer Tools for Kite Itself', accelerator: 'Alt+CommandOrControl+Shift+I', click: () => BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools() },
+      ],
+    },
+    {
+      label: 'History',
+      submenu: [
+        item('Go Back', 'back'),
+        item('Go Forward', 'forward'),
+        sep(),
+        item('View History', 'historyPage'),
+        item('View Archive', 'archivePage'),
+        item('View Downloads', 'downloadsPanel'),
+      ],
+    },
+    {
+      label: 'Tabs',
+      submenu: [
+        item('Pin / Unpin Tab', 'togglePin'),
+        item('Add to Favorites', 'addFavorite'),
+        item('Rename Current Item', 'renameCurrent'),
+        item('Reset Tab to Original URL', 'resetToHome'),
+        item('Clear Unpinned Tabs', 'clearToday'),
+        sep(),
+        item('Next Tab', 'nextTab'),
+        item('Previous Tab', 'prevTab'),
+        sep(),
+        item('Next Space', 'nextSpace'),
+        item('Previous Space', 'prevSpace'),
+        sep(),
+        item('Put Other Tabs to Sleep', 'sleepOthers'),
+        item('Mute All Tabs', 'muteAll'),
+        item('Unmute All Tabs', 'unmuteAll'),
+      ],
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        item('Boost This Site…', 'boostEditor'),
+        item('Boosts', 'boostsPanel'),
+        item('Extensions', 'extensionsPanel'),
+        item('Link Routing', 'routingPanel'),
+        sep(),
+        item('Turn Shields On / Off', 'toggleShields'),
+        item('Privacy & Security', 'privacyPanel'),
+        ...(isMac ? [] : [sep(), item('Settings…', 'settings')]),
       ],
     },
     { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        item('Keyboard Shortcuts', 'shortcutsPanel'),
+        { label: 'Copy Kite Info', click: () => clipboard.writeText(`Kite ${app.getVersion()} · Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · ${process.platform} ${process.arch}`) },
+        { label: 'Reveal Kite Data', click: () => shell.showItemInFolder(storage.file) },
+        { label: 'Show Error Log', click: () => { const f = join(app.getPath('userData'), 'kite-errors.log'); if (existsSync(f)) shell.showItemInFolder(f); else void dialog.showMessageBox({ type: 'info', message: 'No errors have been logged.', detail: 'Kite writes crashes and unexpected problems to kite-errors.log in its data folder.' }); } },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -1068,4 +1285,11 @@ if (!gotLock) {
     if (!isMac) app.quit();
   });
   app.on('will-quit', () => globalShortcut.unregisterAll());
+  // A helper process (GPU, network, a page's renderer) died: note it; Chromium restarts most of them.
+  app.on('child-process-gone', (_e, d) => errorLog(`${d.type} process gone: ${d.reason}${d.name ? ` (${d.name})` : ''} exit ${d.exitCode}`));
+  app.on('render-process-gone', (_e, wc, d) => {
+    if (d.reason !== 'clean-exit' && !wc.isDestroyed()) errorLog(`page process gone: ${d.reason} at ${wc.getURL().slice(0, 200)}`);
+  });
+  process.on('uncaughtException', (err) => errorLog(`uncaught: ${err?.stack ?? err}`));
+  process.on('unhandledRejection', (err) => errorLog(`unhandled rejection: ${(err as Error)?.stack ?? String(err)}`));
 }

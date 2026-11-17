@@ -196,6 +196,14 @@ function makeWebBridge(): KiteBridge {
       hooks.exported.push({ name, text });
       return true;
     },
+    appInfo: async () => ({ version: __KITE_VERSION__, electron: '', chromium: navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? '', node: '', platform: platformName, arch: '', dataDir: '(browser test mode)', packaged: false }),
+    revealData: () => void hooks.calls.push('revealData'),
+    printPage: () => void hooks.calls.push('print'),
+    savePage: async () => {
+      hooks.calls.push('savePage');
+      return null;
+    },
+    pageSource: async (url) => ({ value: { text: `<!doctype html>\n<html>\n  <head><title>${url}</title></head>\n  <body><h1>Simulated source of ${url}</h1></body>\n</html>\n`, status: 200, contentType: 'text/html', truncated: false } }),
     setWindowButtons: (v) => void hooks.windowButtons.push(v),
     onWindowState: (cb) => windowState.on(cb),
     setPrefs: (p) => {

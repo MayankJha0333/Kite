@@ -8,10 +8,14 @@ export interface SurfaceHandle {
   back(): void;
   forward(): void;
   reload(): void;
+  /** Reload, ignoring cached files. */
+  hardReload(): void;
   stop(): void;
   zoom(delta: number | 'reset'): void;
   find(text: string, forward?: boolean): void;
   stopFind(): void;
+  /** The system print dialog. */
+  print(): void;
   exec(js: string): Promise<unknown>;
   /** Run Kite's own helper code where the page's scripts can't see or change it. */
   execHidden(js: string): Promise<unknown>;

@@ -11,11 +11,15 @@ const cspPlugin: Plugin = {
 };
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
 
 export default defineConfig({
   root: resolve(__dirname, 'src/renderer'),
   base: './',
   plugins: [react(), cspPlugin],
+  define: { __KITE_VERSION__: JSON.stringify(pkg.version) },
   resolve: { alias: { '@shared': resolve(__dirname, 'src/shared') } },
   build: { outDir: resolve(__dirname, 'dist/renderer'), emptyOutDir: true },
   server: { port: 5174, strictPort: true },

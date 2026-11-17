@@ -41,5 +41,10 @@ export function visibleFrame(page: Page) {
   return page.frameLocator('.surface-slot[data-visible] iframe').first();
 }
 
+/** Wait for an element's entry/exit animations (and its children's) to finish. */
+export async function settled(page: Page, testId: string) {
+  await page.getByTestId(testId).evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined))));
+}
+
 export const test = base;
 export { expect };

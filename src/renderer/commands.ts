@@ -1,7 +1,7 @@
 // Every user action in one place. Shortcuts, menus and the command bar all call these.
 
 import * as ops from '@shared/ops';
-import { hostOf, isNewTabUrl, NEW_TAB_URL, normalizeInput } from '@shared/url';
+import { hostOf, isNewTabUrl, NEW_TAB_URL, normalizeInput, sourceUrlFor } from '@shared/url';
 import { locate } from '@shared/tree';
 import type { ID } from '@shared/types';
 import { act, getS, getUi, markLoaded, setUi, toast, unload, useKite } from './store';
@@ -293,6 +293,21 @@ export const actions: Record<string, () => void> = {
   muteAll: () => muteAll(true),
   unmuteAll: () => muteAll(false),
   reload: () => surface(activeTabId())?.reload(),
+  hardReload: () => surface(activeTabId())?.hardReload(),
+  stopLoading: () => surface(activeTabId())?.stop(),
+  renameCurrent: () => {
+    const id = activeId();
+    const it = id ? getS().items[id] : null;
+    if (it && it.kind !== 'split') setUi({ renaming: id });
+  },
+  resetToHome: () => {
+    const t = ops.activeTab(getS());
+    if (!t?.homeUrl) return toast('This tab has no pinned page to go back to');
+    navigateTab(t.id, t.homeUrl);
+  },
+  setDefaultBrowser: () => {
+    void bridge.setDefaultBrowser().then((ok) => toast(ok ? 'Kite is now your default browser' : 'Your system didn’t let Kite become the default browser. You can set it in System Settings.'));
+  },
   back: () => surface(activeTabId())?.back(),
   forward: () => surface(activeTabId())?.forward(),
   nextTab: () => {
@@ -331,6 +346,23 @@ export const actions: Record<string, () => void> = {
       sp.theme.mode = dark ? 'light' : 'dark';
     }),
   archivePage: () => setUi({ panel: 'archive' }),
+  historyPage: () => setUi({ panel: 'history' }),
+  print: () => {
+    const t = ops.activeTab(getS());
+    if (!t || isNewTabUrl(t.url)) return toast('Nothing to print on this page');
+    surface(t.id)?.print();
+  },
+  savePage: () => {
+    const t = ops.activeTab(getS());
+    const id = t ? surface(t.id)?.webContentsId() : null;
+    if (!t || isNewTabUrl(t.url)) return toast('Nothing to save on this page');
+    void bridge.savePage(id ?? -1).then((problem) => problem && toast(problem));
+  },
+  viewSource: () => {
+    const t = ops.activeTab(getS());
+    if (!t || !/^https?:/i.test(t.url)) return toast('Only web pages have source to show');
+    act((d) => ops.newTab(d, { url: sourceUrlFor(t.url), title: `Source of ${hostOf(t.url) || t.url}`, now: now() }));
+  },
   clearToday: () => {
     const sp = getS().activeSpaceId;
     const n = getS().spaces.find((x) => x.id === sp)?.today.length ?? 0;
@@ -371,7 +403,7 @@ export const actions: Record<string, () => void> = {
   },
   collapseFolders: () => act((d) => setAllFolders(d, d.activeSpaceId, true)),
   expandFolders: () => act((d) => setAllFolders(d, d.activeSpaceId, false)),
-  findInPage: () => setUi({ findOpen: true }),
+  findInPage: () => setUi({ findOpen: true, findResult: null }),
   zoomIn: () => surface(activeTabId())?.zoom(1),
   zoomOut: () => surface(activeTabId())?.zoom(-1),
   zoomReset: () => surface(activeTabId())?.zoom('reset'),

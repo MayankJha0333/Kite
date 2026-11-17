@@ -6921,3 +6921,187 @@ button.dl-name:not(:disabled):hover {
   flex-direction: column;
   gap: 24px;
 }
+
+/* ==== Find in page: match count ================================================ */
+.find-count {
+  flex: none;
+  min-width: 56px;
+  padding: 0 4px;
+  color: var(--ink-3);
+  font-size: calc(11.5px * var(--scale));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.find-bar[data-none] .find-count {
+  color: #d64545;
+}
+.find-bar[data-none] input {
+  color: #d64545;
+}
+
+/* ==== Address bar: zoom level ================================================== */
+.url-zoom {
+  color: var(--ink-2);
+  background: var(--gray-a3);
+}
+.url-zoom:hover {
+  background: var(--active);
+}
+
+/* ==== History ================================================================== */
+.hist-row .arch-main {
+  cursor: pointer;
+}
+.search-box .icon-btn.tiny {
+  margin-right: 4px;
+}
+
+/* ==== About: build details and actions ======================================== */
+.about-actions {
+  justify-content: center;
+  margin-top: 14px;
+}
+.about-details {
+  margin-top: 14px;
+  font-size: calc(11.5px * var(--scale));
+  line-height: 1.6;
+  word-break: break-all;
+}
+.about-details code {
+  font-size: calc(11px * var(--scale));
+}
+
+/* ==== Kite's own UI failed: a plain, readable recovery screen ================== */
+.app-crash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f3efe9;
+  color: #1e1c1a;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  .app-crash {
+    background: #16171c;
+    color: #f1efea;
+  }
+}
+.app-crash-card {
+  width: min(480px, 100%);
+  padding: 28px;
+  border-radius: 16px;
+  background: rgba(127, 127, 127, 0.08);
+  box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.2);
+}
+.app-crash-card h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.app-crash-card p {
+  margin: 0 0 14px;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.app-crash-detail {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.12);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow: auto;
+}
+.app-crash .btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.app-crash .btn.primary {
+  background: #3a6ed8;
+  border-color: #3a6ed8;
+  color: #fff;
+}
+
+/* A screen still loading its code (a few ms from disk): hold its place quietly. */
+.lazy-wait {
+  position: absolute;
+  inset: 0;
+  background: var(--card);
+}
+
+/* ==== View Page Source ========================================================= */
+.source {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  color: var(--ink);
+}
+.source-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 40px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: calc(12.5px * var(--scale));
+}
+.source-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-head .btn[data-on] {
+  background: var(--active);
+}
+.source-wait {
+  padding: 24px;
+}
+.source-note {
+  margin: 0;
+  padding: 8px 16px;
+  background: var(--accent-soft);
+  font-size: calc(12px * var(--scale));
+}
+.source-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  user-select: text;
+}
+.source-table {
+  border-collapse: collapse;
+  font: calc(12px * var(--scale)) / 1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  tab-size: 2;
+}
+.source-ln {
+  position: sticky;
+  left: 0;
+  width: 1%;
+  padding: 0 12px 0 16px;
+  background: var(--card);
+  color: var(--ink-4);
+  text-align: right;
+  user-select: none;
+  vertical-align: top;
+}
+.source-code {
+  padding: 0 24px 0 8px;
+  white-space: pre;
+}
+.source[data-wrap] .source-code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}

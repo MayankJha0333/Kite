@@ -50,14 +50,14 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Find in page | Menu: Find in Page | ✅ |
 | Copy URL | Menu: Copy URL | ✅ |
 | Copy URL **as Markdown / as quote** | Menu: Copy URL as Markdown, Copy URL as Quote | ❌ |
-| Zoom in / out / reset | Menu: Zoom In, Zoom Out, Reset Zoom | ✅ |
+| Zoom in / out / reset | Menu: Zoom In, Zoom Out, Reset Zoom | ✅ with the level shown in the address bar |
 | Clear cookies / cache **and refresh** this site | Menu: Clear Cookies and Refresh, Clear Cache and Refresh | ❌ |
 | Site Control Center (per-site permissions, cookies, zoom, developer mode) | `ARC_SiteControlCenter`, "site settings view" | ✅ address-bar popover: connection, Shields, permissions, erase site data |
 | Built-in ad blocking and cookie-banner blocking | `ARC_AdBlocking`, "Block Cookie Banners" | ✅ Shields (EasyList/EasyPrivacy, per-site exceptions) |
 | Downloads list | Menu: Downloads, View Downloads | ✅ (plus image conversion and video/HLS saving) |
-| Full History page | Menu: View History | 🟡 history in the command bar only |
-| Print, Save Page As, View Source | Menu items | ❌ |
-| Developer tools for a page, JavaScript console, network inspector, task manager | Menu: Developer | ❌ (only Kite's own developer tools) |
+| Full History page | Menu: View History | ✅ ⌘⇧H: grouped by day, search, reopen, forget, clear by time span |
+| Print, Save Page As, View Source | Menu items | ✅ |
+| Developer tools for a page, JavaScript console, network inspector, task manager | Menu: Developer | 🟡 View → Developer Tools for This Page (console and network inside it); no task manager |
 | Picture-in-picture video, floats over other apps | `ARC_PictureInPicture` | ✅ (plus controls and mini player) |
 | Translate page | `ARC_Translation`, "Never Translate This Site" | ☁️ needs a translation service |
 | Passwords and autofill | "manage passwords", "Autofill your passwords" | ❌ (big job; macOS Passwords app works meanwhile) |

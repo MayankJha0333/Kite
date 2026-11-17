@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
 import type { ID, Item } from '@shared/types';
 import * as ops from '@shared/ops';
 import { act, setUi, useKite } from '../store';
@@ -8,14 +8,16 @@ import { WebSurface } from './WebSurface';
 import { setupPage, usePolicySync } from '../pageSetup';
 import { FindBar } from './FindBar';
 import { SplitChrome, splitRects, paneStyle } from './SplitView';
-import { NoteEditor } from './NoteEditor';
+// Loaded on first use: the editor and Settings are large and most sessions never open them.
+const NoteEditor = lazy(() => import('./NoteEditor').then((m) => ({ default: m.NoteEditor })));
+const SettingsPanel = lazy(() => import('./Settings').then((m) => ({ default: m.SettingsPanel })));
 import { Peek } from './Peek';
 import { DropZone } from '../dnd';
 import { partitionForTab } from '@shared/profiles';
 import { LoadError } from './LoadError';
 import { StartPage } from './StartPage';
-import { isNewTabUrl } from '@shared/url';
-import { SettingsPanel } from './Settings';
+import { isNewTabUrl, sourceTarget } from '@shared/url';
+import { SourceView } from './SourceView';
 import { PanelGuard } from './Panels';
 
 type Rect = { left: number; top: number; width: number; height: number };
@@ -31,17 +33,24 @@ export function Stage() {
     return t ? !!st.ui.loading[t.id] : false;
   });
   const loaded = useMemo(() => loadedRaw.filter((id) => items[id]?.kind === 'tab'), [loadedRaw, items]);
-  const settingsPage = useKite((st) => (st.ui.panel === 'settings' ? st.ui.panelArg ?? 'appearance' : st.ui.panel === 'shortcuts' ? 'keys' : null));
+  // While Settings plays its exit animation it is still drawn (ui.leaving), then goes.
+  const settingsPage = useKite((st) => {
+    const p = st.ui.panel ?? st.ui.leaving?.panel ?? null;
+    return p === 'settings' || p === 'shortcuts';
+  });
   // Going to another tab (or a new one) leaves Settings, like leaving a page. Switching
   // Space keeps it open, so each Space can be styled from Settings.
   const spaceId = useKite((st) => st.s.activeSpaceId);
+  const panel = useKite((st) => st.ui.panel);
   const last = useRef({ activeId, spaceId });
   useEffect(() => {
     const before = last.current;
     last.current = { activeId, spaceId };
     if (before.activeId === activeId || before.spaceId !== spaceId) return;
-    const p = useKite.getState().ui.panel;
-    if (p === 'settings' || p === 'shortcuts') setUi({ panel: null, panelArg: undefined });
+    // Only the panel that was open *in this render* counts: this effect can run a beat
+    // late, after a ⌘, that just opened Settings, and must not close that one.
+    if (panel === 'settings' || panel === 'shortcuts') setUi({ panel: null, panelArg: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, spaceId]);
 
   const rects = useMemo<Record<ID, Rect>>(() => {
@@ -63,12 +72,18 @@ export function Stage() {
           <SurfaceSlot key={id} id={id} rect={rects[id]} inSplit={active?.kind === 'split' && active.panes.includes(id)} focusedInSplit={active?.kind === 'split' && active.panes[active.focused] === id} />
         ))}
         {active?.kind === 'split' && <SplitChrome split={active} />}
-        {active?.kind === 'note' && <NoteEditor key={active.id} note={active} />}
+        {active?.kind === 'note' && (
+          <Suspense fallback={<div className="lazy-wait" aria-busy="true" />}>
+            <NoteEditor key={active.id} note={active} />
+          </Suspense>
+        )}
         {!active && <StartPage />}
         <FindBar />
         {settingsPage && (
           <PanelGuard key="settings">
-            <SettingsPanel />
+            <Suspense fallback={<div className="lazy-wait kite-page" aria-busy="true" />}>
+              <SettingsPanel />
+            </Suspense>
           </PanelGuard>
         )}
       </DropZone>
@@ -93,6 +108,8 @@ function SurfaceSlot({ id, rect, focusedInSplit, inSplit }: { id: ID; rect?: Rec
     <div className="surface-slot" data-visible={visible || undefined} data-focused={focusedInSplit || undefined} data-split={inSplit || undefined} style={style} data-testid={`slot-${id}`}>
       {isNewTabUrl(item.url) ? (
         visible && <StartPage tabId={id} />
+      ) : sourceTarget(item.url) ? (
+        visible && <SourceView url={sourceTarget(item.url)!} partition={partition} />
       ) : (
       <WebSurface
         key={partition}
@@ -113,6 +130,8 @@ function SurfaceSlot({ id, rect, focusedInSplit, inSplit }: { id: ID; rect?: Rec
           if (useKite.getState().ui.muted[id]) handle.setMuted(true);
         }}
         onMedia={(playing) => setUi((u) => ({ playing: { ...u.playing, [id]: playing } }))}
+        onFound={(active, total) => setUi({ findResult: { active, total } })}
+        onZoom={(percent) => setUi((u) => ({ zoom: { ...u.zoom, [id]: percent } }))}
         onFocus={() => {
           const sp = ops.activeItemId(useKite.getState().s);
           const it = sp ? useKite.getState().s.items[sp] : null;

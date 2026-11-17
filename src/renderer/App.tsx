@@ -134,6 +134,15 @@ function Shell() {
  * In the desktop app the strip is "no-drag" (see app.css): the margin around the page
  * moves the window, and macOS sends no mouse events to the app there.
  */
+/** Where the pointer last was (updated after React's handlers, so they can compare against it). */
+const lastPointer = { x: -1, y: -1 };
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointermove', (e) => {
+    lastPointer.x = e.clientX;
+    lastPointer.y = e.clientY;
+  });
+}
+
 function EdgeHotzone({ side }: { side: 'left' | 'right' }) {
   useEffect(() => {
     const open = () => !useKite.getState().ui.sidebarPeek && setUi({ sidebarPeek: true });
@@ -151,7 +160,10 @@ function EdgeHotzone({ side }: { side: 'left' | 'right' }) {
     <div
       className="edge-hotzone"
       data-testid="edge-hotzone"
-      onPointerMove={() => {
+      onPointerMove={(e) => {
+        // Chromium re-sends the pointer's position when layout changes under a resting
+        // pointer (for instance the moment the sidebar hides): that is not a move.
+        if (e.clientX === lastPointer.x && e.clientY === lastPointer.y) return;
         if (!useKite.getState().ui.sidebarPeek) setUi({ sidebarPeek: true });
       }}
     />

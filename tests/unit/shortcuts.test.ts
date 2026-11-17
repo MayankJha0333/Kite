@@ -31,7 +31,7 @@ describe('shortcuts', () => {
     expect(findAction(ev('x', {}), DEFAULT_SHORTCUTS, true)).toBeNull();
   });
   it('defaults have no duplicates', () => {
-    const vals = Object.values(DEFAULT_SHORTCUTS);
+    const vals = Object.values(DEFAULT_SHORTCUTS).filter(Boolean); // some actions ship without keys
     expect(new Set(vals).size).toBe(vals.length);
   });
   it('records shortcuts from key presses', () => {

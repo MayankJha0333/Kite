@@ -11,7 +11,10 @@ import { isVideoWindowSetup, NS } from '@shared/pipWindow';
 
 const LIB = ['/usr/lib/x86_64-linux-gnu/libobjc.so.4', '/usr/lib/aarch64-linux-gnu/libobjc.so.4'].find((p) => existsSync(p));
 
-describe.skipIf(!LIB)('floating video window hooks (Objective-C runtime)', () => {
+// The describe body runs even when skipped (vitest collects it), so guard the body itself.
+const describeWithObjc = LIB ? describe : (name: string, fn: () => void) => describe.skip(name, () => void fn);
+describeWithObjc('floating video window hooks (Objective-C runtime)', () => {
+  if (!LIB) return;
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const koffi = createRequire(import.meta.url)('koffi');
   const lib = koffi.load(LIB!);

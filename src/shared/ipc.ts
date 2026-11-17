@@ -67,6 +67,19 @@ export interface SitePermission {
   allowed: boolean;
 }
 
+/** What Kite is made of, for About and bug reports. */
+export interface AppInfo {
+  version: string;
+  electron: string;
+  chromium: string;
+  node: string;
+  platform: string;
+  arch: string;
+  /** Where Kite keeps its data on this computer. */
+  dataDir: string;
+  packaged: boolean;
+}
+
 /** An answer that may be a readable error instead. */
 export type Result<T> = { value: T; error?: undefined } | { error: string; value?: undefined };
 
@@ -131,6 +144,15 @@ export interface KiteBridge {
   setDefaultBrowser(): Promise<boolean>;
   isDefaultBrowser(): Promise<boolean>;
   exportFile(name: string, text: string): Promise<boolean>;
+  appInfo(): Promise<AppInfo>;
+  /** Show Kite's data folder in the system file manager. */
+  revealData(): void;
+  /** The system print dialog for a page. */
+  printPage(webContentsId: number): void;
+  /** Save a page as a complete web page (asks where). Resolves to a problem, or null. */
+  savePage(webContentsId: number): Promise<string | null>;
+  /** The HTML of a web page as the server sent it, fetched with this Space's cookies. */
+  pageSource(url: string, partition: string): Promise<Result<{ text: string; status: number; contentType: string; truncated: boolean }>>;
 
   // ---- Window ----
   /** macOS: show, hide or move the window's close/minimise/zoom buttons so they sit in the sidebar. */

@@ -1,4 +1,4 @@
-import { DEFAULT_THEME_ID, defaultLook, THEMES } from './look';
+import { DEFAULT_THEME_ID, defaultLook, PALETTES, THEMES } from './look';
 import { defaultShields } from './shields';
 import type { AppState, Settings, Space, SpaceTheme } from './types';
 import { newId } from './ids';
@@ -47,6 +47,14 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   zoomOut: 'mod+-',
   popOutVideo: 'mod+shift+p',
   downloadsPanel: 'mod+shift+j',
+  historyPage: 'mod+shift+h',
+  zoomReset: 'mod+0',
+  print: 'mod+p',
+  savePage: 'mod+shift+s',
+  hardReload: 'mod+shift+r',
+  stopLoading: '',
+  renameCurrent: '',
+  resetToHome: '',
 };
 
 export const SHORTCUT_LABELS: Record<string, string> = {
@@ -76,6 +84,14 @@ export const SHORTCUT_LABELS: Record<string, string> = {
   zoomOut: 'Zoom out',
   popOutVideo: 'Pop out / bring back video',
   downloadsPanel: 'Open Downloads',
+  historyPage: 'Open History',
+  zoomReset: 'Reset zoom',
+  print: 'Print page',
+  savePage: 'Save page as…',
+  hardReload: 'Force refresh the page',
+  stopLoading: 'Stop loading',
+  renameCurrent: 'Rename current item',
+  resetToHome: 'Reset tab to its pinned page',
 };
 
 export const SEARCH_ENGINES: { label: string; template: string }[] = [
@@ -126,17 +142,8 @@ export function defaultSettings(): Settings {
   };
 }
 
-/** Ready-made color pairs offered in the Space theme editor. */
-export const THEME_PRESETS: { name: string; colors: [string, string] }[] = [
-  { name: 'Dune', colors: ['#f2c9a0', '#e58f65'] },
-  { name: 'Lagoon', colors: ['#9fd8d0', '#4f8fbf'] },
-  { name: 'Moss', colors: ['#c9dcae', '#6f9a72'] },
-  { name: 'Plum', colors: ['#e3b7d1', '#8f6aa8'] },
-  { name: 'Slate', colors: ['#c8ced8', '#6b7486'] },
-  { name: 'Ember', colors: ['#ffb199', '#d64545'] },
-  { name: 'Citrus', colors: ['#fbe38e', '#f29e4c'] },
-  { name: 'Night', colors: ['#3a4256', '#141824'] },
-];
+/** Ready-made colour pairs for Spaces: the one curated set (see look.ts), everywhere. */
+export const THEME_PRESETS: { name: string; colors: [string, string] }[] = PALETTES.map((p) => ({ name: p.name, colors: [...p.colors] as [string, string] }));
 
 export function defaultTheme(index = 0): SpaceTheme {
   const preset = THEME_PRESETS[index % THEME_PRESETS.length];

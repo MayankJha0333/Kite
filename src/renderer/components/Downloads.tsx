@@ -117,14 +117,17 @@ function PageMedia() {
 
 export function DownloadsPanel() {
   const list = useKite((st) => st.ui.downloads);
+  const hasPage = useKite((st) => !!ops.activeTab(st.s));
   const done = list.some((d) => d.state !== 'progressing' && d.state !== 'paused');
   return (
     <Sheet title="Downloads" subtitle="Files are saved to your Downloads folder" testId="downloads">
       <PageMedia />
-      <header className="dl-sec-head">
-        <h3 className="look-h">Downloads</h3>
-        {done && <button className="btn small ghost" data-testid="downloads-clear" onClick={() => void run('clear')}>Clear finished</button>}
-      </header>
+      {(hasPage || done) && (
+        <header className="dl-sec-head">
+          <h3 className="look-h">{hasPage ? 'Recent' : ''}</h3>
+          {done && <button className="btn small ghost" data-testid="downloads-clear" onClick={() => void run('clear')}>Clear finished</button>}
+        </header>
+      )}
       {list.length === 0 && <p className="muted dl-empty" data-testid="downloads-empty">Nothing downloaded yet.</p>}
       <div className="dl-list">{list.map((d) => <Row key={d.id} d={d} />)}</div>
     </Sheet>

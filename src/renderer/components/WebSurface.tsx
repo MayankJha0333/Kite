@@ -7,6 +7,7 @@ import { bridge, isElectron } from '../platform';
 import { registerSurface, type SurfaceHandle } from '../surfaces';
 import { fakePageHtml, fakeTitle } from '../fakePage';
 import { DEFAULT_PARTITION } from '@shared/profiles';
+import { PAGE_GONE } from '@shared/shields';
 
 export interface SurfaceEvents {
   onNavigate(url: string): void;
@@ -23,6 +24,10 @@ export interface SurfaceEvents {
   onMedia?(playing: boolean): void;
   /** The page failed to load (null = a new load started, forget the failure). */
   onFail?(err: { code: number; desc: string; url: string } | null): void;
+  /** Find in page: which match is current, and how many there are. */
+  onFound?(active: number, total: number): void;
+  /** The page's zoom changed (percent, 100 = normal). */
+  onZoom?(percent: number): void;
 }
 
 interface Props extends SurfaceEvents {
@@ -60,15 +65,18 @@ function ElectronSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITIO
       back: () => wv.canGoBack() && wv.goBack(),
       forward: () => wv.canGoForward() && wv.goForward(),
       reload: () => wv.reload(),
+      hardReload: () => wv.reloadIgnoringCache(),
       stop: () => wv.stop(),
       zoom: (d) => {
         zoom = d === 'reset' ? 0 : Math.max(-5, Math.min(7, zoom + d));
         wv.setZoomLevel(zoom);
+        evRef.current.onZoom?.(Math.round(Math.pow(1.2, zoom) * 100));
       },
       find: (text, forward = true) => {
         if (text) wv.findInPage(text, { forward, findNext: true });
       },
       stopFind: () => wv.stopFindInPage('clearSelection'),
+      print: () => wv.print(),
       exec: (js) => wv.executeJavaScript(js),
       execHidden: (js) => (wcId === null ? Promise.reject(new Error('not ready')) : bridge.execIsolated(wcId, js)),
       insertCSS: (css) => wv.insertCSS(css),
@@ -117,6 +125,13 @@ function ElectronSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITIO
       if (m) evRef.current.onLink(m.decision as 'peek' | 'little', m.url);
     };
     const onFocus = () => evRef.current.onFocus?.();
+    const onFound = (e: Electron.FoundInPageEvent) => evRef.current.onFound?.(e.result.activeMatchOrdinal, e.result.matches);
+    // The page's process died (crash, out of memory, killed): say so instead of a blank page.
+    const onGone = (e: Electron.RenderProcessGoneEvent) => {
+      if (e.details?.reason === 'clean-exit') return;
+      evRef.current.onLoading(false);
+      evRef.current.onFail?.({ code: PAGE_GONE, desc: e.details?.reason ?? 'crashed', url: wv.getURL() || src.current });
+    };
     let pauseCheck = 0;
     const onPlay = () => {
       pauseCheck++; // a newer event wins over a check still in flight
@@ -144,6 +159,8 @@ function ElectronSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITIO
     wv.addEventListener('did-start-navigation', onStartNav);
     wv.addEventListener('console-message', onConsole);
     wv.addEventListener('focus', onFocus);
+    wv.addEventListener('found-in-page', onFound);
+    wv.addEventListener('render-process-gone', onGone);
     return () => {
       unregister();
       if (wcId !== null) bridge.unregisterPage(wcId);
@@ -158,6 +175,8 @@ function ElectronSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITIO
       wv.removeEventListener('did-start-navigation', onStartNav);
       wv.removeEventListener('console-message', onConsole);
       wv.removeEventListener('focus', onFocus);
+      wv.removeEventListener('found-in-page', onFound);
+      wv.removeEventListener('render-process-gone', onGone);
       wv.removeEventListener('media-started-playing', onPlay);
       wv.removeEventListener('media-paused', onPause);
     };
@@ -216,23 +235,36 @@ function SimulatedSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITI
         }
       },
       reload: () => render(),
+      hardReload: () => render(),
       stop: () => evRef.current.onLoading(false),
       zoom: (d) => {
         const doc = frame.contentDocument;
         if (!doc) return;
         const cur = Number(doc.body.dataset.zoom ?? 0);
-        const z = d === 'reset' ? 0 : cur + d;
+        const z = d === 'reset' ? 0 : Math.max(-5, Math.min(7, cur + d));
         doc.body.dataset.zoom = String(z);
-        doc.body.style.zoom = String(1 + z * 0.1);
+        doc.body.style.zoom = String(Math.pow(1.2, z));
+        evRef.current.onZoom?.(Math.round(Math.pow(1.2, z) * 100));
       },
-      find: (text) => {
+      find: (text, forward = true) => {
         const doc = frame.contentDocument;
-        if (doc) doc.body.dataset.find = text;
+        if (!doc) return;
+        doc.body.dataset.find = text;
+        // Count the matches like a browser would; step the current one with each call.
+        const total = text ? (doc.body.innerText.toLowerCase().split(text.toLowerCase()).length - 1) : 0;
+        const cur = Number(doc.body.dataset.findAt ?? 0);
+        const active = total === 0 ? 0 : ((forward ? cur : cur - 2 + total) % total) + 1;
+        doc.body.dataset.findAt = String(active);
+        evRef.current.onFound?.(active, total);
       },
       stopFind: () => {
         const doc = frame.contentDocument;
-        if (doc) delete doc.body.dataset.find;
+        if (doc) {
+          delete doc.body.dataset.find;
+          delete doc.body.dataset.findAt;
+        }
       },
+      print: () => void window.__kiteTest?.calls.push('print'),
       exec: async (js) => {
         const win = frame.contentWindow as (Window & { eval(s: string): unknown }) | null;
         return win ? win.eval(js) : undefined;

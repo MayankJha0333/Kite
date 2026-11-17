@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Palette, Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, ShieldBan, Puzzle, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus } from 'lucide-react';
+import { Palette, Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, ShieldBan, Puzzle, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus, FolderOpen, Copy } from 'lucide-react';
 import { listSources } from '@shared/shields';
-import type { SitePermission } from '@shared/ipc';
+import type { AppInfo, SitePermission } from '@shared/ipc';
 import { AdBlockPage, useShieldsStatus } from './AdBlock';
 import { ARCHIVE_CHOICES, SEARCH_ENGINES, SHORTCUT_LABELS, DEFAULT_SHORTCUTS, createInitialState } from '@shared/defaults';
 import { clearHistory, exportBackup, readBackup, resetAppearance, resetShortcuts, setShortcut, shortcutConflict, updateSettings, LIMITS, type BackupInfo } from '@shared/settings';
@@ -98,7 +98,11 @@ const toSection = (arg: string | undefined): Section => (SECTIONS.some((x) => x.
 
 export function SettingsPanel() {
   // The open section lives in the app state, so other parts of Kite can link to one.
-  const section = useKite((x) => (x.ui.panel === 'shortcuts' ? 'keys' : toSection(x.ui.panelArg)));
+  const section = useKite((x) => {
+    // While leaving, keep showing the section that was open (see Sheet.tsx).
+    const panel = x.ui.panel ?? x.ui.leaving?.panel;
+    return panel === 'shortcuts' ? 'keys' : toSection(x.ui.panel ? x.ui.panelArg : x.ui.leaving?.panelArg);
+  });
   const setSection = (id: Section) => setUi({ panel: 'settings', panelArg: id });
   const [query, setQuery] = useState('');
   const shown = useMemo(() => matchSections(query), [query]);
@@ -178,7 +182,7 @@ export function SettingsPanel() {
             {shown.length === 0 && <p className="settings-nomatch" data-testid="settings-nomatch">No settings match “{query.trim()}”.</p>}
           </div>
           <div className="settings-nav-foot">
-            <KiteLogo size={16} /> Kite 0.1.0 · works offline
+            <KiteLogo size={16} /> Kite {__KITE_VERSION__} · works offline
           </div>
         </nav>
         <div className="settings-main" ref={body}>
@@ -528,6 +532,7 @@ function Extensions() {
 
 function Privacy() {
   const st = useKite((x) => x.s.settings);
+  const historyCount = useKite((x) => x.s.history.length);
   const sh = st.shields;
   const status = useShieldsStatus();
   const [perms, setPerms] = useState<SitePermission[]>([]);
@@ -577,10 +582,13 @@ function Privacy() {
       </Group>
 
       <Group title="Clear browsing data" desc="Clears it in every Space.">
-        <Row title="Browsing history" desc="What the command bar suggests from">
-          <button className="btn small" data-testid="set-clear-history" onClick={() => { act(clearHistory); toast('History cleared'); }}>
-            Clear history
-          </button>
+        <Row title="Browsing history" desc={`${historyCount} page${historyCount === 1 ? '' : 's'} · what the command bar and new tab page suggest from`}>
+          <span className="inline-form">
+            <button className="btn small" data-testid="set-open-history" onClick={() => setUi({ panel: 'history' })}>View</button>
+            <button className="btn small" data-testid="set-clear-history" disabled={!historyCount} onClick={() => { act(clearHistory); toast('History cleared'); }}>
+              Clear history
+            </button>
+          </span>
         </Row>
         <SwitchRow title="Cookies" desc="Signs you out of sites" checked={what.cookies} onChange={(v) => setWhat({ ...what, cookies: v })} testId="clear-cookies" />
         <SwitchRow title="Site data" desc="Data sites saved on this computer" checked={what.storage} onChange={(v) => setWhat({ ...what, storage: v })} testId="clear-storage" />
@@ -759,13 +767,30 @@ function Data() {
 }
 
 function About() {
+  const [info, setInfo] = useState<AppInfo | null>(null);
+  useEffect(() => {
+    void bridge.appInfo().then(setInfo).catch(() => undefined);
+  }, []);
+  const details = info ? [`Kite ${info.version}`, info.electron && `Electron ${info.electron}`, info.chromium && `Chromium ${info.chromium}`, `${info.platform} ${info.arch}`.trim()].filter(Boolean).join(' · ') : '';
   return (
-    <div className="about">
+    <div className="about" data-testid="about">
       <span className="about-mark"><KiteLogo size={64} /></span>
       <h3>Kite</h3>
-      <p className="muted">Version 0.1.0</p>
+      <p className="muted" data-testid="about-version">Version {__KITE_VERSION__}</p>
       <p className="about-line">A calm, sidebar-first browser that works fully offline. No account, no server.</p>
-      <p className="muted">Made by Mayank Jha · Built with Electron, React and TypeScript</p>
+      <p className="muted">Made by Mayank Jha · Built with Electron, React and TypeScript · MIT licence</p>
+      <div className="inline-form about-actions">
+        <button className="btn small" data-testid="about-shortcuts" onClick={() => setUi({ panel: 'shortcuts' })}><Keyboard size={13} /> Keyboard shortcuts</button>
+        <button className="btn small" data-testid="about-data" onClick={() => bridge.revealData()}><FolderOpen size={13} /> Show data folder</button>
+        <button className="btn small" data-testid="about-copy" onClick={async () => { try { await navigator.clipboard.writeText(details || `Kite ${__KITE_VERSION__}`); } catch { /* clipboard unavailable */ } toast('Version details copied'); }}><Copy size={13} /> Copy details</button>
+      </div>
+      {info && (
+        <p className="muted about-details" data-testid="about-details">
+          {details}
+          <br />
+          Data: <code>{info.dataDir}</code>
+        </p>
+      )}
     </div>
   );
 }

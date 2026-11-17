@@ -9,7 +9,7 @@ const DOMAIN_RE = /^([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?([/?#].*)?$/i;
 export function looksLikeUrl(input: string): boolean {
   const t = input.trim();
   if (!t || /\s/.test(t)) return false;
-  if (/^(https?|file|about|kite|data):/i.test(t)) return true;
+  if (/^(https?|file|about|kite|data|view-source):/i.test(t)) return true;
   if (SCHEME_RE.test(t) && !/^[a-z0-9-]+\.[a-z]/i.test(t) && !/:\d+/.test(t)) return false;
   return LOCAL_RE.test(t) || IP_RE.test(t) || DOMAIN_RE.test(t);
 }
@@ -19,6 +19,7 @@ export function normalizeInput(input: string, searchTemplate: string): string {
   const t = input.trim();
   if (!t) return '';
   if (looksLikeUrl(t)) {
+    if (/^view-source:/i.test(t)) return sourceUrlFor(t.slice('view-source:'.length));
     if (/^(https?|file|about|kite|data):/i.test(t)) return t;
     const isLocal = LOCAL_RE.test(t) || IP_RE.test(t);
     return `${isLocal ? 'http' : 'https'}://${t}`;
@@ -48,9 +49,25 @@ export function hostMatches(host: string, domain: string): boolean {
 export const NEW_TAB_URL = 'kite://newtab';
 export const isNewTabUrl = (url: string | undefined | null): boolean => url === NEW_TAB_URL;
 
+/** Kite's own "page source" page: shows the HTML of a web page (webviews refuse view-source:). */
+export const SOURCE_URL_PREFIX = 'kite://source/';
+export const sourceUrlFor = (url: string): string => `${SOURCE_URL_PREFIX}${encodeURIComponent(url)}`;
+/** The web page a source page shows, or null for any other address. */
+export function sourceTarget(url: string | undefined | null): string | null {
+  if (!url || !url.startsWith(SOURCE_URL_PREFIX)) return null;
+  try {
+    const t = decodeURIComponent(url.slice(SOURCE_URL_PREFIX.length));
+    return /^https?:\/\//i.test(t) ? t : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Short display form of a URL for the sidebar/URL bar. */
 export function displayUrl(url: string): string {
   try {
+    const src = sourceTarget(url);
+    if (src) return `view-source:${displayUrl(src)}`;
     const u = new URL(url);
     if (u.protocol === 'kite:') return url;
     const path = u.pathname === '/' ? '' : u.pathname;

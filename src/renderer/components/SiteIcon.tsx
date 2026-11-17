@@ -1,6 +1,6 @@
-import { Search } from 'lucide-react';
+import { Code2, Search } from 'lucide-react';
 import { useState } from 'react';
-import { siteLetter, hostOf, isNewTabUrl } from '@shared/url';
+import { siteLetter, hostOf, isNewTabUrl, sourceTarget } from '@shared/url';
 
 /** A page's favicon, or a colored letter tile when there isn't one. */
 export function SiteIcon({ url, favicon, title, size = 16 }: { url: string; favicon?: string; title?: string; size?: number }) {
@@ -10,6 +10,13 @@ export function SiteIcon({ url, favicon, title, size = 16 }: { url: string; favi
     return (
       <span className="site-icon newtab" style={{ width: size, height: size }} aria-hidden="true">
         <Search size={Math.round(size * 0.66)} />
+      </span>
+    );
+  }
+  if (sourceTarget(url)) {
+    return (
+      <span className="site-icon newtab" style={{ width: size, height: size }} aria-hidden="true">
+        <Code2 size={Math.round(size * 0.7)} />
       </span>
     );
   }

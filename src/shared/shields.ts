@@ -412,8 +412,12 @@ export const SECURITY_TEXT: Record<SecurityLevel, { title: string; detail: strin
 };
 
 /** Readable reason for a page that failed to load (Chromium error codes). */
+/** Not a Chromium code: the page's process stopped (crash, out of memory, killed). */
+export const PAGE_GONE = -1000;
+
 export function loadErrorText(code: number, desc: string): { title: string; detail: string; cert: boolean } {
   const cert = code <= -200 && code >= -299;
+  if (code === PAGE_GONE) return { title: 'This page stopped working', detail: desc === 'oom' ? 'It ran out of memory. Your other tabs are fine.' : 'Something in the page crashed. Your other tabs are fine.', cert };
   if (cert) return { title: 'This connection isn’t private', detail: 'The site’s security certificate isn’t valid. Someone could be pretending to be this site, so Kite won’t open it.', cert };
   if (code === -105 || code === -137) return { title: 'Site not found', detail: 'Kite couldn’t find this address. Check it for typos.', cert };
   if (code === -106) return { title: 'You’re offline', detail: 'Connect to the internet and try again.', cert };

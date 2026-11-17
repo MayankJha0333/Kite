@@ -123,7 +123,7 @@ export function toAccelerator(s: string): string | null {
   if (p.ctrl) parts.push('Control');
   if (p.alt) parts.push('Alt');
   if (p.shift) parts.push('Shift');
-  const named: Record<string, string> = { arrowleft: 'Left', arrowright: 'Right', arrowup: 'Up', arrowdown: 'Down', ' ': 'Space', escape: 'Escape', '=': '=', '-': '-' };
+  const named: Record<string, string> = { arrowleft: 'Left', arrowright: 'Right', arrowup: 'Up', arrowdown: 'Down', ' ': 'Space', escape: 'Escape', tab: 'Tab', enter: 'Return', backspace: 'Backspace', delete: 'Delete', '=': '=', '-': '-' };
   parts.push(named[p.key] ?? p.key.toUpperCase());
   return parts.join('+');
 }

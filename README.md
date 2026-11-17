@@ -18,6 +18,8 @@ npm install        # once — downloads Electron for your Mac
 npm run dev        # run with live reload while you change code
 npm start          # build and run the real app
 npm run dist       # make Kite.dmg + Kite.zip in release/ (Apple Silicon and Intel)
+npm run dist:linux # AppImage + .deb (x64 and arm64)
+npm run dist:win   # Windows installer (x64 and arm64); best built on Windows
 ```
 
 The `.dmg` is not signed with an Apple Developer ID, so the first time you open it:
@@ -43,6 +45,8 @@ cookies or history.
 | **Folders** | Nested, drag and drop, collapse/expand all, ungroup; deleting moves contents to the Archive (with Undo) |
 | **Auto-archive** | Unused Today tabs move to the Archive after 1h…30 days (default 12h) or never; per-Space override; pinned and Favorites never touched |
 | **Archive** | Grouped by day, search, restore (notes keep their text), delete, clear |
+| **History** | ⌘⇧H: every page you visited, grouped by day; search, reopen (⌘-click for the background), forget one, clear the last hour / today / week / all (with Undo) |
+| **Pages** | Find in page with match counts (⌘F), zoom with a level badge in the address bar (⌘+ / ⌘− / ⌘0), print (⌘P), Save Page As… (⌘⇧S), View Page Source, developer tools for a page; a page whose process dies says so and offers Try again |
 | **Spaces** | Name, emoji, two colours, light/dark/auto, colour strength, grain; ⌃1…⌃9, ⌘⌥←/→, two-finger swipe; drop tabs on a Space icon to move them |
 | **Command bar** | ⌘T: fuzzy search over open tabs (switch instead of duplicating), notes, history, 25 actions and Spaces |
 | **Split View** | 2–4 pages side by side or stacked, resizable; ⌘⇧=, drag a tab onto the page, or from a link's menu |
@@ -53,10 +57,16 @@ cookies or history.
 | **Video pop-out** | Switch tabs or apps while a video plays and it floats in a window you can drag and resize anywhere — on top of every app, even full-screen ones; come back and it returns to the page. Its controls: Close and Minimize top-left, Back to tab, play/pause, ±10 s and a seek slider you can drag back; drag the video to move it, drag an edge or corner to resize. Minimize turns it into a mini player (sound keeps playing) with its own slider. Speaker icon on playing tabs (click to mute); ⌘⇧P by hand; switches in Settings |
 | **Notes** | Rich text in the sidebar: headings, lists, to-dos, quotes, code, links; Markdown export |
 | **Customise** | Sidebar side, spacing, 4 fonts, text size, sidebar width, corners, page margin, favorites per row, reduce motion, your own CSS for Kite, every shortcut re-recordable |
-| **Your data** | One JSON file, saved safely (flushed, atomic, last-save backup + 7 daily copies); back up / restore |
+| **Shields** | Ad and tracker blocking (EasyList, EasyPrivacy and more, downloaded and built off the main thread), cookie-banner and annoyance lists, your own rules and lists, per-site exceptions, tracking-parameter removal, referrer and search-query hiding, WebRTC leak protection, third-party cookie lifetimes, Global Privacy Control |
+| **Downloads** | Progress, pause/resume, cancel, open and reveal; images saved converted; videos (plain files and unprotected HLS streams) saved in the quality you pick; programs always ask first |
+| **Extensions** | Chrome extensions from the Web Store, a .crx/.zip or an unpacked folder; what each one can do is shown before it's added; on/off, remove, popup and options pages |
+| **Site controls** | The address bar's site popover: connection security, what Shields blocked (by host), remembered permissions, erase this site's cookies and data |
+| **Your data** | One JSON file, saved safely (flushed, atomic, last-save backup + 7 daily copies); back up / restore; crashes and unexpected errors go to `kite-errors.log` in the data folder (Help → Show Error Log) |
 
 **Left out on purpose:** accounts and sync, AI features, Easels, Live Folders,
-browser profiles, extensions.
+passwords and autofill (use your system's password manager), private windows (use a
+Space with separate logins), auto-updates (Kite never phones home; new versions are
+plain downloads). See [LAUNCH.md](LAUNCH.md) for the full list of known limitations.
 
 ### Privacy and safety
 
@@ -80,7 +90,12 @@ browser profiles, extensions.
 | ⌘Y | Archive | ⌘, | Settings |
 | ⌘1…⌘9 | Go to tab | ⌃1…⌃9 | Go to Space |
 | ⌘⌥→ / ← | Next / previous Space | ⌘F | Find in page |
-| ⌘⇧P | Pop out / bring back video | | |
+| ⌘⇧P | Pop out / bring back video | ⌘⇧H | History |
+| ⌘+ / ⌘− / ⌘0 | Zoom in / out / actual size | ⌘P | Print |
+| ⌘⇧S | Save page as… | ⌘⇧J | Downloads |
+| ⌘⇧R | Force refresh (ignore cache) | | |
+
+Every shortcut also appears in the menu bar beside its command.
 
 ---
 
@@ -126,6 +141,10 @@ To stop anything untested reaching `main`: GitHub → Settings → Branches → 
 
 The UI tests run the app in a normal browser with simulated web pages that execute
 the **same** injected scripts as the real app (link catcher, Boosts, zap picker).
+
+If the Electron tests fail at once with *Process failed to launch*, your terminal has
+`ELECTRON_RUN_AS_NODE=1` set (VS Code's integrated terminal does this): run them with
+`env -u ELECTRON_RUN_AS_NODE npm run test:electron`.
 
 ---
 

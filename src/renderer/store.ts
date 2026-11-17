@@ -8,7 +8,7 @@ import type { AppState, ID } from '@shared/types';
 import { bridge } from './platform';
 import { keepAwake } from '@shared/sleep';
 
-export type Panel = 'settings' | 'archive' | 'boosts' | 'boost' | 'routing' | 'import' | 'space' | 'shortcuts' | 'downloads' | 'extensions' | null;
+export type Panel = 'settings' | 'archive' | 'history' | 'boosts' | 'boost' | 'routing' | 'import' | 'space' | 'shortcuts' | 'downloads' | 'extensions' | null;
 
 export interface Toast {
   id: number;
@@ -36,6 +36,8 @@ export interface UiState {
   peek: null | { url: string; sourceTabId: string | null; title?: string };
   panel: Panel;
   panelArg?: string;
+  /** A panel that was just closed, kept on screen while its exit animation plays. */
+  leaving: null | { panel: Panel; panelArg?: string };
   toasts: Toast[];
   /** Tabs whose page is kept alive, most recent last. */
   loaded: ID[];
@@ -51,6 +53,10 @@ export interface UiState {
   menu: null | { x: number; y: number; items: ContextMenuItem[] };
   sidebarPeek: boolean; // hidden sidebar temporarily shown by hovering the edge
   findOpen: boolean;
+  /** Matches for the find bar's text on the visible page (null until the page answers). */
+  findResult: null | { active: number; total: number };
+  /** Zoom per tab, as a percentage (100 = normal). Missing = 100. */
+  zoom: Record<ID, number>;
   zapping: boolean;
   /** Tabs with a video or sound playing right now. */
   playing: Record<ID, boolean>;
@@ -87,6 +93,7 @@ export const useKite = create<Store>((set, get) => ({
     commandBar: null,
     peek: null,
     panel: null,
+    leaving: null,
     toasts: [],
     loaded: [],
     loading: {},
@@ -98,6 +105,8 @@ export const useKite = create<Store>((set, get) => ({
     menu: null,
     sidebarPeek: false,
     findOpen: false,
+    findResult: null,
+    zoom: {},
     zapping: false,
     playing: {},
     muted: {},
@@ -118,7 +127,12 @@ export const useKite = create<Store>((set, get) => ({
     return out as ReturnType<typeof fn>;
   },
   setUi(patch) {
-    set((st) => ({ ui: { ...st.ui, ...(typeof patch === 'function' ? patch(st.ui) : patch) } }));
+    set((st) => {
+      const p = typeof patch === 'function' ? patch(st.ui) : patch;
+      // Opening a panel ends any exit still playing, so the new one is never mistaken for the old.
+      const leaving = 'panel' in p && p.panel ? null : st.ui.leaving;
+      return { ui: { ...st.ui, leaving, ...p } };
+    });
   },
   load(state) {
     set((st) => ({ s: state, ui: { ...st.ui, ready: true } }));

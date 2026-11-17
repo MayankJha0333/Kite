@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, openApp, newTab, todayRows, savedState, MOD } from './fixtures';
+import { test, expect, openApp, newTab, todayRows, savedState, settled, MOD } from './fixtures';
 
 async function openSettings(page: Page, section?: string) {
   await page.keyboard.press(`${MOD}+Comma`);
@@ -210,8 +210,10 @@ test.describe('settings layout and search', () => {
   test('a section keeps one size: switching sections does not resize the window', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
+    await settled(page, 'settings');
     const a = (await page.getByTestId('settings').boundingBox())!;
     await page.getByTestId('settings-about').click();
+    await settled(page, 'settings');
     const b = (await page.getByTestId('settings').boundingBox())!;
     expect([b.width, b.height]).toEqual([a.width, a.height]);
   });
@@ -235,6 +237,7 @@ test.describe('settings is a page, not a dialog', () => {
     await newTab(page, 'a.com');
     await newTab(page, 'b.com');
     await page.keyboard.press(`${MOD}+Comma`);
+    await settled(page, 'settings');
     const card = (await page.getByTestId('page-card').boundingBox())!;
     const settings = (await page.getByTestId('settings').boundingBox())!;
     expect([settings.x, settings.y, settings.width, settings.height]).toEqual([card.x, card.y, card.width, card.height]);

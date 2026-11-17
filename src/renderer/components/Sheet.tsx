@@ -18,29 +18,45 @@ function useEscToClose(close: () => void) {
   }, [close]);
 }
 
-const closePanel = () => setUi({ panel: null, panelArg: undefined });
+/** How long a panel's exit takes (0 when motion is reduced). */
+function exitMs(): number {
+  const { s } = useKite.getState();
+  const reduce = s.settings.reduceMotion || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  return reduce ? 0 : Math.round(120 / (s.settings.motionSpeed || 1));
+}
 
 /**
- * Close with a short exit animation (faster than the entrance, easing in), then
- * really close. If another panel took its place meanwhile, that one is left alone.
+ * Close with a short exit animation (faster than the entrance, easing in).
+ *
+ * Panels in `ui.panel`: the panel leaves the state at once and is drawn a little
+ * longer as `ui.leaving`, so opening another panel (or the same one again) during
+ * the exit always gets a fresh, fully open panel. Returns whether this panel is
+ * the one leaving.
  */
-function useLeave(close: () => void): [boolean, () => void] {
-  const [leaving, setLeaving] = useState(false);
-  const started = useRef(false);
+function useLeave(close?: () => void): [boolean, () => void] {
+  const ghost = useKite((st) => st.ui.panel === null && st.ui.leaving !== null);
+  const [leavingLocal, setLeavingLocal] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
   const leave = useCallback(() => {
-    if (started.current) return;
-    started.current = true;
-    const { s, ui } = useKite.getState();
-    const reduce = s.settings.reduceMotion || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    const ms = reduce ? 0 : Math.round(120 / (s.settings.motionSpeed || 1));
-    if (!ms) return close();
-    const panel = ui.panel;
-    setLeaving(true);
-    window.setTimeout(() => {
-      if (useKite.getState().ui.panel === panel) close();
-    }, ms);
-  }, [close]);
-  return [leaving, leave];
+    const ms = exitMs();
+    if (close) {
+      // A panel with its own state: play the exit here, then tell it.
+      if (leavingLocal || timer.current) return;
+      if (!ms) return close();
+      setLeavingLocal(true);
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        close();
+      }, ms);
+      return;
+    }
+    const { panel, panelArg } = useKite.getState().ui;
+    if (!panel) return;
+    setUi({ panel: null, panelArg: undefined, leaving: ms ? { panel, panelArg } : null });
+    if (ms) window.setTimeout(() => setUi((u) => (u.leaving && u.leaving.panel === panel && u.leaving.panelArg === panelArg ? { leaving: null } : {})), ms);
+  }, [close, leavingLocal]);
+  return [close ? leavingLocal : ghost, leave];
 }
 
 /**
@@ -48,7 +64,7 @@ function useLeave(close: () => void): [boolean, () => void] {
  * picking any tab goes back to it, and Esc or the close button returns to your page.
  */
 export function Page({ title, children, testId }: { title: string; children: React.ReactNode; testId?: string }) {
-  const [leaving, leave] = useLeave(closePanel);
+  const [leaving, leave] = useLeave();
   useEscToClose(leave);
   return (
     <section className="kite-page" role="region" aria-label={title} data-testid={testId} data-leaving={leaving || undefined}>
@@ -61,7 +77,7 @@ export function Page({ title, children, testId }: { title: string; children: Rea
 }
 
 export function Sheet({ title, subtitle, children, onClose, testId, wide, footer }: { title: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; onClose?: () => void; testId?: string; wide?: boolean; footer?: React.ReactNode }) {
-  const [leaving, close] = useLeave(onClose ?? closePanel);
+  const [leaving, close] = useLeave(onClose);
   useEscToClose(close);
   return (
     <div className="sheet-scrim" data-leaving={leaving || undefined} onMouseDown={(e) => e.target === e.currentTarget && close()}>

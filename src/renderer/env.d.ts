@@ -1,5 +1,10 @@
 import 'react';
 
+declare global {
+  /** Kite's version, from package.json (vite.config.ts). */
+  const __KITE_VERSION__: string;
+}
+
 declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
