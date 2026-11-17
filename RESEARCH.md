@@ -242,3 +242,55 @@ message, not lost data.
 | Swapping the window's class crashes (macOS's change-watching keeps data in the hidden class) | Confirmed | Kite crashed with SIGSEGV on the user's Mac; Ardia saw the same |
 
 **What Kite does:** at startup on macOS it overrides `_isNonactivatingPanel`, `setLevel:` and `setCollectionBehavior:` on `NSWindow` (via koffi). When Chromium sets up a frameless, floating, every-desktop window — the video window — Kite marks it before it is shown: it answers "panel", keeps "every desktop + over full-screen apps", and doesn't bring Kite forward when clicked. Every other window gets the original answers. If this ever crashes Kite, the next launch of that build skips it.
+
+---
+
+## 8. Arc's design system: type, colour, motion (17 Nov 2026)
+
+Arc 1.171.0, `/Applications/Arc.app`. Tools: **REA 6.7.0** over MCP on this Mac
+(`open_binary` → `inspect_asset_catalog`, evidence `ev_291a0473ee9d…`: 48 asset
+catalogs, 2,205 records, 95 colour records → 535 named colours with light/dark
+values), `strings` on `Contents/MacOS/Arc` (976k lines), and the Metal shader
+libraries and Lottie files in the resource bundles. Full colour table:
+`research-evidence/arc-design-colors.txt`.
+
+### 8.1 Type
+
+| Finding | Status | Evidence |
+|---|---|---|
+| Window chrome (sidebar, tabs, menus) uses the **system font** (SF Pro) | 🟡 Likely | [S] `systemFontOfSize:weight:`, `systemFontSizeForControlSize:`; no bundled face is named in sidebar code |
+| A `FontsManager` module ships ~90 font files: ABC Favorit (+Mono, Lining), Söhne / Söhne Breit, Pitch / Pitch Sans, GT Ultra (variable), Marlin Soft SQ, National 2, ABC Oracle, Inter, Nunito, EB Garamond, Space Mono, Inconsolata | ✅ | [R] `ARCClients_FontsManager.bundle` |
+| Those faces are for content features (Boosts' font picker, Notes, Easels, onboarding), not the chrome | 🟡 Likely | [S] `FontsManager/Fonts.swift`, `FontManagerClient.swift`; the names appear beside Boosts/Easel strings |
+| Most of those fonts are **commercial** (Favorit, Söhne, Pitch, GT, Marlin) — not copied. Inter, Nunito, EB Garamond, Space Mono, Inconsolata are open (OFL) | ✅ | font licences |
+
+**Kite:** the Halo style uses the system font; a new **Rounded** font choice (SF Pro Rounded via `ui-rounded`) is available to every style.
+
+### 8.2 Colour
+
+| Finding | Status | Evidence |
+|---|---|---|
+| A 12-step **Gray**, **GrayA** (alpha) and **Indigo** scale, each with light and dark values (Radix-style: 1–2 backgrounds, 3–5 surfaces, 6–8 borders, 9–10 solid, 11–12 text) | ✅ | [REA] `ARCUI_ARCUI` catalog `Gray1…12`, `GrayA1…12`, `Indigo1…12` |
+| Primary button `#3139fb` (hover `#2c33e2`, pressed `#2a30d5`); destructive `#f53714` | ✅ | [REA] `PrimaryButton*`, `DestructiveButton*` |
+| Command bar: text 80% / 33% ink, row hover 5% ink, hairline 10% ink, accessory chip 5% | ✅ | [REA] `ARC_CommandBar` `CommandBarTextPrimaryColor`, `…RowHoverBackgroundColor`, `…HairlineDividerColor` |
+| Sidebar border white 30%; page-over-tab-list border 5% ink; drag hint 20% / 50% ink | ✅ | [REA] app catalog `SidebarBorderColor`, `TabListOverlapBorder`, `DragHint*` |
+| Space colour picker: three rows of nine swatches (Pastel, Drab, Greyscale), Display P3 | ✅ | [REA] `ARC_SpaceStyleEditor` `ColorPicker{Pastel,Drab,Greyscale}1…9` |
+| Space theme = **primary colour as hue/saturation/lightness + second colour as a hue offset**, driven by a colour wheel, plus grain and intensity | ✅ field names | [S] `primaryHueDegrees`, `primarySaturation`, `primaryLightness`, `secondaryHueOffset`, `colorWheelDriven`, `noiseFactor`, `intensityFactor`, `translucencyStyle`, `min/maxContrastColor`, `lightnessRange` |
+| The window background is drawn by a Metal shader: several gradient layers plus a textured overlay | ✅ | [R] `ARC_WindowThemeUI.bundle/default.metallib`: `gradientFragment`, `GradientLayer`, `colorCount`, `layerCount`, `overlayFragment`, `fromOverlayAlpha` |
+
+**Kite:** the scales are CSS variables on every style (`--gray-1…12`, `--gray-a1…12`, `--indigo-1…12`, `src/shared/designTokens.ts`). Halo uses the command-bar and border tokens directly. **Colour wheel** in Settings → Spaces → Background: one hue, a harmony (same / neighbour / triad / opposite = the hue offset), and vividness.
+
+### 8.3 Motion
+
+| Finding | Status | Evidence |
+|---|---|---|
+| Arc has its own `Motion` module with spring animations described by **response + damping ratio** | ✅ names | [S] `Motion/ValueAnimation.swift`, `Motion/NSScreen+AnimationEnvironment.swift`, `dampingRatio`, `transitionSpring`, `springManager` |
+| Sidebar rows **bounce** when clicked; icons have a bounce animator | ✅ names | [S] `SidebarBouncyClickCell.swift`, `iconBounceAnimator` |
+| Page-load indicator is a **glow** shader, not a bar: inputs `progress`, `intensity`, `inset`, `cycleProgress`, `primaryColor`, `secondaryColor` | ✅ | [R] `ARC_GlowProgressLoadingIndicator.bundle/default.metallib` |
+| Other named animations: animated grain, feathered cross-fading labels, flip transitions, window expansion, hover cards | ✅ names | [S] `AnimatedGrainView`, `FeatheredTransitioningLabel`, `FlipTransitionView`, `WindowExpansionAnimator`, `HoverCards/*` |
+| Lottie icon animations run at 60 fps, 1 s (sun/moon/auto, home-button icons), 3 s for the logo wave | ✅ | [R] `SpaceStyleEditor/{sun,moon,automatic}.json`, `HomeButton/*.json`, `ARCUI/logo-wave.json` |
+| Exact spring constants, durations, sidebar widths, corner radii | ⚪ Unknown | Compiled into the 167 MB binary as float literals; recovering them needs a full decompile (not done) |
+
+**Kite:** springs are computed from response + damping (`springAt`, `springDuration`) and drawn as CSS `linear()` curves (`springEasing`). Our constants: default 0.38 s / 0.86, press 0.30 s / 0.58, pop 0.32 s / 0.70 — **our choice**, not Arc's. A **Springy** motion feel uses them in every style; rows and favourites spring back after a press. Halo replaces the load bar with a **glow ring** that sweeps the Space's two colours round the page edge and breathes.
+
+### 8.4 Not copied, on purpose
+Arc's fonts, icons (`icomoon.ttf`, `ionicons.ttf`), Lottie art, videos (`orb.mp4`, `background.mp4`), sounds (`event.m4a`, `capture.wav`), shader code and name. Only measurements and structure are used.

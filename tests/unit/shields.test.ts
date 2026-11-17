@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { FiltersEngine, Request } from '@ghostery/adblocker';
 import {
-  BUILTIN_FILTERS, defaultShields, httpsUpgrade, isAllowedSite, isLocalHost, loadErrorText, sanitizeShields, securityLevel, setSiteAllowed, shieldLists, shieldsActive, shieldsKey, siteKey,
+  BUILTIN_FILTERS, BUILTIN_PARAMS, FILTER_LISTS, capCookie, defaultShields, httpsUpgrade, isAllowedSite, isLocalHost, isParamRule, languageCodes, listSources, listUrl, loadErrorText, ruleLines, sanitizeShields,
+  searchReferrer, securityLevel, setSiteAllowed, shieldsActive, siteKey,
 } from '../../src/shared/shields';
+import { build } from '../../src/main/shieldsWorker';
+import { listTitle, notAList } from '../../src/main/filterLists';
 import { loadState } from '../../src/shared/persistence';
 import { createInitialState } from '../../src/shared/defaults';
 import { updateSettings } from '../../src/shared/settings';
@@ -27,24 +30,72 @@ describe('shields: sites and exceptions', () => {
     expect(setSiteAllowed(sh, 'example.com', false).allow).toEqual([]);
   });
 
-  it('is inactive when switched off or when nothing is chosen', () => {
+  it('is inactive when switched off', () => {
     expect(shieldsActive({ ...defaultShields(), enabled: false }, 'https://a.com')).toBe(false);
-    expect(shieldsActive({ ...defaultShields(), ads: false, trackers: false }, 'https://a.com')).toBe(false);
+    expect(shieldsActive(defaultShields(), 'https://a.com')).toBe(true);
+  });
+
+  it('inverted: blocks only on listed sites; the per-site switch edits that list', () => {
+    let sh = { ...defaultShields(), invert: true, only: ['news.com'] };
+    expect(shieldsActive(sh, 'https://www.news.com/a')).toBe(true);
+    expect(shieldsActive(sh, 'https://m.news.com/')).toBe(true);
+    expect(shieldsActive(sh, 'https://other.org/')).toBe(false);
+    sh = setSiteAllowed(sh, 'https://other.org/', false); // turn blocking ON for other.org
+    expect(sh.only).toEqual(['news.com', 'other.org']);
+    sh = setSiteAllowed(sh, 'https://m.news.com/', true); // OFF for a subdomain removes the parent entry
+    expect(sh.only).toEqual(['other.org']);
+    expect(sh.allow).toEqual([]);
   });
 
   it('cleans up saved values', () => {
-    const sh = sanitizeShields({ enabled: 'yes', ads: false, allow: ['HTTPS://WWW.A.com/x', 'a.com', 42, '<script>'] });
+    const sh = sanitizeShields({ enabled: 'yes', lists: ['easylist', 'nope', 'adguard-url-tracking', 'easylist'], allow: ['HTTPS://WWW.A.com/x', 'a.com', 42, '<script>'], cookieMinutes: 7, updateHours: 6, userRules: 5, custom: [{ url: 'javascript:alert(1)' }, { url: 'https://x.org/l.txt', name: '  ' }, { url: 'https://x.org/l.txt' }] });
     expect(sh.enabled).toBe(true);
-    expect(sh.ads).toBe(false);
+    expect(sh.lists).toEqual(['easylist']); // unknown and hidden lists are dropped, duplicates merged
     expect(sh.allow).toEqual(['a.com']);
+    expect(sh.cookieMinutes).toBe(0);
+    expect(sh.updateHours).toBe(6);
+    expect(sh.userRules).toBe('');
+    expect(sh.custom).toHaveLength(1);
+    expect(sh.custom[0]).toMatchObject({ url: 'https://x.org/l.txt', name: 'x.org', on: true });
+    expect(sh.custom[0].id).toMatch(/^c-/);
     expect(sanitizeShields(null)).toEqual(defaultShields());
   });
 
-  it('picks lists by choice and names the combination', () => {
-    expect(shieldLists(defaultShields())).toHaveLength(2);
-    expect(shieldLists({ ...defaultShields(), cookieBanners: true })).toHaveLength(3);
-    expect(shieldsKey(defaultShields())).toBe('at');
-    expect(shieldsKey({ ...defaultShields(), ads: false, trackers: false })).toBe('none');
+  it('settings saved by an older Kite keep their choices', () => {
+    const noAds = sanitizeShields({ enabled: true, ads: false, trackers: true, cookieBanners: true, cosmetic: true, allow: [] });
+    expect(noAds.lists).not.toContain('adguard-base');
+    expect(noAds.lists).toContain('easyprivacy');
+    expect(noAds.lists).toContain('adguard-cookies');
+    const noTrackers = sanitizeShields({ enabled: true, ads: true, trackers: false });
+    expect(noTrackers.lists).toContain('adguard-base');
+    expect(noTrackers.lists).not.toContain('easyprivacy');
+  });
+
+  it('picks lists: yours, your languages, and those other settings need', () => {
+    const d = defaultShields();
+    const ids = (sh = d, langs: string[] = []) => listSources(sh, langs).map((x) => x.id);
+    expect(ids()).toEqual(expect.arrayContaining(['adguard-base', 'ubo', 'easyprivacy', 'ubo-badware', 'adguard-url-tracking']));
+    expect(ids()).not.toContain('adguard-search-ads');
+    expect(ids({ ...d, searchAds: false })).toContain('adguard-search-ads');
+    expect(ids({ ...d, stripParams: false })).not.toContain('adguard-url-tracking');
+    expect(ids(d, ['de', 'en'])).toContain('adguard-de');
+    expect(ids({ ...d, autoLanguage: false }, ['de'])).not.toContain('adguard-de');
+    expect(ids({ ...d, custom: [{ id: 'c-1', url: 'https://x.org/a.txt', name: 'X', on: true }, { id: 'c-2', url: 'https://y.org/a.txt', name: 'Y', on: false }] }).slice(-1)).toEqual(['c-1']);
+    // Every built-in list has a unique id and an https address.
+    expect(new Set(FILTER_LISTS.map((l) => l.id)).size).toBe(FILTER_LISTS.length);
+    for (const l of FILTER_LISTS) expect(l.url).toMatch(/^https:\/\//);
+  });
+
+  it('reads languages, list addresses and rule lines', () => {
+    expect(languageCodes(['en-GB', 'de_DE', 'pt-BR', 'en', 'zh-Hans-CN', 'x'])).toEqual(['en', 'de', 'pt', 'zh']);
+    expect(listUrl(' https://a.org/list.txt ')).toBe('https://a.org/list.txt');
+    expect(listUrl('file:///etc/passwd')).toBe('');
+    expect(listUrl('https://user:pw@a.org/l.txt')).toBe('');
+    expect(ruleLines('! comment\r\n[Adblock Plus 2.0]\n\n||a.com^\r\n# just a note\nexample.com##.ad\n  ')).toEqual(['||a.com^', 'example.com##.ad']);
+    expect(isParamRule('$removeparam=utm_source')).toBe(true);
+    expect(isParamRule('||a.com^$script,removeparam=x')).toBe(true);
+    expect(isParamRule('@@||a.com^$removeparam')).toBe(true);
+    expect(isParamRule('||removeparam.com^')).toBe(false);
   });
 
   it('old saved data gets Shields; settings changes are sanitised', () => {
@@ -129,5 +180,70 @@ describe('what the address bar says', () => {
     expect(loadErrorText(-106, '').title).toBe('You’re offline');
     expect(loadErrorText(-999, 'ERR_WEIRD').detail).toContain('ERR_WEIRD');
     expect(loadErrorText(-105, '').cert).toBe(false);
+  });
+});
+
+describe('tracking protection helpers', () => {
+  it('caps cookie lifetimes, leaving session and short cookies alone', () => {
+    expect(capCookie('id=1; Path=/; Max-Age=31536000; Secure', 3600)).toBe('id=1; Path=/; Secure; Max-Age=3600');
+    expect(capCookie('id=1; Expires=Wed, 01 Jan 2099 00:00:00 GMT; HttpOnly', 60)).toBe('id=1; HttpOnly; Max-Age=60');
+    expect(capCookie('id=1; Max-Age=30', 3600)).toBe('id=1; Max-Age=30');
+    expect(capCookie('session=1; Path=/', 60)).toBe('session=1; Path=/');
+    expect(capCookie('id=1; Max-Age=99999', 0)).toBe('id=1; Max-Age=99999');
+  });
+
+  it('hides search queries from the sites you open', () => {
+    expect(searchReferrer('https://www.google.com/search?q=secret')).toBe('https://www.google.com/');
+    expect(searchReferrer('https://duckduckgo.com/?q=secret')).toBe('https://duckduckgo.com/');
+    expect(searchReferrer('https://www.google.com/')).toBeNull();
+    expect(searchReferrer('https://news.example.com/?q=1')).toBeNull();
+    expect(searchReferrer('not a url')).toBeNull();
+  });
+});
+
+describe('filter engine build (the worker)', () => {
+  const req = (url: string, sourceUrl: string, type: string) => Request.fromRawDetails({ url, sourceUrl, type: type as never });
+  const crlf = (lines: string[]) => lines.join('\r\n');
+  const list = crlf(['[Adblock Plus 2.0]', '! Title: Test list', '||ads.example^', '##.ad-slot', 'news.test##+js(set-constant, adsAllowed, true)', '$removeparam=fbclid', '$removeparam=gclid', '$removeparam=pjclid', '||shop.test^$removeparam=ref']);
+
+  it('builds from CRLF lists: blocks, hides, strips parameters, and counts rules', () => {
+    const r = build({ id: 1, lists: [{ id: 'builtin', text: `${BUILTIN_FILTERS}\n${BUILTIN_PARAMS}` }, { id: 't', text: list }], userRules: '', resources: null });
+    expect(r.error).toBeUndefined();
+    expect(r.counts.t).toBe(7);
+    const engine = FiltersEngine.deserialize(r.engine);
+    const params = FiltersEngine.deserialize(r.params);
+    expect(engine.match(req('https://ads.example/x.js', 'https://site.test/', 'script')).match).toBe(true);
+    expect(engine.getCosmeticsFilters({ url: 'https://site.test/', hostname: 'site.test', domain: 'site.test', classes: ['ad-slot'] }).styles).toContain('.ad-slot');
+    // Several generic $removeparam rules together all apply (they need the unoptimized engine).
+    expect(params.match(req('https://a.test/p?fbclid=1&gclid=2&utm_source=x&id=3', 'https://a.test/p', 'main_frame')).rewrite?.url).toBe('https://a.test/p?id=3');
+    expect(params.match(req('https://shop.test/i?ref=abc&q=1', 'https://shop.test/', 'main_frame')).rewrite?.url).toBe('https://shop.test/i?q=1');
+    expect(params.match(req('https://other.test/i?ref=abc', 'https://other.test/', 'main_frame')).rewrite).toBeUndefined();
+  });
+
+  it('your rules: block, unblock (beating the lists), hide; unreadable lines are reported', () => {
+    const r = build({ id: 2, lists: [{ id: 't', text: list }], userRules: '||mine.test^\n@@||ads.example^$domain=friend.test\nfriend.test##.promo\n||bad^$unknownoption\n! a comment', resources: null });
+    expect(r.userCount).toBe(3);
+    expect(r.invalid).toEqual(['||bad^$unknownoption']);
+    const engine = FiltersEngine.deserialize(r.engine);
+    expect(engine.match(req('https://mine.test/a.js', 'https://site.test/', 'script')).match).toBe(true);
+    expect(engine.match(req('https://ads.example/x.js', 'https://friend.test/', 'script')).match).toBe(false);
+    expect(engine.match(req('https://ads.example/x.js', 'https://site.test/', 'script')).match).toBe(true);
+    expect(engine.getCosmeticsFilters({ url: 'https://friend.test/', hostname: 'friend.test', domain: 'friend.test' }).styles).toContain('.promo');
+  });
+
+  it('runs page-fix scripts when the resource library is loaded', () => {
+    const resources = JSON.stringify({ scriptlets: [{ name: 'set-constant.js', aliases: ['set-constant'], body: 'function setConstant(a, b) { window[a] = b; }', dependencies: [], executionWorld: 'MAIN', requiresTrust: false }], redirects: [] });
+    const r = build({ id: 3, lists: [{ id: 't', text: list }], userRules: '', resources });
+    const engine = FiltersEngine.deserialize(r.engine);
+    const { scripts } = engine.getCosmeticsFilters({ url: 'https://news.test/', hostname: 'news.test', domain: 'news.test', getInjectionRules: true });
+    expect(scripts.join('\n')).toContain('adsAllowed');
+  });
+
+  it('knows a filter list from a web page', () => {
+    expect(notAList('<!DOCTYPE html><html>…', 'text/html; charset=utf-8')).toMatch(/web page/);
+    expect(notAList('  <html><body>', 'text/plain')).toMatch(/web page/);
+    expect(notAList('', 'text/plain')).toMatch(/empty/);
+    expect(notAList('! Title: X\n||a^', 'text/plain')).toBeNull();
+    expect(listTitle('[Adblock Plus 2.0]\n! Title: AdGuard Base filter + EasyList\n')).toBe('AdGuard Base filter + EasyList');
   });
 });

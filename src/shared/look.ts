@@ -1,4 +1,5 @@
-import type { AppState, Settings, SpaceTheme, ThemeMode } from './types';
+import type { AppState, FontChoice, Settings, SpaceTheme, ThemeMode } from './types';
+import { SPRINGS, springDuration, springEasing } from './designTokens';
 import { sanitizeGradient, sanitizeImage, sanitizeMotion } from './background';
 
 // Kite's design system: visual styles ("looks") and curated colour palettes.
@@ -10,11 +11,11 @@ import { sanitizeGradient, sanitizeImage, sanitizeMotion } from './background';
 //
 // Everything here is pure and tested; the renderer turns it into CSS variables.
 
-export type StyleId = 'calm' | 'glass' | 'paper' | 'mono' | 'studio';
+export type StyleId = 'calm' | 'glass' | 'paper' | 'mono' | 'studio' | 'halo';
 export type Backdrop = 'tint' | 'gradient' | 'mesh' | 'solid';
 export type ContrastLevel = 'standard' | 'high';
 /** How the selected tab is drawn. */
-export type ActiveRow = 'lift' | 'glass' | 'bar' | 'soft' | 'glow';
+export type ActiveRow = 'lift' | 'glass' | 'bar' | 'soft' | 'glow' | 'pill';
 
 export interface Look {
   style: StyleId;
@@ -50,7 +51,7 @@ export interface StyleDef {
   dark: Tone;
   activeRow: ActiveRow;
   /** Defaults applied when you pick the style (you can fine-tune after). */
-  defaults: { backdrop: Backdrop; border: number; shadow: number; translucency: number; radius: number; gap: number; density: 'compact' | 'comfortable' | 'roomy'; font: 'figtree' | 'bricolage' | 'inter' | 'system' | 'mono' };
+  defaults: { backdrop: Backdrop; border: number; shadow: number; translucency: number; radius: number; gap: number; density: 'compact' | 'comfortable' | 'roomy'; font: FontChoice };
   /** Motion feel: easing used for most transitions, and a base duration (ms). */
   motion: { ease: string; ms: number };
 }
@@ -110,6 +111,19 @@ export const STYLES: readonly StyleDef[] = [
     activeRow: 'glow',
     defaults: { backdrop: 'mesh', border: 0.4, shadow: 0.85, translucency: 0.35, radius: 14, gap: 8, density: 'comfortable', font: 'inter' },
     motion: { ease: 'cubic-bezier(0.34, 1.18, 0.64, 1)', ms: 260 },
+  },
+  {
+    // Measured from Arc (RESEARCH.md §8): the Space colour fills the whole frame,
+    // the selected tab is a crisp white pill, system type, spring motion.
+    id: 'halo',
+    name: 'Halo',
+    tagline: 'Vivid colour frame, a crisp white pill for the open tab.',
+    mood: 'Bold and playful',
+    light: { base: '#f3f3f3', card: '#ffffff', ink: '#171717', tint: [0.32, 0.86] },
+    dark: { base: '#161616', card: '#1c1c1c', ink: '#ededed', tint: [0.2, 0.52] },
+    activeRow: 'pill',
+    defaults: { backdrop: 'gradient', border: 0.3, shadow: 0.45, translucency: 0, radius: 10, gap: 8, density: 'comfortable', font: 'system' },
+    motion: { ease: springEasing(SPRINGS.default), ms: springDuration(SPRINGS.default) },
   },
 ];
 
@@ -208,6 +222,9 @@ export function sanitizeTheme(t: Partial<SpaceTheme> | undefined, fallback: Spac
   };
 }
 
+/** Every font Kite's own text can use. */
+export const FONT_CHOICES: readonly FontChoice[] = ['figtree', 'bricolage', 'inter', 'system', 'rounded', 'mono'];
+
 const pick = <K extends string, V>(k: K, v: V | undefined) => (v === undefined ? {} : ({ [k]: v } as Record<K, V>));
 
 /** Make a previewed look permanent: settings, plus colours/mode for this Space or all Spaces. */
@@ -218,7 +235,7 @@ export function applyLookDraft(s: AppState, draft: LookDraft, spaceId: string): 
     if (typeof st.radius === 'number') s.settings.radius = Math.round(Math.max(0, Math.min(24, st.radius)));
     if (typeof st.gap === 'number') s.settings.gap = Math.round(Math.max(0, Math.min(20, st.gap)));
     if (st.density && ['compact', 'comfortable', 'roomy'].includes(st.density)) s.settings.density = st.density;
-    if (st.font && ['figtree', 'bricolage', 'inter', 'system', 'mono'].includes(st.font)) s.settings.font = st.font;
+    if (st.font && FONT_CHOICES.includes(st.font)) s.settings.font = st.font;
   }
   if (draft.theme) {
     for (const sp of s.spaces) {
@@ -266,7 +283,7 @@ export function decodeTheme(code: string, fallbackTheme: SpaceTheme): SharedThem
       radius: num(o.radius, 0, 24, d.radius),
       gap: num(o.gap, 0, 20, d.gap),
       density: ['compact', 'comfortable', 'roomy'].includes(o.density as string) ? (o.density as Settings['density']) : d.density,
-      font: ['figtree', 'bricolage', 'inter', 'system', 'mono'].includes(o.font as string) ? (o.font as Settings['font']) : d.font,
+      font: FONT_CHOICES.includes(o.font as FontChoice) ? (o.font as Settings['font']) : d.font,
     };
   } catch {
     return null;
@@ -305,6 +322,10 @@ export const THEMES: readonly ThemePreset[] = [
   // Clear glass over a cool field, like the newest system look, but kept readable.
   { id: 'tahoe', name: 'Tahoe', note: 'Clear glass, cool blue', style: 'glass', colors: ['#d7e3f4', '#3d6fe0'], intensity: 0.45, grain: false, look: { backdrop: 'gradient', translucency: 0.55 } },
   { id: 'dusk', name: 'Dusk', note: 'Soft periwinkle evening', style: 'calm', colors: ['#d8d3fa', '#5b4fd6'], intensity: 0.5, grain: true },
+  // Halo: colours from the measured indigo scale and the peach-to-blue pair.
+  { id: 'halo-indigo', name: 'Indigo', note: 'Electric blue frame', style: 'halo', colors: ['#c8cafa', '#3138f9'], intensity: 0.6, grain: true },
+  { id: 'halo-peach', name: 'Peach', note: 'Peach into blue', style: 'halo', colors: ['#ff9999', '#0047ff'], intensity: 0.5, grain: true },
+  { id: 'halo-sage', name: 'Sage', note: 'Muted green, soft', style: 'halo', colors: ['#e4fcec', '#34604b'], intensity: 0.55, grain: true },
 ];
 
 /** The theme a new copy of Kite starts with. */

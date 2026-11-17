@@ -4484,7 +4484,13 @@ html.pip-frame-doc #root {
 .set-link,
 .look-style,
 .look-palette {
-  transition: transform var(--t-fast) var(--ease-out), background var(--t-fast), box-shadow calc(0.15s * var(--speed, 1)), color var(--t-fast), opacity var(--t-fast), filter var(--t-fast);
+  transition: transform var(--press-dur, 160ms) var(--press-ease, var(--ease-out)), background var(--t-fast), box-shadow calc(0.15s * var(--speed, 1)), color var(--t-fast), opacity var(--t-fast), filter var(--t-fast);
+}
+
+/* Tabs and favourites settle back on a spring once released (theme.ts → --press-ease). */
+.row,
+.fav {
+  transition: background calc(0.12s * var(--speed, 1)), box-shadow calc(0.12s * var(--speed, 1)), transform var(--press-dur, 160ms) var(--press-ease, var(--ease-out));
 }
 
 .btn:active,
@@ -4493,6 +4499,9 @@ html.pip-frame-doc #root {
 .row:active:not([data-dragging]),
 .fav:active {
   transform: scale(0.97);
+  /* Going in is quick; only the release springs. */
+  transition-duration: calc(70ms * var(--speed, 1));
+  transition-timing-function: var(--ease-out);
 }
 
 .toggle {
@@ -6362,4 +6371,383 @@ button.dl-name:not(:disabled):hover {
 .start[data-tone='dark'] .start-foot {
   color: var(--ink-2);
   text-shadow: none;
+}
+
+/* ---- Halo style (see shared/look.ts and RESEARCH.md §8) ------------------------
+   Measured from Arc: the Space colour fills the frame; the open tab is a crisp
+   white pill; system type; neutral greys from a 12-step scale (--gray-*, set in
+   theme.ts); hairline borders at 5% ink; spring motion; and a glowing ring
+   around the page while it loads instead of a progress bar. */
+
+.app[data-style='halo'] .space-name {
+  font-family: var(--font);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.app[data-style='halo'] .row {
+  border-radius: 8px;
+}
+
+.app[data-style='halo'] .row[data-active] {
+  font-weight: 550;
+}
+
+.app[data-style='halo'] .row:active:not([data-dragging]) {
+  transform: scale(0.96);
+}
+
+.app[data-style='halo'] .fav[data-active] {
+  box-shadow: var(--active-shadow);
+}
+
+.app[data-style='halo'] .card {
+  /* Hairline where the page meets the frame (5% ink), then the style's depth. */
+  box-shadow: 0 0 0 0.5px var(--gray-a5), var(--shadow);
+}
+
+.app[data-style='halo'] .url-pill {
+  background: var(--gray-a3);
+}
+
+/* Command bar: solid card, 5% hover rows, 10% hairline under the input. */
+.app[data-style='halo'] .cb {
+  border-radius: 14px;
+  background: var(--card);
+  backdrop-filter: none;
+  box-shadow: 0 0 0 0.5px var(--gray-a6), 0 18px 48px -8px rgba(0, 0, 0, 0.28), 0 40px 100px rgba(0, 0, 0, 0.16);
+  animation: halo-pop var(--dur, 360ms) var(--ease);
+}
+
+.app[data-style='halo'] .cb-input-row {
+  box-shadow: 0 1px 0 var(--gray-a5);
+}
+
+.app[data-style='halo'] .cb-row {
+  border-radius: 8px;
+}
+
+.app[data-style='halo'] .cb-row:hover:not([data-on]) {
+  background: var(--gray-a3);
+}
+
+.app[data-style='halo'] .cb-row-icon {
+  background: var(--gray-a3);
+}
+
+.app[data-style='halo'] .menu {
+  border-radius: 10px;
+}
+
+@keyframes halo-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+
+/* ---- loading glow ----------------------------------------------------------------
+   A ring of the Space's two colours chases round the page edge while it loads,
+   with a soft inner glow that breathes. Shown by Halo in place of the bar. */
+
+@property --glow-turn {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.load-glow {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity calc(0.5s * var(--speed, 1)) var(--ease-in);
+}
+
+.app[data-style='halo'] .load-bar {
+  display: none;
+}
+
+.app[data-style='halo'] .load-glow {
+  display: block;
+}
+
+.load-glow[data-on] {
+  opacity: 1;
+  transition: opacity calc(0.18s * var(--speed, 1)) var(--ease-out);
+}
+
+.load-glow::before,
+.load-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* The ring: a rotating two-colour sweep, cut down to a 2px band. */
+.load-glow::before {
+  padding: 2px;
+  background: conic-gradient(from var(--glow-turn), var(--tint-2), var(--tint-1) 25%, var(--tint-2) 50%, var(--tint-1) 75%, var(--tint-2));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: glow-turn calc(2.4s * var(--speed, 1)) linear infinite;
+}
+
+/* The inner glow. */
+.load-glow::after {
+  box-shadow: inset 0 0 18px 1px color-mix(in srgb, var(--tint-2) 55%, transparent), inset 0 0 4px color-mix(in srgb, var(--tint-1) 60%, transparent);
+  animation: glow-breathe calc(1.6s * var(--speed, 1)) ease-in-out infinite alternate;
+}
+
+.load-glow:not([data-on])::before,
+.load-glow:not([data-on])::after {
+  animation-play-state: paused;
+}
+
+@keyframes glow-turn {
+  to {
+    --glow-turn: 360deg;
+  }
+}
+
+@keyframes glow-breathe {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- colour wheel (Settings → Spaces → Background) ---- */
+
+.wheel {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.wheel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wheel-vivid {
+  flex: 1;
+  min-width: 120px;
+}
+
+.range.wheel-hue {
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b6b, #ffb36b, #ffe66b, #8fe36b, #6be3c4, #6bb5ff, #8a6bff, #e36bff, #ff6b9e, #ff6b6b);
+  box-shadow: inset 0 0 0 1px var(--gray-a5);
+}
+
+.range.wheel-hue {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 4px 0;
+}
+
+.range.wheel-hue::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--wheel-thumb, #fff);
+  box-shadow: 0 0 0 3px #fff, 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform var(--press-dur, 160ms) var(--press-ease, ease-out);
+}
+
+.range.wheel-hue:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.wheel-label {
+  margin-left: 4px;
+  color: var(--ink-3);
+  font-size: calc(12px * var(--scale));
+}
+
+/* ---- Settings → Ad blocking (AdBlock.tsx) ---- */
+
+.adb-stat b {
+  font-size: calc(18px * var(--scale));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  margin-right: 4px;
+}
+
+.adb-search {
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 48px;
+}
+
+.adb-search .input {
+  flex: 1;
+}
+
+.adb-group + .adb-group,
+.adb-search + .adb-group {
+  border-top: 1px solid var(--line);
+}
+
+.adb-group[data-off] {
+  opacity: 0.55;
+}
+
+.adb-group-head {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.adb-group-head:hover {
+  background: var(--hover);
+}
+
+.adb-chev {
+  flex: none;
+  color: var(--ink-3);
+  transition: transform calc(var(--dur, 220ms) * 0.8) var(--ease-out);
+}
+
+[aria-expanded='true'] > .adb-chev {
+  transform: rotate(90deg);
+}
+
+.adb-list .set-row-text {
+  min-width: 0;
+}
+
+.adb-meta {
+  font-size: calc(11.5px * var(--scale));
+}
+
+.adb-meta .key-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.adb-tag {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink-2);
+  font-size: calc(10.5px * var(--scale));
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.adb-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: calc(11px * var(--scale));
+}
+
+.adb-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adb-add {
+  width: 100%;
+}
+
+.adb-add .input:first-child {
+  flex: 2;
+}
+
+.adb-add .adb-name {
+  flex: 1;
+  min-width: 120px;
+}
+
+.adb-rules {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  padding: 10px 12px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: calc(12px * var(--scale));
+  line-height: 1.55;
+  white-space: pre;
+  user-select: text;
+}
+
+.adb-rules-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.adb-rules-bar code {
+  font-size: calc(11px * var(--scale));
+}
+
+.adb-note {
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--ink-2);
+  font-size: calc(12.5px * var(--scale));
+  background: var(--accent-soft);
+}
+
+/* ---- site popover: what was blocked ---- */
+
+.site-info-log-btn {
+  padding-left: 4px;
+}
+
+.site-info-hosts {
+  max-height: 168px;
+  overflow: auto;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: var(--r-sm, 8px);
+  background: var(--gray-a2, rgba(0, 0, 0, 0.03));
+}
+
+.site-info-hosts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 10px;
+  font-size: calc(12px * var(--scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.site-info-hosts li span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-info-links {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }

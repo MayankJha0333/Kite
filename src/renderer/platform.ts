@@ -3,6 +3,7 @@
 
 import type { KiteBridge, OpenRequest } from '@shared/ipc';
 import { surface } from './surfaces';
+import { listSources, ruleLines, sanitizeShields } from '@shared/shields';
 
 declare global {
   interface Window {
@@ -200,13 +201,16 @@ function makeWebBridge(): KiteBridge {
     setPrefs: (p) => {
       hooks.prefs = p;
     },
-    shieldsStatus: async () => ({ source: 'builtin', updatedAt: 0, updating: false }),
+    // In the browser there is no main process: a stand-in that behaves like it.
+    shieldsStatus: async () => fakeShieldsStatus(hooks.prefs, 0),
     refreshShields: async () => {
       hooks.calls.push('refreshShields');
-      const st = { source: 'full' as const, updatedAt: Date.now(), updating: false };
+      const st = fakeShieldsStatus(hooks.prefs, Date.now());
       shieldsStatus.emit(st);
       return st;
     },
+    shieldsPageLog: async () => ({ total: 2, hosts: [{ host: 'stats.doubleclick.net', count: 1 }, { host: 'www.google-analytics.com', count: 1 }] }),
+    clearShieldsStats: () => void hooks.calls.push('clearShieldsStats'),
     onShieldsStatus: (cb) => shieldsStatus.on(cb),
     onShieldsCount: (cb) => shieldsCount.on(cb),
     allowHttp: (host) => void hooks.calls.push(`allowHttp:${host}`),
@@ -281,4 +285,24 @@ export const mode: 'main' | 'little' | 'pip' = modeParam === 'little' ? 'little'
 /** Current time; tests can freeze/advance it. */
 export function now(): number {
   return window.__kiteTest?.now ?? Date.now();
+}
+
+/** Browser stand-in for the main process's Shields status. */
+function fakeShieldsStatus(prefs: import('@shared/ipc').Prefs | null | undefined, updatedAt: number): import('@shared/ipc').ShieldsStatus {
+  const sh = sanitizeShields(prefs?.shields);
+  const sources = listSources(sh, ['en']);
+  const lists = Object.fromEntries(sources.map((s, i) => [s.id, { updatedAt, rules: updatedAt ? 1000 * (i + 1) : 0 }]));
+  const user = ruleLines(sh.userRules);
+  const invalid = user.filter((l) => /^\s*\$\$|^[^#|@/a-z0-9*.$-]/i.test(l));
+  return {
+    source: updatedAt ? 'full' : 'builtin',
+    updatedAt,
+    updating: false,
+    lists,
+    rules: Object.values(lists).reduce((a, l) => a + l.rules, 0) + user.length - invalid.length,
+    userRules: { count: user.length - invalid.length, invalid },
+    blocked: { total: 1234, since: Date.UTC(2026, 10, 1) },
+    scriptlets: !!updatedAt,
+    languages: ['en'],
+  };
 }

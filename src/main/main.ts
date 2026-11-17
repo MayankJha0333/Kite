@@ -95,6 +95,9 @@ function setupFeatures() {
     },
     onStatus: (st) => toMain('shields-status', st),
     log: debugLog,
+    workerFile: join(__dirname, 'shieldsWorker.cjs'),
+    // Tests serve the filter lists from a local site, so nothing touches the internet.
+    rewriteListUrl: process.env.KITE_TEST && process.env.KITE_TEST_FILTERS ? (_url, id) => `${process.env.KITE_TEST_FILTERS}/${id}.txt` : undefined,
   });
   downloads = createDownloads({
     dir,
@@ -131,6 +134,8 @@ function ensureJar(partition: string): Electron.Session {
   ses = session.fromPartition(partition);
   jars.set(partition, ses);
   network.attach(ses);
+  // Shields' page fixes, in every frame at document start (see pagePreload.ts).
+  ses.registerPreloadScript({ type: 'frame', id: 'kite-shields', filePath: join(__dirname, 'pagePreload.cjs') });
   downloads.attach(ses);
   permissions.attach(ses);
   void extensions.attach(ses);
@@ -576,6 +581,7 @@ function hardenWebview(contents: WebContents) {
     guardNavigation(popup.webContents);
     webPages.add(popup.webContents.id);
     const popupId = popup.webContents.id;
+    network.watchPage(popup.webContents);
     popup.webContents.once('destroyed', () => {
       webPages.delete(popupId);
       network.forget(popupId);
@@ -763,12 +769,31 @@ function setupIpc() {
   });
 
   // ---- Shields, privacy and security ----
+  // These two come from Shields' page preload inside web pages (never from Kite's UI).
+  // Pages can't reach them: the preload runs in an isolated world and exposes nothing.
+  const frameUrlOf = (e: IpcMainEvent | IpcMainInvokeEvent, claimed: unknown) => {
+    const actual = e.senderFrame?.url ?? '';
+    const url = /^https?:/i.test(actual) ? actual : typeof claimed === 'string' ? claimed : '';
+    return /^https?:/i.test(url) && url.length < 8192 ? url : '';
+  };
+  ipcMain.on('shields:frame', (e, claimed: unknown) => {
+    const url = frameUrlOf(e, claimed);
+    e.returnValue = webPages.has(e.sender.id) && url ? network.frameFixes(e.sender.id, url) : null;
+  });
+  ipcMain.handle('shields:dom', (e, claimed: unknown, classes: unknown, ids: unknown, hrefs: unknown) => {
+    const url = frameUrlOf(e, claimed);
+    const strs = (v: unknown, max: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length < 512).slice(0, max) : []);
+    if (!webPages.has(e.sender.id) || !url) return '';
+    return network.domFixes(e.sender.id, url, strs(classes, 5000), strs(ids, 3000), strs(hrefs, 2000));
+  });
   on('prefs:set', (e, p: unknown) => {
     if (!mainWindow || e.sender !== mainWindow.webContents) return;
     prefs = readPrefs(p);
     network.prefsChanged();
   });
   handle('shields:status', () => network.status());
+  handle('shields:page', (e, id: number) => (pageOf(e, id) ? network.pageLog(id) : { total: 0, hosts: [] }));
+  on('shields:clear-stats', () => network.clearStats());
   handle('shields:refresh', async () => {
     await network.refresh();
     return network.status();
@@ -986,7 +1011,7 @@ if (!gotLock) {
       hardenWebview(contents);
       const wcId = contents.id;
       webPages.add(wcId);
-      contents.on('dom-ready', () => void network.applyCosmetics(contents));
+      network.watchPage(contents);
       contents.once('destroyed', () => {
         webPages.delete(wcId);
         network.forget(wcId);

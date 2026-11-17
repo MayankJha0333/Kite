@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Palette, Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, Puzzle, RefreshCw, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus } from 'lucide-react';
-import { siteKey, type Shields } from '@shared/shields';
-import type { ShieldsStatus, SitePermission } from '@shared/ipc';
+import { Palette, Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, ShieldBan, Puzzle, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus } from 'lucide-react';
+import { listSources } from '@shared/shields';
+import type { SitePermission } from '@shared/ipc';
+import { AdBlockPage, useShieldsStatus } from './AdBlock';
 import { ARCHIVE_CHOICES, SEARCH_ENGINES, SHORTCUT_LABELS, DEFAULT_SHORTCUTS, createInitialState } from '@shared/defaults';
 import { clearHistory, exportBackup, readBackup, resetAppearance, resetShortcuts, setShortcut, shortcutConflict, updateSettings, LIMITS, type BackupInfo } from '@shared/settings';
 import { formatShortcut, shortcutFromEvent } from '@shared/shortcuts';
@@ -19,7 +20,7 @@ import { sleepOtherTabs, switchSpaceCmd, undoable } from '../commands';
 import { now } from '../platform';
 import { playSound } from '../sound';
 
-type Section = 'appearance' | 'spaces' | 'layout' | 'motion' | 'tabs' | 'links' | 'privacy' | 'extensions' | 'keys' | 'data' | 'about';
+type Section = 'appearance' | 'spaces' | 'layout' | 'motion' | 'tabs' | 'links' | 'adblock' | 'privacy' | 'extensions' | 'keys' | 'data' | 'about';
 interface SectionDef {
   id: Section;
   label: string;
@@ -46,7 +47,7 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
       { id: 'appearance', label: 'Appearance', desc: 'Themes, style, accent and text for the whole window', icon: <Palette size={15} />, words: 'theme style accent surfaces borders shadows glass frosted contrast font text size share code css restyle reset readability' },
       { id: 'spaces', label: 'Spaces', desc: 'Name, icon, colours, gradient and animation of each Space', icon: <Shapes size={15} />, words: 'space name icon emoji colour color mode dark light gradient stops angle radial conic mesh linear palette animation animate motion drift swirl spin breathe grain strength logins accounts separate isolated archive delete background wallpaper' },
       { id: 'layout', label: 'Layout', desc: 'Sidebar, spacing, corners and Favorites', icon: <LayoutPanelLeft size={15} />, words: 'sidebar side left right width spacing density compact roomy gap margin corner radius roundness favorites columns address bar url close buttons hover' },
-      { id: 'motion', label: 'Motion & Sound', desc: 'Animations, their speed, and interface sounds', icon: <AudioLines size={15} />, words: 'reduce motion animation feel smooth snappy bouncy speed sound sounds volume audio accessibility' },
+      { id: 'motion', label: 'Motion & Sound', desc: 'Animations, their speed, and interface sounds', icon: <AudioLines size={15} />, words: 'reduce motion animation feel smooth snappy bouncy springy spring speed sound sounds volume audio accessibility' },
     ],
   },
   {
@@ -58,7 +59,10 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
   },
   {
     label: 'Privacy',
-    items: [{ id: 'privacy', label: 'Privacy & Security', desc: 'Shields, connection, permissions, downloads and your data', icon: <ShieldCheck size={15} />, words: 'shields ads trackers cookie banners https gpc global privacy control downloads permissions camera microphone location notifications clear data cache cookies history' }],
+    items: [
+      { id: 'adblock', label: 'Ad blocking', desc: 'Ads, trackers, filter lists, your rules and tracking protection', icon: <ShieldBan size={15} />, words: 'shields ads ad block blocker adblock adguard ublock easylist filters lists trackers cookie notices banners popups annoyances social widgets malware phishing language allowlist exceptions invert custom lists user rules tracking parameters utm referrer referer search queries webrtc ip leak cookies lifetime statistics update' },
+      { id: 'privacy', label: 'Privacy & Security', desc: 'Connection, permissions, downloads and your data', icon: <ShieldCheck size={15} />, words: 'https gpc global privacy control do not track downloads permissions camera microphone location notifications clear data cache cookies history' },
+    ],
   },
   {
     label: 'Power tools',
@@ -77,7 +81,7 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
 ];
 const SECTIONS: SectionDef[] = GROUPS.flatMap((g) => g.items);
 /** Old links into Settings still land somewhere sensible. */
-const ALIASES: Record<string, Section> = { search: 'links', routing: 'links', boosts: 'extensions', shortcuts: 'keys', backup: 'data', colours: 'spaces', background: 'spaces' };
+const ALIASES: Record<string, Section> = { shields: 'adblock', search: 'links', routing: 'links', boosts: 'extensions', shortcuts: 'keys', backup: 'data', colours: 'spaces', background: 'spaces' };
 
 /** Sections whose name, description or contents match what you typed. */
 export function matchSections(query: string): Section[] {
@@ -195,6 +199,7 @@ export function SettingsPanel() {
             {section === 'motion' && <MotionPage />}
             {section === 'tabs' && <TabsSection />}
             {section === 'links' && <SearchLinks />}
+            {section === 'adblock' && <AdBlockPage />}
             {section === 'privacy' && <Privacy />}
             {section === 'extensions' && <Extensions />}
             {section === 'keys' && <Keys />}
@@ -244,6 +249,7 @@ function Appearance() {
               { value: 'bricolage', label: <span style={{ fontFamily: "'Bricolage Grotesque'" }}>Bricolage</span> },
               { value: 'inter', label: <span style={{ fontFamily: 'Inter' }}>Inter</span> },
               { value: 'system', label: <span style={{ fontFamily: 'system-ui' }}>System</span> },
+              { value: 'rounded', label: <span style={{ fontFamily: 'ui-rounded, system-ui' }}>Rounded</span> },
               { value: 'mono', label: <span style={{ fontFamily: 'ui-monospace, monospace' }}>Mono</span> },
             ]}
           />
@@ -391,7 +397,7 @@ function MotionPage() {
       <Group title="Motion" desc="How things move. Kite also follows your system's Reduce Motion setting.">
         <SwitchRow title="Reduce motion" desc="Turn off animations and transitions, including moving backgrounds" checked={st.reduceMotion} onChange={(v) => set({ reduceMotion: v })} testId="set-motion" />
         <Row title="Feel" off={st.reduceMotion}>
-          <Segmented testId="set-feel" value={st.motionFeel} onChange={(v) => set({ motionFeel: v })} options={[{ value: 'style', label: 'From style' }, { value: 'smooth', label: 'Smooth' }, { value: 'snappy', label: 'Snappy' }, { value: 'bouncy', label: 'Bouncy' }]} />
+          <Segmented testId="set-feel" value={st.motionFeel} onChange={(v) => set({ motionFeel: v })} options={[{ value: 'style', label: 'From style' }, { value: 'smooth', label: 'Smooth' }, { value: 'snappy', label: 'Snappy' }, { value: 'bouncy', label: 'Bouncy' }, { value: 'spring', label: 'Springy' }]} />
         </Row>
         <Row title="Speed" value={st.motionSpeed === 1 ? 'Normal' : `${st.motionSpeed.toFixed(2).replace(/0$/, '')}× ${st.motionSpeed > 1 ? 'faster' : 'slower'}`} off={st.reduceMotion}>
           <input type="range" className="range" aria-label="Animation speed" min={LIMITS.motionSpeed[0]} max={LIMITS.motionSpeed[1]} step={0.25} value={st.motionSpeed} data-testid="set-speed" onChange={(e) => set({ motionSpeed: Number(e.target.value) })} />
@@ -523,65 +529,24 @@ function Extensions() {
 function Privacy() {
   const st = useKite((x) => x.s.settings);
   const sh = st.shields;
-  const setSh = (p: Partial<Shields>) => set({ shields: { ...getS().settings.shields, ...p } });
-  const [status, setStatus] = useState<ShieldsStatus | null>(null);
+  const status = useShieldsStatus();
   const [perms, setPerms] = useState<SitePermission[]>([]);
-  const [site, setSite] = useState('');
   const [what, setWhat] = useState({ cookies: true, cache: true, storage: true });
   const [confirm, setConfirm] = useState(false);
   useEffect(() => {
-    void bridge.shieldsStatus().then(setStatus);
     void bridge.permissions().then(setPerms);
-    const a = bridge.onShieldsStatus(setStatus);
-    const b = bridge.onPermissions(setPerms);
-    return () => {
-      a();
-      b();
-    };
+    return bridge.onPermissions(setPerms);
   }, []);
-  const addSite = () => {
-    const k = siteKey(site);
-    if (!k) return toast('Type a site like example.com');
-    setSh({ allow: [...sh.allow.filter((x) => x !== k), k].sort() });
-    setSite('');
-  };
-  const lists = !status
-    ? ''
-    : status.updating
-      ? 'Downloading the filter lists…'
-      : status.source === 'full'
-        ? `Full filter lists, updated ${new Date(status.updatedAt).toLocaleDateString()}`
-        : sh.enabled
-          ? 'Using the small list built into Kite until the full lists download'
-          : 'Off';
   return (
     <>
-      <Group title="Shields" desc="Block ads and trackers on every site. Nothing about you or your browsing is sent anywhere.">
-        <SwitchRow title={<b>Block ads and trackers</b>} checked={sh.enabled} onChange={(v) => setSh({ enabled: v })} testId="shields-enabled" label="Shields" />
-        <SwitchRow title="Ads" checked={sh.ads} onChange={(v) => setSh({ ads: v })} testId="shields-ads" off={!sh.enabled} sub />
-        <SwitchRow title="Trackers" desc="That follow you between sites" checked={sh.trackers} onChange={(v) => setSh({ trackers: v })} testId="shields-trackers" off={!sh.enabled} sub />
-        <SwitchRow title="Cookie banners" desc="Cookie-consent pop-ups" checked={sh.cookieBanners} onChange={(v) => setSh({ cookieBanners: v })} testId="shields-cookies" off={!sh.enabled} sub />
-        <SwitchRow title="Hide leftovers" desc="The empty boxes ads leave behind" checked={sh.cosmetic} onChange={(v) => setSh({ cosmetic: v })} testId="shields-cosmetic" label="Hide leftovers" off={!sh.enabled} sub />
-        <Row title="Filter lists" desc="EasyList and EasyPrivacy, refreshed from easylist.to every few days">
-          <span className="shields-status-wrap">
-            <span className="muted shields-status" data-testid="shields-status">
-              {lists}
-              {status?.error && <span className="key-warn"> <AlertTriangle size={12} /> {status.error}</span>}
-            </span>
-            {sh.enabled && <button className="btn small ghost" data-testid="shields-refresh" disabled={status?.updating} onClick={() => void bridge.refreshShields().then(setStatus)}><RefreshCw size={12} /> Update now</button>}
+      <Group title="Ad blocking" desc="Ads, trackers, filter lists, your own rules and tracking protection.">
+        <button className="set-row set-link" data-testid="privacy-open-adblock" onClick={() => setUi({ panel: 'settings', panelArg: 'adblock' })}>
+          <span className="set-row-text">
+            <span className="set-row-title">{sh.enabled ? 'On' : 'Off'}{status?.blocked ? ` · ${status.blocked.total.toLocaleString()} blocked` : ''}</span>
+            <span className="set-row-desc">{sh.enabled ? `${listSources(sh, status?.languages ?? []).length} filter lists${sh.allow.length ? `, ${sh.allow.length} site${sh.allow.length === 1 ? '' : 's'} allowed` : ''}` : 'Ads and trackers load on every site'}</span>
           </span>
-        </Row>
-        <Row title="Sites where nothing is blocked" desc="Use this when Shields break a site" stack>
-          <form className="inline-form" onSubmit={(e) => { e.preventDefault(); addSite(); }}>
-            <input className="input" aria-label="Site to allow" placeholder="example.com" value={site} data-testid="shields-allow-input" onChange={(e) => setSite(e.target.value)} />
-            <button className="btn" data-testid="shields-allow-add">Add</button>
-          </form>
-          <span className="chip-list" data-testid="shields-allow-list">
-            {sh.allow.map((a) => (
-              <span className="chip" key={a}>{a} <button aria-label={`Remove ${a}`} onClick={(e) => { e.preventDefault(); setSh({ allow: sh.allow.filter((x) => x !== a) }); }}>×</button></span>
-            ))}
-          </span>
-        </Row>
+          <ChevronRight size={15} className="set-link-chevron" />
+        </button>
       </Group>
 
       <Group title="Connection">

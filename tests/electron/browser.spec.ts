@@ -20,6 +20,9 @@ let port = 0;
 const url = (p = '/') => `http://127.0.0.1:${port}${p}`;
 const requests: string[] = [];
 let gpc = '';
+const filterFetches: string[] = [];
+// A one-scriptlet library in the engine's resources format (the real one is downloaded from uBlock Origin's project).
+const TEST_RESOURCES = JSON.stringify({ scriptlets: [{ name: 'set-constant.js', aliases: ['set-constant'], body: 'function setConstant(name, value) { window[name] = value === "true" ? true : value; }', dependencies: [], executionWorld: 'MAIN', requiresTrust: false }], redirects: [] });
 
 test.beforeAll(async () => {
   server = createServer((req, res) => {
@@ -41,6 +44,27 @@ test.beforeAll(async () => {
          <script src="/own.js"></script>`,
       );
     if (path.startsWith('/own.js')) return send('text/javascript', 'document.documentElement.dataset.own = "1"');
+    // Shields' filter lists, served locally (KITE_TEST_FILTERS points here).
+    const list = /^\/filters\/([a-z0-9-]+)\.txt/.exec(path);
+    if (list) {
+      filterFetches.push(list[1]);
+      if (list[1] === 'resources') return send('application/json', TEST_RESOURCES);
+      if (list[1] === 'adguard-base')
+        return send('text/plain', ['[Adblock Plus 2.0]', '! Title: Test Base', '||adnet.test^', '127.0.0.1##.sponsored-box', '127.0.0.1##+js(set-constant, kiteAdsAllowed, true)', '127.0.0.1#@#.keep-me'].join('\r\n'));
+      return send('text/plain', `! Title: ${list[1]}\n! nothing here`);
+    }
+    if (path.startsWith('/shield-full'))
+      return send(
+        'text/html',
+        `<!doctype html><title>Full Shields</title>
+         <script>document.documentElement.dataset.allowed = typeof kiteAdsAllowed === 'undefined' ? 'missing' : String(kiteAdsAllowed);</script>
+         <div class="sponsored-box" id="sp">Sponsored</div>
+         <div class="later" id="later-wrap"></div>
+         <p id="story">The story</p>
+         <img src="http://pixel.adnet.test/p.gif">
+         <img src="/mine/blocked-by-me.png">
+         <script>setTimeout(() => { const d = document.createElement('ins'); d.className = 'adsbygoogle'; d.id = 'late'; d.textContent = 'late ad'; document.getElementById('later-wrap').append(d); }, 300);</script>`,
+      );
     if (path.startsWith('/cookie')) return send('text/html', `<!doctype html><title>Cookie Page</title><script>if (location.search.includes('set')) document.cookie = 'who=first; path=/; max-age=3600'; document.title = 'cookie:' + (document.cookie || 'none');</script>`);
     if (path.startsWith('/files')) return send('text/html', `<!doctype html><title>Files</title><a id="doc" href="/report.txt" download>doc</a><a id="app" href="/setup.exe" download>app</a><img id="pic" src="/pic.webp"><video id="vid" src="/clip.mp4" muted></video>`);
     if (path.startsWith('/report.txt')) return send('text/plain', 'quarterly numbers', { 'content-disposition': 'attachment; filename="report.txt"' });
@@ -65,7 +89,7 @@ let userData = '';
 const dir = mkdtempSync(join(tmpdir(), 'kite-dl-'));
 test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
-  ({ app, win, userData } = await launch(undefined, [], { KITE_DOWNLOADS: dir, KITE_TEST_QUIET: '1' }));
+  ({ app, win, userData } = await launch(undefined, [], { KITE_DOWNLOADS: dir, KITE_TEST_QUIET: '1', KITE_TEST_FILTERS: url('/filters') }));
 });
 test.afterAll(async () => {
   await app?.close();
@@ -125,6 +149,49 @@ test('Shields: ads and trackers are blocked, leftovers hidden, and a site except
   await expect(win.getByTestId('url-blocked')).toHaveCount(0);
   await expect.poll(() => inPage(win, `getComputedStyle(document.getElementById('slot')).display`), { timeout: 10000 }).toBe('block');
   expect(await main<number>(app, 'return t.network().count(pages[0].id)')).toBe(0);
+});
+
+test('Shields, full pipeline: lists download and build off-thread; page fixes run before the page; links lose tracking parameters; your rules block', async () => {
+  // The test before this one switched Shields off for this site; switch it back on in Settings.
+  await win.keyboard.press(`${MOD}+Comma`);
+  await win.getByTestId('settings-adblock').click();
+  if (await win.getByLabel('Remove 127.0.0.1').count()) await win.getByLabel('Remove 127.0.0.1').click();
+  await expect(win.getByTestId('shields-allow-list').locator('.chip')).toHaveCount(0);
+  await win.getByTestId('sheet-close').click();
+  // The lists come from the local site, are built in the worker, and the status says so.
+  await expect.poll(() => main<{ source: string; scriptlets: boolean }>(app, 'await t.network().settled(); return t.network().status()'), { timeout: 20000 }).toMatchObject({ source: 'full', scriptlets: true });
+  expect(filterFetches).toEqual(expect.arrayContaining(['adguard-base', 'easyprivacy', 'resources']));
+
+  await open(win, url('/shield-full?utm_source=news&fbclid=abc&id=7'));
+  await expect(row(win, 'Full Shields')).toHaveCount(1, { timeout: 15000 });
+  // Tracking parameters were removed before the request left Kite; the real one stayed.
+  expect(await inPage(win, 'location.search')).toBe('?id=7');
+  expect(requests.some((r) => r.includes('fbclid'))).toBe(false);
+  // The list's scriptlet ran at document start, before the page's first script read the value.
+  expect(await inPage(win, 'document.documentElement.dataset.allowed')).toBe('true');
+  // Site-specific hiding from the list (CRLF line endings), and generic hiding of an ad added later.
+  await expect.poll(() => inPage(win, `getComputedStyle(document.getElementById('sp')).display`)).toBe('none');
+  await expect.poll(() => inPage(win, `((e) => (e ? getComputedStyle(e).display : 'not added yet'))(document.getElementById('late'))`), { timeout: 5000 }).toBe('none');
+  expect(await inPage(win, `getComputedStyle(document.getElementById('story')).display`)).toBe('block');
+  // The ad network's pixel never left the computer; Kite's own count and per-site log know.
+  const log = await main<{ total: number; hosts: { host: string }[] }>(app, 'return t.network().pageLog(pages.find((p) => p.getURL().includes("shield-full")).id)');
+  expect(log.hosts.map((h) => h.host)).toContain('pixel.adnet.test');
+
+  // Your own rule: written in Settings, applied without a restart.
+  expect(requests.some((r) => r.startsWith('/mine/blocked-by-me.png'))).toBe(true);
+  await win.keyboard.press(`${MOD}+Comma`);
+  await win.getByTestId('settings-adblock').click();
+  await win.getByTestId('shields-user-rules').fill('||127.0.0.1^*/mine/');
+  await win.getByTestId('shields-user-save').click();
+  await expect(win.getByTestId('shields-user-count')).toContainText('1 rule', { timeout: 15000 });
+  await expect.poll(() => main<{ userRules?: { count: number } }>(app, 'await t.network().settled(); return t.network().status()'), { timeout: 15000 }).toMatchObject({ userRules: { count: 1 } });
+  await win.getByTestId('sheet-close').click();
+  requests.length = 0;
+  await open(win, url('/shield-full?again'));
+  await expect(row(win, 'Full Shields')).toHaveCount(2, { timeout: 15000 });
+  await expect.poll(() => requests.some((r) => r.startsWith('/shield-full?again'))).toBe(true);
+  await win.waitForTimeout(500);
+  expect(requests.some((r) => r.startsWith('/mine/'))).toBe(false);
 });
 
 test('downloads: a file is saved with progress in the list; a program asks first and is not kept when refused', async () => {

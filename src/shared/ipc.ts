@@ -21,12 +21,42 @@ export interface Prefs {
   askWhereToSave: boolean;
 }
 
+export interface ListStatus {
+  /** When it was last downloaded (0 = never). */
+  updatedAt: number;
+  rules: number;
+  title?: string;
+  /** Why the last update failed (an older copy may still be in use). */
+  error?: string;
+}
+
 export interface ShieldsStatus {
   /** 'builtin' = the small list inside Kite; 'full' = the downloaded lists. */
   source: 'builtin' | 'full';
   updatedAt: number;
+  /** Downloading lists. */
   updating: boolean;
+  /** Turning the lists into a working filter (takes a second or two). */
+  building?: boolean;
   error?: string;
+  /** Each list in use, by id. */
+  lists?: Record<string, ListStatus>;
+  /** Rules in use, in total. */
+  rules?: number;
+  /** Your own rules: how many work, and lines that couldn't be read. */
+  userRules?: { count: number; invalid: string[] };
+  /** Ads and trackers blocked since `since`. */
+  blocked?: { total: number; since: number };
+  /** The page-fix library (scriptlets) is loaded. */
+  scriptlets?: boolean;
+  /** Languages used to pick language lists automatically. */
+  languages?: string[];
+}
+
+/** What was blocked on one page, by host. */
+export interface PageLog {
+  total: number;
+  hosts: { host: string; count: number }[];
 }
 
 export interface SitePermission {
@@ -112,6 +142,9 @@ export interface KiteBridge {
   shieldsStatus(): Promise<ShieldsStatus>;
   /** Download the filter lists again now. */
   refreshShields(): Promise<ShieldsStatus>;
+  /** What was blocked on one page (by its webview id). */
+  shieldsPageLog(webviewId: number): Promise<PageLog>;
+  clearShieldsStats(): void;
   onShieldsStatus(cb: (v: ShieldsStatus) => void): () => void;
   /** How many requests were blocked on a tab's page. */
   onShieldsCount(cb: (v: { tabId: string; count: number }) => void): () => void;

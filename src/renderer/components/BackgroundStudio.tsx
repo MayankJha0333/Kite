@@ -5,6 +5,7 @@
 import { useRef, useState } from 'react';
 import { Plus, RotateCcw, Trash2, Globe2, ImagePlus, RefreshCw } from 'lucide-react';
 import { PALETTES } from '@shared/look';
+import { HARMONIES, hexToHsl, wheelColors, type HarmonyId } from '@shared/designTokens';
 import { addStop, gradientFromColors, GRADIENT_KINDS, IMAGE_DEFAULTS, IMAGE_PLACES, MAX_STOPS, MIN_STOPS, MOTIONS, removeStop, type GradientKind, type ImagePlace, type SpaceGradient, type SpaceImage } from '@shared/background';
 import type { SpaceTheme } from '@shared/types';
 import { toast, useKite } from '../store';
@@ -12,6 +13,31 @@ import { addImage, ImageError, useImageUrl } from '../images';
 import { mix } from '../theme';
 import { Group, Row, Segmented, SwitchRow } from './Sheet';
 import { ColorInput, previewLook, useEffectiveLook } from './LookStudio';
+
+/** One hue on the wheel, and how the second colour relates to it. */
+function ColourWheel({ first, onPick }: { first: string; onPick: (c: [string, string]) => void }) {
+  const [hue, setHue] = useState(() => Math.round(hexToHsl(first)[0]));
+  const [harmony, setHarmony] = useState<HarmonyId>('near');
+  const [vivid, setVivid] = useState(0.7);
+  const pick = (h: number, hm: HarmonyId, v: number) => {
+    setHue(h);
+    setHarmony(hm);
+    setVivid(v);
+    onPick(wheelColors(h, HARMONIES.find((x) => x.id === hm)!.offset, v));
+  };
+  return (
+    <Row title="Colour wheel" value={`${hue}°`} desc="Pick a hue; the second colour follows" stack>
+      <div className="wheel">
+        <input type="range" className="range wheel-hue" aria-label="Hue" min={0} max={359} value={hue} data-testid="bg-wheel-hue" style={{ ['--wheel-thumb' as string]: wheelColors(hue, 0, vivid)[1] }} onChange={(e) => pick(Number(e.target.value), harmony, vivid)} />
+        <div className="wheel-row">
+          <Segmented testId="bg-wheel-harmony" value={harmony} onChange={(v) => pick(hue, v, vivid)} options={HARMONIES.map((h) => ({ value: h.id, label: h.label }))} />
+          <span className="wheel-label">Vivid</span>
+          <input type="range" className="range wheel-vivid" aria-label="Vividness" min={0.15} max={1} step={0.05} value={vivid} data-testid="bg-wheel-vivid" onChange={(e) => pick(hue, harmony, Number(e.target.value))} />
+        </div>
+      </div>
+    </Row>
+  );
+}
 
 export function BackgroundStudio() {
   const { theme, draft } = useEffectiveLook();
@@ -52,6 +78,7 @@ export function BackgroundStudio() {
             })}
           </div>
         </Row>
+        <ColourWheel first={theme.colors[0]} onPick={usePalette} />
         <Row title="Colour strength" value={`${Math.round(theme.intensity * 100)}%`} desc="How strongly the colours show; lower is calmer">
           <input type="range" className="range" aria-label="Colour strength" min={0} max={1} step={0.05} value={theme.intensity} data-testid="look-intensity" onChange={(e) => set({ intensity: Number(e.target.value) })} />
         </Row>

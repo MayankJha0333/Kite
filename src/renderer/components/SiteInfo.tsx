@@ -2,10 +2,10 @@
 // what Shields blocked, what the site may use, and clearing its data.
 
 import { useEffect, useState } from 'react';
-import { Lock, LockOpen, ShieldAlert, ShieldCheck, ShieldOff, Globe, Trash2, Laptop } from 'lucide-react';
+import { Lock, LockOpen, ShieldAlert, ShieldCheck, ShieldOff, Globe, Trash2, Laptop, ChevronRight } from 'lucide-react';
 import * as ops from '@shared/ops';
 import { SECURITY_TEXT, isAllowedSite, securityLevel, shieldsActive, siteKey, type SecurityLevel } from '@shared/shields';
-import type { SitePermission } from '@shared/ipc';
+import type { PageLog, SitePermission } from '@shared/ipc';
 import { bridge } from '../platform';
 import { setUi, toast, useKite } from '../store';
 import { setShieldsForSite } from '../browserRuntime';
@@ -34,7 +34,18 @@ export function SiteInfo() {
   const shields = useKite((st) => st.s.settings.shields);
   const blocked = useKite((st) => (id ? st.ui.blocked[id] ?? 0 : 0));
   const [perms, setPerms] = useState<SitePermission[]>([]);
+  const [log, setLog] = useState<PageLog | null>(null);
+  const [showLog, setShowLog] = useState(false);
   const site = siteKey(url);
+
+  // What was blocked on this page, by host (asked for when the popover opens).
+  useEffect(() => {
+    setLog(null);
+    setShowLog(false);
+    if (!open || !id) return;
+    // The main process only answers for a page this window shows (an unknown id gets an empty log).
+    void bridge.shieldsPageLog(surface(id)?.webContentsId() ?? -1).then(setLog);
+  }, [open, id, blocked]);
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +89,20 @@ export function SiteInfo() {
             <Toggle checked={on} onChange={(v) => shields.enabled && setShieldsForSite(url, v)} testId="site-info-shields" label="Shields on this site" />
           </div>
         )}
+        {web && on && log && log.hosts.length > 0 && (
+          <div className="site-info-log">
+            <button className="btn small ghost site-info-log-btn" aria-expanded={showLog} data-testid="site-info-log-toggle" onClick={() => setShowLog((v) => !v)}>
+              <ChevronRight size={13} className="adb-chev" /> What was blocked ({log.hosts.length} site{log.hosts.length === 1 ? '' : 's'})
+            </button>
+            {showLog && (
+              <ul className="site-info-hosts" data-testid="site-info-log">
+                {log.hosts.map((h) => (
+                  <li key={h.host}><span>{h.host}</span><span className="muted">{h.count}</span></li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {mine.length > 0 && (
           <div className="site-info-perms">
@@ -105,9 +130,14 @@ export function SiteInfo() {
             <Trash2 size={13} /> Erase this site’s cookies and data
           </button>
         )}
-        <button className="btn small ghost" data-testid="site-info-settings" onClick={() => setUi({ siteInfo: false, panel: 'settings', panelArg: 'privacy' })}>
-          Privacy & security settings
-        </button>
+        <span className="site-info-links">
+          <button className="btn small ghost" data-testid="site-info-adblock" onClick={() => setUi({ siteInfo: false, panel: 'settings', panelArg: 'adblock' })}>
+            Ad blocking settings
+          </button>
+          <button className="btn small ghost" data-testid="site-info-settings" onClick={() => setUi({ siteInfo: false, panel: 'settings', panelArg: 'privacy' })}>
+            Privacy & security
+          </button>
+        </span>
       </div>
     </>
   );

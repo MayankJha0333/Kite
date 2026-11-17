@@ -1,23 +1,150 @@
 // Shields: Kite's ad and tracker blocker, plus the HTTPS-only rule.
 // Pure logic lives here (and is tested); the main process does the blocking.
 
+// ---- Filter lists ------------------------------------------------------------------
+// The catalog follows AdGuard's grouping (see RESEARCH.md §9). Lists are fetched
+// in uBlock Origin syntax, which Kite's engine understands fully, and refreshed
+// on a timer. Nothing about you is ever sent: lists are plain downloads.
+
+export type FilterGroupId = 'ads' | 'privacy' | 'social' | 'annoyances' | 'security' | 'language';
+
+export interface FilterGroup {
+  id: FilterGroupId;
+  name: string;
+  desc: string;
+}
+
+export const FILTER_GROUPS: readonly FilterGroup[] = [
+  { id: 'ads', name: 'Ad blocking', desc: 'Ads, pop-unders and the scripts that fight ad blockers' },
+  { id: 'privacy', name: 'Privacy', desc: 'Trackers, analytics and tracking links' },
+  { id: 'social', name: 'Social widgets', desc: 'Like and Share buttons that report your visits' },
+  { id: 'annoyances', name: 'Annoyances', desc: 'Cookie notices, pop-ups, app banners and chat widgets' },
+  { id: 'security', name: 'Security', desc: 'Known malware, scam and phishing sites' },
+  { id: 'language', name: 'Language-specific', desc: 'Ads on sites in other languages' },
+];
+
+export interface FilterListDef {
+  id: string;
+  group: FilterGroupId;
+  name: string;
+  desc: string;
+  url: string;
+  /** On for a new copy of Kite. */
+  on: boolean;
+  /** Turned on automatically for these languages (two-letter codes). */
+  langs?: string[];
+  /** Not shown as its own switch; driven by another setting. */
+  hidden?: boolean;
+}
+
+const AG = 'https://filters.adtidy.org/extension/ublock/filters';
+const UBO = 'https://ublockorigin.github.io/uAssets/filters';
+
+export const FILTER_LISTS: readonly FilterListDef[] = [
+  { id: 'adguard-base', group: 'ads', name: 'AdGuard Base', desc: 'EasyList plus AdGuard’s own English filter. The core list.', url: `${AG}/2.txt`, on: true },
+  { id: 'ubo', group: 'ads', name: 'uBlock filters', desc: 'Fixes for sites that fight ad blockers, including video sites', url: `${UBO}/filters.txt`, on: true },
+  { id: 'ubo-unbreak', group: 'ads', name: 'uBlock unbreak', desc: 'Undoes rules that break sites', url: `${UBO}/unbreak.txt`, on: true },
+  { id: 'ubo-quick', group: 'ads', name: 'uBlock quick fixes', desc: 'Same-day fixes for new tricks', url: `${UBO}/quick-fixes.txt`, on: true },
+  { id: 'easylist', group: 'ads', name: 'EasyList', desc: 'The classic list. Already inside AdGuard Base.', url: 'https://easylist.to/easylist/easylist.txt', on: false },
+  { id: 'adguard-mobile', group: 'ads', name: 'AdGuard Mobile Ads', desc: 'Ad networks used on phone-sized sites', url: `${AG}/11.txt`, on: false },
+  { id: 'easyprivacy', group: 'privacy', name: 'EasyPrivacy', desc: 'Trackers and analytics that follow you between sites', url: 'https://easylist.to/easylist/easyprivacy.txt', on: true },
+  { id: 'adguard-tracking', group: 'privacy', name: 'AdGuard Tracking Protection', desc: 'The most thorough tracker list. Large.', url: `${AG}/3.txt`, on: false },
+  { id: 'ubo-privacy', group: 'privacy', name: 'uBlock privacy', desc: 'Extra tracker rules from uBlock Origin', url: `${UBO}/privacy.txt`, on: false },
+  { id: 'adguard-url-tracking', group: 'privacy', name: 'AdGuard URL Tracking', desc: 'Removes tracking parts from links (utm_, fbclid, gclid…)', url: `${AG}/17.txt`, on: false, hidden: true },
+  { id: 'adguard-social', group: 'social', name: 'AdGuard Social Media', desc: 'Like and Share buttons, embedded feeds', url: `${AG}/4.txt`, on: false },
+  { id: 'adguard-cookies', group: 'annoyances', name: 'Cookie notices', desc: 'Hides cookie-consent banners', url: `${AG}/18.txt`, on: false },
+  { id: 'adguard-popups', group: 'annoyances', name: 'Pop-ups', desc: 'Newsletter and sign-up pop-ups', url: `${AG}/19.txt`, on: false },
+  { id: 'adguard-app-banners', group: 'annoyances', name: 'Mobile app banners', desc: '“Get our app” banners', url: `${AG}/20.txt`, on: false },
+  { id: 'adguard-widgets', group: 'annoyances', name: 'Widgets', desc: 'Chat bubbles and support widgets', url: `${AG}/22.txt`, on: false },
+  { id: 'adguard-other-annoyances', group: 'annoyances', name: 'Other annoyances', desc: 'Everything else that gets in the way', url: `${AG}/21.txt`, on: false },
+  { id: 'ubo-badware', group: 'security', name: 'Badware risks', desc: 'Sites known to push malware or scams', url: `${UBO}/badware.txt`, on: true },
+  { id: 'phishing', group: 'security', name: 'Phishing URL blocklist', desc: 'Pages that steal passwords', url: 'https://malware-filter.gitlab.io/malware-filter/phishing-filter.txt', on: false },
+  { id: 'urlhaus', group: 'security', name: 'Online malicious URLs', desc: 'Addresses that spread malware right now. Large.', url: 'https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-ag-online.txt', on: false },
+  { id: 'adguard-search-ads', group: 'ads', name: 'Allow search ads', desc: 'Lets search results show their ads', url: `${AG}/10.txt`, on: false, hidden: true },
+  { id: 'adguard-de', group: 'language', name: 'German', desc: 'AdGuard German + EasyList Germany', url: `${AG}/6.txt`, on: false, langs: ['de'] },
+  { id: 'adguard-fr', group: 'language', name: 'French', desc: 'AdGuard French + Liste FR', url: `${AG}/16.txt`, on: false, langs: ['fr'] },
+  { id: 'adguard-es', group: 'language', name: 'Spanish & Portuguese', desc: 'AdGuard Spanish/Portuguese', url: `${AG}/9.txt`, on: false, langs: ['es', 'pt'] },
+  { id: 'adguard-nl', group: 'language', name: 'Dutch', desc: 'AdGuard Dutch + EasyList Dutch', url: `${AG}/8.txt`, on: false, langs: ['nl'] },
+  { id: 'adguard-ru', group: 'language', name: 'Russian', desc: 'AdGuard Russian', url: `${AG}/1.txt`, on: false, langs: ['ru'] },
+  { id: 'adguard-uk', group: 'language', name: 'Ukrainian', desc: 'AdGuard Ukrainian', url: `${AG}/23.txt`, on: false, langs: ['uk'] },
+  { id: 'adguard-tr', group: 'language', name: 'Turkish', desc: 'AdGuard Turkish', url: `${AG}/13.txt`, on: false, langs: ['tr'] },
+  { id: 'adguard-ja', group: 'language', name: 'Japanese', desc: 'AdGuard Japanese', url: `${AG}/7.txt`, on: false, langs: ['ja'] },
+  { id: 'adguard-zh', group: 'language', name: 'Chinese', desc: 'AdGuard Chinese + EasyList China', url: `${AG}/224.txt`, on: false, langs: ['zh'] },
+];
+
+/** uBlock Origin's resource library (scriptlets and stand-in files), in the engine's format. */
+export const RESOURCES_URL = 'https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/resources.json';
+
+export const listById = (id: string) => FILTER_LISTS.find((l) => l.id === id);
+
+export interface CustomList {
+  id: string;
+  url: string;
+  name: string;
+  on: boolean;
+}
+
 export interface Shields {
   /** Master switch. */
   enabled: boolean;
-  /** Block ads (EasyList). */
-  ads: boolean;
-  /** Block trackers (EasyPrivacy). */
-  trackers: boolean;
-  /** Hide cookie-consent banners. */
-  cookieBanners: boolean;
-  /** Also hide the empty boxes ads leave behind. */
+  /** Built-in lists that are switched on (ids from FILTER_LISTS). */
+  lists: string[];
+  /** Also use the list for each language you read (from macOS's language settings). */
+  autoLanguage: boolean;
+  /** Block ads in search results and sites promoting their own things. */
+  searchAds: boolean;
+  /** Hide what blocked ads leave behind, and run the lists' page fixes. */
   cosmetic: boolean;
+  /** Lists you added by address. */
+  custom: CustomList[];
+  /** Your own rules, one per line (same syntax as the lists). */
+  userRules: string;
+  userRulesOn: boolean;
   /** Sites where nothing is blocked (hosts, without "www."). */
   allow: string[];
+  /** Inverted: block only on the sites in `only`. */
+  invert: boolean;
+  only: string[];
+  // Tracking protection
+  /** Remove tracking parameters (utm_, fbclid, gclid…) from page addresses. */
+  stripParams: boolean;
+  /** Don't tell a site which search you came from. */
+  hideSearchQueries: boolean;
+  /** Third-party requests only learn their own address as the referrer. */
+  hideReferrer: boolean;
+  /** WebRTC may not reveal your local or real IP address. */
+  blockWebRTC: boolean;
+  /** Third-party cookies live at most this many minutes; 0 = no limit. */
+  cookieMinutes: number;
+  /** Hours between list updates; 0 = only when you ask. */
+  updateHours: number;
 }
 
+export const UPDATE_HOURS = [0, 1, 6, 12, 24, 48] as const;
+export const COOKIE_MINUTES = [0, 60, 360, 1440, 2880, 10080] as const;
+export const MAX_CUSTOM_LISTS = 20;
+export const MAX_USER_RULES_CHARS = 200_000;
+
 export function defaultShields(): Shields {
-  return { enabled: true, ads: true, trackers: true, cookieBanners: false, cosmetic: true, allow: [] };
+  return {
+    enabled: true,
+    lists: FILTER_LISTS.filter((l) => l.on).map((l) => l.id),
+    autoLanguage: true,
+    searchAds: true,
+    cosmetic: true,
+    custom: [],
+    userRules: '',
+    userRulesOn: true,
+    allow: [],
+    invert: false,
+    only: [],
+    stripParams: true,
+    hideSearchQueries: true,
+    hideReferrer: false,
+    blockWebRTC: false,
+    cookieMinutes: 0,
+    updateHours: 24,
+  };
 }
 
 /** "https://www.Example.com/x" or "Example.com" → "example.com". Empty string if it isn't a site. */
@@ -34,46 +161,173 @@ export function siteKey(input: string): string {
   return /^[a-z0-9.-]+$/.test(h) && h.length <= 253 ? h : '';
 }
 
+/** A filter list address: http(s) only, no credentials. */
+export function listUrl(input: string): string {
+  try {
+    const u = new URL(String(input ?? '').trim());
+    if (!/^https?:$/.test(u.protocol) || u.username || u.password) return '';
+    return u.href;
+  } catch {
+    return '';
+  }
+}
+
+const sites = (v: unknown) => (Array.isArray(v) ? [...new Set(v.map((x) => (typeof x === 'string' ? siteKey(x) : '')).filter(Boolean))].sort().slice(0, 1000) : []);
+const pickNum = (v: unknown, allowed: readonly number[], d: number): number => (typeof v === 'number' && allowed.includes(v) ? v : d);
+
 export function sanitizeShields(v: unknown): Shields {
   const d = defaultShields();
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
   const bool = (k: keyof Shields) => (typeof o[k] === 'boolean' ? (o[k] as boolean) : (d[k] as boolean));
-  const allow = Array.isArray(o.allow) ? [...new Set(o.allow.map((x) => (typeof x === 'string' ? siteKey(x) : '')).filter(Boolean))].slice(0, 500) : [];
-  return { enabled: bool('enabled'), ads: bool('ads'), trackers: bool('trackers'), cookieBanners: bool('cookieBanners'), cosmetic: bool('cosmetic'), allow };
+  let lists: string[];
+  if (Array.isArray(o.lists)) {
+    lists = [...new Set(o.lists.filter((x): x is string => typeof x === 'string' && !!listById(x) && !listById(x)!.hidden))];
+  } else {
+    // Saved by an older Kite (ads / trackers / cookie banners switches): keep what they chose.
+    lists = d.lists.filter((id) => {
+      const g = listById(id)!.group;
+      if (g === 'ads' && o.ads === false) return false;
+      if (g === 'privacy' && o.trackers === false) return false;
+      return true;
+    });
+    if (o.cookieBanners === true) lists.push('adguard-cookies');
+  }
+  const custom: CustomList[] = [];
+  if (Array.isArray(o.custom)) {
+    for (const c of o.custom as Record<string, unknown>[]) {
+      const url = listUrl(c?.url as string);
+      if (!url || custom.some((x) => x.url === url) || custom.length >= MAX_CUSTOM_LISTS) continue;
+      const id = typeof c.id === 'string' && /^c-[a-z0-9-]{1,40}$/.test(c.id) ? c.id : `c-${custom.length}-${Math.abs(hashString(url)).toString(36)}`;
+      custom.push({ id, url, name: typeof c.name === 'string' && c.name.trim() ? c.name.trim().slice(0, 80) : new URL(url).hostname, on: c.on !== false });
+    }
+  }
+  return {
+    enabled: bool('enabled'),
+    lists,
+    autoLanguage: bool('autoLanguage'),
+    searchAds: bool('searchAds'),
+    cosmetic: bool('cosmetic'),
+    custom,
+    userRules: typeof o.userRules === 'string' ? o.userRules.slice(0, MAX_USER_RULES_CHARS) : '',
+    userRulesOn: bool('userRulesOn'),
+    allow: sites(o.allow),
+    invert: bool('invert'),
+    only: sites(o.only),
+    stripParams: bool('stripParams'),
+    hideSearchQueries: bool('hideSearchQueries'),
+    hideReferrer: bool('hideReferrer'),
+    blockWebRTC: bool('blockWebRTC'),
+    cookieMinutes: pickNum(o.cookieMinutes, COOKIE_MINUTES, d.cookieMinutes),
+    updateHours: pickNum(o.updateHours, UPDATE_HOURS, d.updateHours),
+  };
 }
 
-/** Is this site (or a parent domain of it) on the exceptions list? */
-export function isAllowedSite(sh: Pick<Shields, 'allow'>, urlOrHost: string): boolean {
+/** A small, stable number for a string (FNV-1a). */
+export function hashString(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h | 0;
+}
+
+const onList = (list: string[], urlOrHost: string) => {
   const h = siteKey(urlOrHost);
-  if (!h) return false;
-  return sh.allow.some((a) => h === a || h.endsWith(`.${a}`));
+  return !!h && list.some((a) => h === a || h.endsWith(`.${a}`));
+};
+
+/** Is blocking off for this site (on the allowlist, or not on the list when inverted)? */
+export function isAllowedSite(sh: Pick<Shields, 'allow' | 'invert' | 'only'>, urlOrHost: string): boolean {
+  return sh.invert ? !onList(sh.only, urlOrHost) : onList(sh.allow, urlOrHost);
 }
 
 /** Does Shields block things on this page? */
 export function shieldsActive(sh: Shields, pageUrl: string): boolean {
-  return sh.enabled && (sh.ads || sh.trackers || sh.cookieBanners) && !isAllowedSite(sh, pageUrl);
+  return sh.enabled && !isAllowedSite(sh, pageUrl);
 }
 
-/** Turn blocking off (allow = true) or back on for one site. */
+/** Turn blocking off (allow = true) or back on for one site. Works with an inverted list too. */
 export function setSiteAllowed(sh: Shields, urlOrHost: string, allow: boolean): Shields {
   const h = siteKey(urlOrHost);
   if (!h) return sh;
+  if (sh.invert) {
+    const rest = sh.only.filter((a) => a !== h && !h.endsWith(`.${a}`));
+    return { ...sh, only: allow ? rest : [...rest, h].sort() };
+  }
   const rest = sh.allow.filter((a) => a !== h);
   return { ...sh, allow: allow ? [...rest, h].sort() : rest };
 }
 
-/** Which filter lists these choices need. */
-export function shieldLists(sh: Shields): string[] {
-  const out: string[] = [];
-  if (sh.ads) out.push('https://easylist.to/easylist/easylist.txt');
-  if (sh.trackers) out.push('https://easylist.to/easylist/easyprivacy.txt');
-  if (sh.cookieBanners) out.push('https://secure.fanboy.co.nz/fanboy-cookiemonster.txt');
+/** Two-letter language codes from locale names ("en-GB" → "en"). */
+export function languageCodes(locales: readonly string[]): string[] {
+  return [...new Set(locales.map((l) => String(l).toLowerCase().split(/[-_]/)[0]).filter((l) => /^[a-z]{2}$/.test(l)))];
+}
+
+export interface ListSource {
+  id: string;
+  url: string;
+  name: string;
+}
+
+/** Every list these choices need, in a stable order: built-in, language, driven, then yours. */
+export function listSources(sh: Shields, languages: readonly string[] = []): ListSource[] {
+  const ids = new Set(sh.lists);
+  if (sh.autoLanguage) for (const l of FILTER_LISTS) if (l.langs?.some((x) => languages.includes(x))) ids.add(l.id);
+  if (!sh.searchAds) ids.add('adguard-search-ads');
+  if (sh.stripParams) ids.add('adguard-url-tracking');
+  const out: ListSource[] = FILTER_LISTS.filter((l) => ids.has(l.id)).map((l) => ({ id: l.id, url: l.url, name: l.name }));
+  for (const c of sh.custom) if (c.on) out.push({ id: c.id, url: c.url, name: c.name });
   return out;
 }
 
-/** A stable name for a set of choices, so a cached engine is reused only when it matches. */
-export function shieldsKey(sh: Shields): string {
-  return `${sh.ads ? 'a' : ''}${sh.trackers ? 't' : ''}${sh.cookieBanners ? 'c' : ''}` || 'none';
+/** Lines that are rules (not blank, not comments). */
+export function ruleLines(text: string): string[] {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('!') && !(l.startsWith('[') && l.endsWith(']')) && !/^#(?![#@?$%])/.test(l));
+}
+
+/** Rules for $removeparam (handled by their own engine: see network.ts). */
+export const isParamRule = (line: string) => /\$(?:[^$]*,)?~?removeparam\b/.test(line);
+
+// ---- Tracking protection helpers ----------------------------------------------------
+
+const SEARCH_HOSTS = /(^|\.)(google\.[a-z.]+|bing\.com|duckduckgo\.com|search\.yahoo\.com|yandex\.[a-z]+|baidu\.com|ecosia\.org|search\.brave\.com|kagi\.com|startpage\.com|qwant\.com)$/;
+
+/** The referrer to send instead of a search-results address (its origin), or null to leave it. */
+export function searchReferrer(referrer: string): string | null {
+  try {
+    const u = new URL(referrer);
+    if (!SEARCH_HOSTS.test(u.hostname) || (!u.search && !u.hash)) return null;
+    return `${u.origin}/`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A Set-Cookie header that lives at most `maxSeconds`. Session cookies (no
+ * Expires / Max-Age) are left alone: they already end when Kite quits.
+ */
+export function capCookie(header: string, maxSeconds: number): string {
+  if (maxSeconds <= 0) return header;
+  const parts = header.split(';');
+  const attrs = parts.slice(1).map((p) => p.trim());
+  const maxAge = attrs.find((a) => /^max-age=/i.test(a));
+  const expires = attrs.find((a) => /^expires=/i.test(a));
+  if (!maxAge && !expires) return header;
+  let current = Infinity;
+  if (maxAge) current = Number(maxAge.split('=')[1]);
+  else if (expires) {
+    const t = Date.parse(expires.slice(expires.indexOf('=') + 1));
+    if (Number.isFinite(t)) current = Math.round((t - Date.now()) / 1000);
+  }
+  if (Number.isFinite(current) && current <= maxSeconds) return header;
+  const kept = attrs.filter((a) => !/^(max-age|expires)=/i.test(a));
+  return [parts[0].trim(), ...kept, `Max-Age=${maxSeconds}`].join('; ');
 }
 
 /**
@@ -92,6 +346,11 @@ export const BUILTIN_FILTERS = [
 ]
   .map((d) => `||${d}^$third-party`)
   .concat(['##.adsbygoogle', '##ins.adsbygoogle', '##[id^="google_ads_iframe"]', '##[id^="div-gpt-ad"]', '##.ad-banner', '##.ad-container', '##a[href*="doubleclick.net"]'])
+  .join('\n');
+
+/** The most common tracking parameters, stripped even before the full list has loaded. */
+export const BUILTIN_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'dclid', 'gbraid', 'wbraid', 'msclkid', 'mc_eid', 'yclid', 'twclid', 'igshid', '_hsenc', '_hsmi', 'mkt_tok', 'oly_anon_id', 'oly_enc_id', 'vero_id', 'ttclid', 'li_fat_id']
+  .map((p) => `$removeparam=${p}`)
   .join('\n');
 
 // ---- HTTPS-only ------------------------------------------------------------------

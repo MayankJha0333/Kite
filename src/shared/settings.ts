@@ -6,7 +6,7 @@ import { sanitizeShields } from './shields';
 import { defaultLook, sanitizeLook, styleById, type StyleId } from './look';
 import { loadState, serialize } from './persistence';
 
-export const MOTION_FEELS: MotionFeel[] = ['style', 'smooth', 'snappy', 'bouncy'];
+export const MOTION_FEELS: MotionFeel[] = ['style', 'smooth', 'snappy', 'bouncy', 'spring'];
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 

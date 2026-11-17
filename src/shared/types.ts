@@ -141,8 +141,8 @@ export interface RouteRule {
 
 export type SidebarSide = 'left' | 'right';
 export type Density = 'compact' | 'comfortable' | 'roomy';
-export type MotionFeel = 'style' | 'smooth' | 'snappy' | 'bouncy';
-export type FontChoice = 'figtree' | 'bricolage' | 'inter' | 'system' | 'mono';
+export type MotionFeel = 'style' | 'smooth' | 'snappy' | 'bouncy' | 'spring';
+export type FontChoice = 'figtree' | 'bricolage' | 'inter' | 'system' | 'rounded' | 'mono';
 
 export interface Settings {
   sidebarSide: SidebarSide;

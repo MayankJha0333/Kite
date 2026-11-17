@@ -36,7 +36,7 @@ export function loadState(raw: unknown): AppState {
   if (!(state.settings.soundVolume >= 0 && state.settings.soundVolume <= 1)) state.settings.soundVolume = 0.4;
   state.settings.sounds = state.settings.sounds !== false;
   if (!(state.settings.motionSpeed >= 0.5 && state.settings.motionSpeed <= 2)) state.settings.motionSpeed = 1;
-  if (!['style', 'smooth', 'snappy', 'bouncy'].includes(state.settings.motionFeel)) state.settings.motionFeel = 'style';
+  if (!['style', 'smooth', 'snappy', 'bouncy', 'spring'].includes(state.settings.motionFeel)) state.settings.motionFeel = 'style';
   state.spaces = state.spaces.map((sp, i) => ({
     ...sp,
     name: sp.name || `Space ${i + 1}`,

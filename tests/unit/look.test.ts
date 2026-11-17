@@ -7,7 +7,7 @@ import { fresh, run } from './helpers';
 
 describe('looks (design system)', () => {
   it('every style is complete and its defaults are valid', () => {
-    expect(STYLES.map((s) => s.id)).toEqual(['calm', 'glass', 'paper', 'mono', 'studio']);
+    expect(STYLES.map((s) => s.id)).toEqual(['calm', 'glass', 'paper', 'mono', 'studio', 'halo']);
     for (const st of STYLES) {
       expect(sanitizeLook(defaultLook(st.id))).toEqual(defaultLook(st.id));
       expect(st.motion.ms).toBeGreaterThan(0);

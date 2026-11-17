@@ -3,6 +3,7 @@
 import type { Settings, SpaceTheme } from '@shared/types';
 import { defaultLook, styleById, type Look, type StyleDef } from '@shared/look';
 import { gradientCss, motionSeconds } from '@shared/background';
+import { scaleVars, SPRINGS, springDuration, springEasing } from '@shared/designTokens';
 
 type RGB = [number, number, number];
 
@@ -46,6 +47,8 @@ const FONTS: Record<Settings['font'], string> = {
   bricolage: "'Bricolage Grotesque', 'Figtree', ui-sans-serif, sans-serif",
   inter: "'Inter', ui-sans-serif, system-ui, sans-serif",
   system: "ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif",
+  // SF Pro Rounded on macOS; a soft, friendly face for the whole window.
+  rounded: "ui-rounded, 'SF Pro Rounded', -apple-system, system-ui, sans-serif",
   mono: "ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace",
 };
 
@@ -54,7 +57,12 @@ export const FEEL: Partial<Record<Settings['motionFeel'], { ease: string; ms: nu
   smooth: { ease: 'cubic-bezier(0.32, 0.72, 0, 1)', ms: 300 },
   snappy: { ease: 'cubic-bezier(0.2, 0, 0, 1)', ms: 130 },
   bouncy: { ease: 'cubic-bezier(0.34, 1.45, 0.64, 1)', ms: 320 },
+  // A real spring (response + damping), drawn as a CSS linear() curve.
+  spring: { ease: springEasing(SPRINGS.default), ms: springDuration(SPRINGS.default) },
 };
+
+/** Release after a press: a small spring bounce, used by rows, favourites and buttons. */
+const PRESS = { ease: springEasing(SPRINGS.press), ms: springDuration(SPRINGS.press) };
 
 const ROW: Record<Settings['density'], number> = { compact: 30, comfortable: 36, roomy: 42 };
 
@@ -89,6 +97,15 @@ function rowSurfaces(style: StyleDef, dark: boolean, accent: string, translucent
         '--hover': dark ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.4)',
         '--active': dark ? 'rgba(255,255,255,.09)' : 'rgba(255,255,255,.8)',
         '--active-shadow': `inset 0 0 0 1px ${rgba(accent, dark ? 0.55 : 0.45)}, 0 0 22px ${rgba(accent, dark ? 0.32 : 0.22)}`,
+      };
+    case 'pill':
+      // A crisp, nearly opaque pill with a hairline and a tight contact shadow.
+      return {
+        '--hover': dark ? 'rgba(255,255,255,.077)' : 'rgba(255,255,255,.3)',
+        '--active': dark ? `rgba(255,255,255,${0.13 + translucent * 0.04})` : `rgba(255,255,255,${0.92 - translucent * 0.25})`,
+        '--active-shadow': dark
+          ? 'inset 0 0 0 0.5px rgba(255,255,255,.1), 0 1px 2px rgba(0,0,0,.3)'
+          : '0 0 0 0.5px rgba(0,0,0,.05), 0 1px 1px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.05)',
       };
     default:
       return {
@@ -155,7 +172,9 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
     : `0 0 0 1px rgba(60,40,20,${Math.min(0.2, ringA).toFixed(3)})${look.shadow > 0 ? `, 0 1px 2px rgba(60,40,20,${Math.min(0.12, 0.05 * depth).toFixed(3)}), 0 14px 36px -8px rgba(60,40,20,${Math.min(0.32, 0.15 * depth).toFixed(3)})` : ''}`;
   const glassy = look.translucency;
   const overlayA = 0.94 - glassy * 0.22;
+  const springy = settings.motionFeel === 'spring' || (settings.motionFeel === 'style' && style.id === 'halo');
   return {
+    ...scaleVars(dark),
     '--chrome-a': a,
     '--chrome-b': b,
     '--chrome-mid': chromeMid,
@@ -189,6 +208,8 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
     '--ease': FEEL[settings.motionFeel]?.ease ?? style.motion.ease,
     '--dur': `${Math.round((FEEL[settings.motionFeel]?.ms ?? style.motion.ms) / (settings.motionSpeed || 1))}ms`,
     '--speed': String(1 / (settings.motionSpeed || 1)),
+    '--press-ease': springy ? PRESS.ease : 'cubic-bezier(0.16, 1, 0.3, 1)',
+    '--press-dur': `${Math.round((springy ? PRESS.ms : 160) / (settings.motionSpeed || 1))}ms`,
     colorScheme: dark ? 'dark' : 'light',
   };
 }

@@ -9,28 +9,41 @@ async function openPrivacy(page: Page) {
   await page.getByTestId('settings-privacy').click();
 }
 
+async function openAdblock(page: Page) {
+  await page.keyboard.press(`${MOD}+Comma`);
+  await page.getByTestId('settings-adblock').click();
+  await expect(page.getByTestId('adblock-page')).toBeVisible();
+}
+
 const entry = (over: Record<string, unknown>) => ({ id: 'dl-1', url: 'https://a.com/f.zip', name: 'f.zip', path: '/tmp/f.zip', kind: 'file', state: 'progressing', received: 512 * 1024, total: 2 * 1024 * 1024, speed: 256 * 1024, startedAt: 1, resumable: true, site: 'a.com', ...over });
 
 test.describe('Shields and privacy settings', () => {
   test('the main process is told the choices at start and on every change; they persist', async ({ page }) => {
     await openApp(page);
-    expect(await hooks(page, 't.prefs')).toMatchObject({ httpsOnly: true, sendGpc: true, askWhereToSave: false, shields: { enabled: true, ads: true, trackers: true, cookieBanners: false, allow: [] } });
-    await openPrivacy(page);
-    await page.getByTestId('shields-cookies').click();
+    const start = await hooks<{ shields: { enabled: boolean; lists: string[]; allow: string[] } }>(page, 't.prefs');
+    expect(start).toMatchObject({ httpsOnly: true, sendGpc: true, askWhereToSave: false, shields: { enabled: true, allow: [], stripParams: true } });
+    expect(start.shields.lists).toEqual(expect.arrayContaining(['adguard-base', 'easyprivacy', 'ubo']));
+    await openAdblock(page);
+    await page.getByTestId('shields-list-search').fill('cookie');
+    await page.getByTestId('shields-list-adguard-cookies').click();
+    await page.getByTestId('settings-privacy').click();
     await page.getByTestId('set-https').click();
     await page.getByTestId('set-ask-save').click();
-    await expect.poll(() => hooks(page, 't.prefs')).toMatchObject({ httpsOnly: false, askWhereToSave: true, shields: { cookieBanners: true } });
+    const hasCookies = async () => (await hooks<{ shields: { lists: string[] } }>(page, 't.prefs')).shields.lists.includes('adguard-cookies');
+    await expect.poll(hasCookies).toBe(true);
+    await expect.poll(() => hooks(page, 't.prefs')).toMatchObject({ httpsOnly: false, askWhereToSave: true });
     const s = await savedState(page);
-    expect(s.settings.shields.cookieBanners).toBe(true);
+    expect(s.settings.shields.lists).toContain('adguard-cookies');
     expect(s.settings.httpsOnly).toBe(false);
     await page.reload();
     await expect(page.getByTestId('sidebar')).toBeVisible();
-    expect(await hooks(page, 't.prefs')).toMatchObject({ httpsOnly: false, shields: { cookieBanners: true } });
+    expect(await hooks(page, 't.prefs')).toMatchObject({ httpsOnly: false });
+    expect(await hasCookies()).toBe(true);
   });
 
   test('exceptions: add a site (any way you type it), no duplicates, remove it', async ({ page }) => {
     await openApp(page);
-    await openPrivacy(page);
+    await openAdblock(page);
     await page.getByTestId('shields-allow-input').fill('https://www.Example.com/some/page');
     await page.getByTestId('shields-allow-add').click();
     await page.getByTestId('shields-allow-input').fill('example.com');
@@ -47,12 +60,14 @@ test.describe('Shields and privacy settings', () => {
 
   test('turning Shields off greys out its options; lists can be updated by hand', async ({ page }) => {
     await openApp(page);
-    await openPrivacy(page);
+    await openAdblock(page);
     await expect(page.getByTestId('shields-status')).toContainText('built into Kite');
     await page.getByTestId('shields-refresh').click();
-    await expect(page.getByTestId('shields-status')).toContainText('Full filter lists');
+    await expect(page.getByTestId('shields-status')).toContainText('rules in use');
+    await expect(page.getByTestId('shields-list-meta-adguard-base')).toContainText('rules');
+    const before = await page.locator('.set-row[data-off]').count();
     await page.getByTestId('shields-enabled').click();
-    await expect(page.locator('.set-row[data-sub][data-off]')).toHaveCount(4);
+    expect(await page.locator('.set-row[data-off]').count()).toBeGreaterThan(before + 5);
     await expect(page.getByTestId('shields-refresh')).toHaveCount(0);
   });
 

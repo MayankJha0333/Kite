@@ -127,7 +127,7 @@ test.describe('themes', () => {
     await openDesktop(page);
     await page.keyboard.press(`${MOD}+Comma`);
     await expect(page.getByTestId('look-theme-harbor')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('look-themes').locator('.look-theme')).toHaveCount(12);
+    await expect(page.getByTestId('look-themes').locator('.look-theme')).toHaveCount(15);
   });
 
   test('every theme previews live, can be applied, and keeps text readable in light and dark', async ({ page }) => {
