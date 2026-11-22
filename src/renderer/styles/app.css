@@ -1198,6 +1198,10 @@ body.dragging .drop-hint {
 
 .menu-item span:first-child {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .menu-item:hover:not(:disabled),
@@ -1220,8 +1224,14 @@ body.dragging .drop-hint {
 }
 
 .menu-hint {
+  flex: none;
+  max-width: 58%;
+  margin-left: 14px;
+  overflow: hidden;
   color: var(--ink-3);
   font-size: calc(11.5px * var(--scale));
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .menu-sep {
@@ -1608,6 +1618,7 @@ select.input {
   color: var(--ink-2);
   font-weight: 600;
   font-size: calc(12.5px * var(--scale));
+  white-space: nowrap;
 }
 
 .segmented button {
@@ -3173,9 +3184,10 @@ body.resizing-v * {
 
 .set-row {
   display: flex;
+  flex-wrap: wrap; /* a control that no longer fits beside its label drops below it, never over it */
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 12px 24px;
   min-height: 52px;
   padding: 10px 16px;
   transition: background var(--t-fast), opacity var(--t-fast);
@@ -3202,7 +3214,7 @@ body.resizing-v * {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex: 1;
+  flex: 1 1 180px; /* the label keeps at least this much room before the control wraps under it */
   min-width: 0;
 }
 

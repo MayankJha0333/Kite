@@ -33,11 +33,11 @@ export interface HomeState {
 
 export const WIDGET_KINDS: { id: WidgetKind; name: string; blurb: string; size: WidgetSize }[] = [
   { id: 'clock', name: 'Clock', blurb: 'Time and date', size: 'small' },
-  { id: 'weather', name: 'Weather', blurb: 'Now and the next days, for a place you pick', size: 'wide' },
-  { id: 'note', name: 'Note', blurb: 'A sticky note that saves as you type', size: 'small' },
+  { id: 'weather', name: 'Weather', blurb: 'Now and the next days', size: 'wide' },
+  { id: 'note', name: 'Note', blurb: 'Saves as you type', size: 'small' },
   { id: 'todo', name: 'To-do', blurb: 'A short list to tick off', size: 'tall' },
   { id: 'calendar', name: 'Calendar', blurb: 'This month at a glance', size: 'tall' },
-  { id: 'timer', name: 'Focus timer', blurb: 'A countdown for a stretch of work', size: 'small' },
+  { id: 'timer', name: 'Focus timer', blurb: 'A countdown for focus', size: 'small' },
 ];
 
 export const SCENES: { id: SceneId; name: string; note: string; dark: boolean }[] = [

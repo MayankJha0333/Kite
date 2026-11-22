@@ -50,8 +50,13 @@ Run with the installed design skills (impeccable critique/animate, Emil Kowalski
 - **Shorter choreography.** Settings sections settle within ~250ms (was ~420ms); Space switches no longer re-stagger every row; Peek uses the shared arrival curve instead of a one-off overshoot; one `transition: all` and a dead duplicate menu animation removed.
 - **Menus grow from the corner nearest the pointer**, even when flipped to fit the window.
 - **Keyboard access.** Sidebar tabs and folders are reachable with Tab, moved through with ↑/↓, opened with Enter or Space, folders opened and closed with → and ←.
+- **Menus never wrap.** Labels and hints stay on one line (a long hint is cut with an ellipsis); a submenu with no room on the right opens on the left of its parent instead of over it.
 - **Guidelines pass.** Scroll containment on every scrolling pane, balanced headings, a quiet neutral rule on note quotes instead of a thick accent bar. The mechanical design detector reports no findings.
 - Tests: `tests/e2e/27-motion-keyboard.spec.ts` covers the glide, the instant actions, reduced motion and keyboard navigation; the drag specs now measure rows at rest.
+
+## Layout sweep (finds overlap and clipping without anyone looking)
+
+`tests/e2e/29-layout-sweep.spec.ts` opens every menu and submenu, the home page and its widgets, the command bar, every Settings section, History and the Archive, at a normal and a small window, and runs `layoutProblems()` (`tests/e2e/fixtures.ts`) on each: any text drawn over other text, text spilling past its box, or text outside the window fails the test with a plain sentence ("“Now and the next days…” overlaps “A sticky note…” by 603px²"). Text scrolled out of a pane is ignored; toasts are ignored. It runs with the rest of the web suite in `npm run test:report`, so CI catches these on every push. On its first run it found the three bugs fixed here: widget-menu hints wrapping into the next row, a submenu sliding over its parent menu at the window edge, and the Motion "Feel" control pushed over its label in a small window. Add any new surface to the sweep when you add it to the app.
 
 ## Page-load performance (measured 22 Nov 2026)
 

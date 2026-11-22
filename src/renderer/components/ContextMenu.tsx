@@ -10,7 +10,7 @@ export function openMenu(e: { clientX: number; clientY: number; preventDefault?:
   setUi({ menu: { x: e.clientX, y: e.clientY, items } });
 }
 
-function MenuList({ items, x, y, onClose, level = 0 }: { items: ContextMenuItem[]; x: number; y: number; onClose: () => void; level?: number }) {
+function MenuList({ items, x, y, onClose, level = 0, flipX }: { items: ContextMenuItem[]; x: number; y: number; onClose: () => void; level?: number; flipX?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
   const [open, setOpen] = useState<number | null>(null);
@@ -32,11 +32,14 @@ function MenuList({ items, x, y, onClose, level = 0 }: { items: ContextMenuItem[
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    // A submenu that does not fit on the right opens on the left of its parent instead of sliding over it.
+    const fitsRight = x + r.width + 6 <= window.innerWidth;
+    const px = !fitsRight && flipX !== undefined && flipX - r.width >= 6 ? flipX - r.width : x;
     setPos({
-      x: Math.max(6, Math.min(x, window.innerWidth - r.width - 6)),
+      x: Math.max(6, Math.min(px, window.innerWidth - r.width - 6)),
       y: Math.max(6, Math.min(y, window.innerHeight - r.height - 6)),
     });
-  }, [x, y]);
+  }, [x, y, flipX]);
 
   useEffect(() => {
     if (level > 0) return;
@@ -112,7 +115,7 @@ function SubMenu({ items, parent, index, onClose }: { items: ContextMenuItem[]; 
   if (!r || !pr) return null;
   // Rendered outside the parent menu: its backdrop blur would otherwise offset fixed positioning.
   const host = parent.current?.closest('.app') ?? document.body;
-  return createPortal(<MenuList items={items} x={pr.right - 4} y={r.top - 5} onClose={onClose} level={1} />, host);
+  return createPortal(<MenuList items={items} x={pr.right - 4} y={r.top - 5} flipX={pr.left + 4} onClose={onClose} level={1} />, host);
 }
 
 export function ContextMenuHost() {
