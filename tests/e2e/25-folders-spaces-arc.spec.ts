@@ -3,11 +3,12 @@
 // forward the same way, picking several rows, and Arc's folder and Space menus.
 
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, openApp, newTab, todayRows, pinnedRows, savedState, MOD } from './fixtures';
+import { test, expect, openApp, newTab, todayRows, pinnedRows, savedState, settledRows, MOD } from './fixtures';
 
 type Where = 'top' | 'middle' | 'bottom' | 'under-name';
 
 async function point(target: Locator, where: Where = 'middle', dx?: number) {
+  await settledRows(target.page()); // rows glide into place after a change; measure them at rest
   const b = (await target.boundingBox())!;
   const x = dx !== undefined ? b.x + dx : b.x + b.width / 2;
   const y = where === 'top' ? b.y + 3 : where === 'bottom' ? b.y + b.height - 3 : where === 'under-name' ? b.y + b.height - 4 : b.y + b.height / 2;
@@ -16,6 +17,7 @@ async function point(target: Locator, where: Where = 'middle', dx?: number) {
 
 /** Press on a row, move to a point, optionally hold there, then let go. */
 async function drag(page: Page, from: Locator, to: { x: number; y: number }, opts: { holdMs?: number; release?: boolean } = {}) {
+  await settledRows(page);
   const a = (await from.boundingBox())!;
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
   await page.mouse.down();

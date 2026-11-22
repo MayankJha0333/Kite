@@ -95,8 +95,8 @@ export const SHORTCUT_LABELS: Record<string, string> = {
 };
 
 export const SEARCH_ENGINES: { label: string; template: string }[] = [
-  { label: 'DuckDuckGo', template: 'https://duckduckgo.com/?q=%s' },
   { label: 'Google', template: 'https://www.google.com/search?q=%s' },
+  { label: 'DuckDuckGo', template: 'https://duckduckgo.com/?q=%s' },
   { label: 'Bing', template: 'https://www.bing.com/search?q=%s' },
   { label: 'Brave Search', template: 'https://search.brave.com/search?q=%s' },
   { label: 'Kagi', template: 'https://kagi.com/search?q=%s' },

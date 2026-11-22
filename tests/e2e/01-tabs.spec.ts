@@ -14,7 +14,7 @@ test.describe('sidebar tabs', () => {
   test('typing words searches with the chosen engine', async ({ page }) => {
     await openApp(page);
     await newTab(page, 'paper kites');
-    await expect(page.getByTestId('url-pill')).toContainText('duckduckgo.com');
+    await expect(page.getByTestId('url-pill')).toContainText('google.com');
     await expect(todayRows(page).first()).toHaveAttribute('data-title', 'paper kites - Search');
   });
 

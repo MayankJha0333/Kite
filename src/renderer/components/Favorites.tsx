@@ -40,6 +40,7 @@ function FavTile({ id }: { id: ID }) {
       {...drag.handlers}
       className="fav"
       role="listitem"
+      data-flip={id}
       data-active={active || undefined}
       data-loaded={loaded || undefined}
       data-drop={drag.dropHint ?? undefined}

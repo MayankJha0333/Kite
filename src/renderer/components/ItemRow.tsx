@@ -27,6 +27,26 @@ interface Props {
 
 const indent = (depth: number) => 8 + depth * 14;
 
+/** Arrow keys move between rows; Enter / Space act on the focused one. */
+export function rowKeys(e: React.KeyboardEvent, activate: () => void, extra?: (key: string) => boolean) {
+  if (e.target !== e.currentTarget) return; // typing in a rename box, or a button inside the row
+  if (extra?.(e.key)) {
+    e.preventDefault();
+    return;
+  }
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    activate();
+    return;
+  }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  const rows = [...document.querySelectorAll<HTMLElement>('.sb-scroll [data-flip][role]')].filter((r) => r.offsetParent !== null);
+  const i = rows.indexOf(e.currentTarget as HTMLElement);
+  const next = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
+  next?.focus();
+}
+
 /** Attributes that tell a drag where this row sits in the tree. */
 function treeAttrs(depth: number, parentId?: ID, last?: boolean) {
   return { 'data-dnd-parent': parentId, 'data-dnd-last': last ? 'true' : undefined, 'data-dnd-indent': indent(depth) };
@@ -66,6 +86,8 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
       {...treeAttrs(depth, parentId, last)}
       className="row"
       role="treeitem"
+      tabIndex={active ? 0 : -1}
+      data-flip={id}
       aria-selected={active || picked}
       data-active={active || undefined}
       data-picked={picked || undefined}
@@ -76,6 +98,7 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
       data-title={title}
       style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px` }}
       onClick={(e) => clickRow(e, id, () => selectItem(id))}
+      onKeyDown={(e) => rowKeys(e, () => selectItem(id))}
       onAuxClick={(e) => e.button === 1 && closeItemCmd(id)}
       onDoubleClick={(e) => !(e.metaKey || e.ctrlKey || e.shiftKey) && setUi({ renaming: id })}
       onContextMenu={(e) => openMenu(e, picked ? selectionMenu(id) : itemMenu(id))}
@@ -186,6 +209,8 @@ function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extrac
         data-dnd-collapsed={item.collapsed ? 'true' : 'false'}
         className="row folder-row"
         role="treeitem"
+        tabIndex={-1}
+        data-flip={item.id}
         aria-expanded={!item.collapsed}
         aria-selected={picked}
         data-picked={picked || undefined}
@@ -195,6 +220,13 @@ function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extrac
         data-title={item.title}
         style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px`, ['--child-indent' as string]: `${indent(depth + 1)}px` }}
         onClick={(e) => clickRow(e, item.id, () => act((d) => ops.toggleFolder(d, item.id)))}
+        onKeyDown={(e) =>
+          rowKeys(e, () => act((d) => ops.toggleFolder(d, item.id)), (key) => {
+            if (key === 'ArrowRight' && item.collapsed) return act((d) => ops.toggleFolder(d, item.id)), true;
+            if (key === 'ArrowLeft' && !item.collapsed) return act((d) => ops.toggleFolder(d, item.id)), true;
+            return false;
+          })
+        }
         onDoubleClick={(e) => {
           e.stopPropagation();
           if (!(e.metaKey || e.ctrlKey || e.shiftKey)) setUi({ renaming: item.id });

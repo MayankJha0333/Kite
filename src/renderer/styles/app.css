@@ -841,7 +841,7 @@ body.dragging .drop-hint {
   font-size: 14px;
   filter: grayscale(0.7);
   opacity: 0.6;
-  transition: all calc(0.15s * var(--speed, 1));
+  transition: background var(--t-fast), opacity var(--t-fast), filter var(--t-fast), transform var(--press-dur, 160ms) var(--press-ease, var(--ease-out));
 }
 
 .space-dot:hover {
@@ -1055,11 +1055,21 @@ body.dragging .drop-hint {
   margin-right: 4px;
 }
 
+/* Reduce Motion (Kite's switch): see the matching system-preference block below. */
 .app[data-motion='reduced'] *,
 .app[data-motion='reduced'] *::before,
 .app[data-motion='reduced'] *::after {
-  animation: none !important;
-  transition: none !important;
+  animation-duration: 0.001ms !important;
+  animation-delay: 0s !important;
+  transition-property: background, background-color, color, opacity, box-shadow, border-color, fill, stroke !important;
+  transition-duration: 120ms !important;
+  transition-timing-function: ease !important;
+}
+.app[data-motion='reduced'] :is(.sheet, .kite-page, .menu, .toast, .peek, .cb, .site-info) {
+  animation: fade-in 140ms ease-out !important;
+}
+.app[data-motion='reduced'] :is(.sheet-scrim[data-leaving] .sheet, .kite-page[data-leaving], .toast[data-leaving]) {
+  animation: fade-out 100ms ease-in forwards !important;
 }
 
 /* ---- find bar ---- */
@@ -1102,7 +1112,6 @@ body.dragging .drop-hint {
   align-items: flex-start;
   padding-top: 14vh;
   background: var(--scrim);
-  animation: fade-in calc(0.12s * var(--speed, 1)) ease-out;
 }
 
 @keyframes fade-in {
@@ -1171,7 +1180,6 @@ body.dragging .drop-hint {
   background: var(--overlay);
   box-shadow: 0 0 0 1px var(--line), 0 16px 40px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(var(--blur, 20px)) saturate(1.3);
-  animation: pop-in calc(0.1s * var(--speed, 1)) ease-out;
 }
 
 .menu-item {
@@ -2219,7 +2227,7 @@ body.resizing-v * {
   border-radius: calc(var(--radius) + 4px);
   background: var(--card);
   box-shadow: 0 0 0 1px var(--line), 0 40px 100px rgba(0, 0, 0, 0.35);
-  animation: peek-in calc(0.26s * var(--speed, 1)) cubic-bezier(0.2, 0.9, 0.25, 1.05);
+  animation: peek-in calc(0.24s * var(--speed, 1)) var(--ease-out);
   transform-origin: 50% 0%;
 }
 
@@ -2688,7 +2696,7 @@ body.resizing-v * {
 .note-body blockquote {
   margin: 1em 0;
   padding-left: 16px;
-  border-left: 3px solid var(--tint-2);
+  border-left: 2px solid var(--ink-4);
   color: var(--ink-2);
 }
 
@@ -4489,17 +4497,8 @@ html.pip-frame-doc #root {
    Built on the tokens at the top (--ease-out, --ease-in, --ease-move) and the
    user's feel (--ease) and speed (--dur, --speed). Reduce Motion turns all of it off. */
 
-/* Switching tabs: the new page settles in instead of snapping. */
-.surface-slot[data-visible]:not([data-split]) {
-  animation: surface-in calc(var(--dur, 220ms) * 0.9) var(--ease-out);
-}
-
-@keyframes surface-in {
-  from {
-    opacity: 0;
-    transform: scale(0.994);
-  }
-}
+/* Switching tabs is instant: it happens hundreds of times a day, and any motion
+   there reads as latency. The sidebar row, not the page, shows the change. */
 
 /* Sheets arrive slightly low and small, and settle. */
 .sheet {
@@ -4519,18 +4518,12 @@ html.pip-frame-doc #root {
   animation: fade-in calc(var(--dur, 220ms) * 0.8) var(--ease-out);
 }
 
-/* The command bar blurs into focus (a "blur-in", not a slide). */
+/* The command bar (⌘T) appears at once, like Raycast: it is the most-used thing in Kite. */
 .cb {
-  animation: cb-in calc(var(--dur, 220ms) * 0.9) var(--ease-out);
-  transform-origin: 50% 0;
+  animation: none;
 }
-
-@keyframes cb-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.985);
-    filter: blur(6px);
-  }
+.cb-scrim {
+  animation: none;
 }
 
 .menu {
@@ -4570,25 +4563,9 @@ html.pip-frame-doc #root {
   }
 }
 
-/* New tabs and opened folders slide into the list; rows stagger 30 ms apart. */
-.sb-section .row,
-.folder-children > .row {
-  animation: row-in calc(var(--dur, 220ms) * 1.2) var(--ease-out) backwards;
-}
-
-.sb-section > :nth-child(2) > .row,
-.sb-section > .row:nth-child(2) { animation-delay: calc(30ms * var(--speed, 1)); }
-.sb-section > .row:nth-child(3) { animation-delay: calc(60ms * var(--speed, 1)); }
-.sb-section > .row:nth-child(4) { animation-delay: calc(90ms * var(--speed, 1)); }
-.sb-section > .row:nth-child(5) { animation-delay: calc(120ms * var(--speed, 1)); }
-.sb-section > .row:nth-child(n + 6) { animation-delay: calc(150ms * var(--speed, 1)); }
-
-@keyframes row-in {
-  from {
-    opacity: 0;
-    transform: translateX(-6px);
-  }
-}
+/* Rows move with FLIP (renderer/flip.ts): a row that is pinned, unpinned, dropped or
+   left behind by a closed neighbour glides to its place; a new row slides in. Nothing
+   re-animates when a Space's whole list mounts: the pane's own slide carries that. */
 
 /* The hidden sidebar slides out on a long tail and leaves faster, easing in. */
 .app[data-sidebar-peek] .sidebar {
@@ -4641,17 +4618,16 @@ html.pip-frame-doc #root {
 
 .settings-body > *,
 .settings-body .look > * {
-  animation: section-in calc(var(--dur, 220ms) * 1.2) var(--ease-out) backwards;
+  animation: section-in calc(var(--dur, 220ms) * 0.8) var(--ease-out) backwards;
 }
 
+/* A short stagger (the cards read as one list), capped so the page settles within ~250 ms. */
 .settings-body > :nth-child(2),
-.settings-body .look > :nth-child(2) { animation-delay: calc(40ms * var(--speed, 1)); }
+.settings-body .look > :nth-child(2) { animation-delay: calc(25ms * var(--speed, 1)); }
 .settings-body > :nth-child(3),
-.settings-body .look > :nth-child(3) { animation-delay: calc(80ms * var(--speed, 1)); }
-.settings-body > :nth-child(4),
-.settings-body .look > :nth-child(4) { animation-delay: calc(120ms * var(--speed, 1)); }
-.settings-body > :nth-child(n + 5),
-.settings-body .look > :nth-child(n + 5) { animation-delay: calc(160ms * var(--speed, 1)); }
+.settings-body .look > :nth-child(3) { animation-delay: calc(50ms * var(--speed, 1)); }
+.settings-body > :nth-child(n + 4),
+.settings-body .look > :nth-child(n + 4) { animation-delay: calc(70ms * var(--speed, 1)); }
 
 @keyframes section-in {
   from {
@@ -5398,12 +5374,23 @@ button.dl-name:not(:disabled):hover {
 }
 
 /* Kite follows the system's Reduce Motion setting as well as its own. */
+/* The system's Reduce Motion: fewer and gentler, not none. Nothing slides, scales or
+   blurs; sheets and menus fade in briefly; hover, press and toggle colours still answer. */
 @media (prefers-reduced-motion: reduce) {
   .app *,
   .app *::before,
   .app *::after {
-    animation: none !important;
-    transition: none !important;
+    animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
+    transition-property: background, background-color, color, opacity, box-shadow, border-color, fill, stroke !important;
+    transition-duration: 120ms !important;
+    transition-timing-function: ease !important;
+  }
+  .app :is(.sheet, .kite-page, .menu, .toast, .peek, .cb, .site-info) {
+    animation: fade-in 140ms ease-out !important;
+  }
+  .app :is(.sheet-scrim[data-leaving] .sheet, .kite-page[data-leaving], .toast[data-leaving]) {
+    animation: fade-out 100ms ease-in forwards !important;
   }
 }
 
@@ -7104,4 +7091,40 @@ button.dl-name:not(:disabled):hover {
 .source[data-wrap] .source-code {
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* ==== Guidelines pass: scroll containment, balanced headings, menu origin ======== */
+.sb-scroll,
+.sheet-body,
+.settings-main,
+.cb-list,
+.source-scroll,
+.note-scroll,
+.arch-list {
+  overscroll-behavior: contain;
+}
+.start-greet,
+.empty-state-title,
+.sheet-title,
+.settings-head-title,
+.load-error h2,
+.app-crash-card h1,
+.about h3 {
+  text-wrap: balance;
+}
+/* A menu grows out of the corner nearest the pointer (set inline when it flips to fit). */
+.menu {
+  transform-origin: 0 0;
+}
+
+/* Decorative loops stop outright under Reduce Motion; one-shot fades above still play. */
+.app[data-motion='reduced'] :is(.bg-paint, .bg-fx, .load-glow, .load-glow::before, .load-glow::after),
+.app[data-motion='reduced'] :is(.bg-image, .start-bg)::before {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app :is(.bg-paint, .bg-fx, .load-glow, .load-glow::before, .load-glow::after),
+  .app :is(.bg-image, .start-bg)::before {
+    animation: none !important;
+  }
 }

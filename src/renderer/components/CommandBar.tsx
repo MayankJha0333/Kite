@@ -4,7 +4,7 @@ import { ACTION_CATALOG, matchRanges, suggest, type Suggestion } from '@shared/c
 import { formatShortcut } from '@shared/shortcuts';
 import { displayUrl } from '@shared/url';
 import { getS, setUi, useKite } from '../store';
-import { actions, openUrl, selectItem, switchSpaceCmd } from '../commands';
+import { actions, openUrl, preconnectSoon, selectItem, switchSpaceCmd } from '../commands';
 import { isMac } from '../platform';
 import { SiteIcon } from './SiteIcon';
 import { KiteLogo } from './KiteLogo';
@@ -47,6 +47,11 @@ function CommandBarInner({ mode, initial, target }: { mode: 'new' | 'edit'; init
   // In edit mode, show suggestions only once the user starts typing.
   const results = useMemo(() => (mode === 'edit' && !touched.current ? [] : suggest(s, q, { actions: available })), [s, q, mode, available]);
   useEffect(() => setSel(0), [q]);
+  // Open the connection for what Enter would open, while the address is still being typed.
+  useEffect(() => {
+    const r = results[sel];
+    preconnectSoon(r && (r.kind === 'open' || r.kind === 'history') ? r.url : q.trim() || null);
+  }, [q, sel, results]);
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${sel}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [sel]);

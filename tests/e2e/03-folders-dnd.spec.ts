@@ -1,8 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, openApp, newTab, todayRows, pinnedRows, MOD } from './fixtures';
+import { test, expect, openApp, newTab, todayRows, pinnedRows, settledRows, MOD } from './fixtures';
 
 /** Drag with a real mouse. `where` picks the spot on the target (top/middle/bottom). */
 async function drag(page: Page, from: Locator, to: Locator, where: 'top' | 'middle' | 'bottom' | 'left' | 'right' = 'middle') {
+  await settledRows(page); // rows glide after a change; measure them at rest
   const a = (await from.boundingBox())!;
   const b = (await to.boundingBox())!;
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
@@ -142,6 +143,7 @@ test.describe('drag and drop', () => {
   test('while dragging, a ghost follows and the drop line shows; Esc cancels', async ({ page }) => {
     await openApp(page);
     for (const u of ['a.com', 'b.com']) await newTab(page, u);
+    await settledRows(page);
     const a = (await todayRows(page).nth(0).boundingBox())!;
     const b = (await todayRows(page).nth(1).boundingBox())!;
     await page.mouse.move(a.x + 40, a.y + a.height / 2);

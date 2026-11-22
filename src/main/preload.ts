@@ -83,6 +83,7 @@ const api: KiteBridge = {
   onShieldsStatus: (cb) => listen('shields-status', cb),
   onShieldsCount: (cb) => listen('shields-count', cb),
   allowHttp: (host) => ipcRenderer.send('net:allow-http', host),
+  preconnect: (url, partition) => ipcRenderer.send('net:preconnect', url, partition),
   permissions: () => ipcRenderer.invoke('permissions:list'),
   onPermissions: (cb) => listen('permissions-state', cb),
   forgetPermission: (site, permission) => ipcRenderer.send('permissions:forget', site, permission),

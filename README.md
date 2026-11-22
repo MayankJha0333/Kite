@@ -48,7 +48,7 @@ cookies or history.
 | **History** | ⌘⇧H: every page you visited, grouped by day; search, reopen (⌘-click for the background), forget one, clear the last hour / today / week / all (with Undo) |
 | **Pages** | Find in page with match counts (⌘F), zoom with a level badge in the address bar (⌘+ / ⌘− / ⌘0), print (⌘P), Save Page As… (⌘⇧S), View Page Source, developer tools for a page; a page whose process dies says so and offers Try again |
 | **Spaces** | Name, emoji, two colours, light/dark/auto, colour strength, grain; ⌃1…⌃9, ⌘⌥←/→, two-finger swipe; drop tabs on a Space icon to move them |
-| **Command bar** | ⌘T: fuzzy search over open tabs (switch instead of duplicating), notes, history, 25 actions and Spaces |
+| **Command bar** | ⌘T: fuzzy search over open tabs (switch instead of duplicating), notes, history, 40 actions and Spaces; Google search by default (DuckDuckGo, Bing, Brave, Kagi or your own in Settings); the connection to the address you're typing opens before you press Enter |
 | **Split View** | 2–4 pages side by side or stacked, resizable; ⌘⇧=, drag a tab onto the page, or from a link's menu |
 | **Peek** | Links from pinned tabs to other sites (and shift-click) open in a floating preview; Open / Split / Esc |
 | **Little window** | Small quick window (⌘⌥N, works even when Kite is in the background); “Open in Kite” moves the page into a Space |

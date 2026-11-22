@@ -90,6 +90,8 @@ export function createNetwork(deps: NetworkDeps) {
   // ---- Keeping the lists and the engine current ----
   let syncing: Promise<void> | null = null;
   let again = false;
+  /** Downloads wait a little after launch when a saved filter is already blocking: the first pages you open get the connection. */
+  let firstDownload = true;
 
   /** Download what's due, then build (or load) the engine for the current choices. */
   async function sync(force = false): Promise<void> {
@@ -107,6 +109,12 @@ export function createNetwork(deps: NetworkDeps) {
         const maxAge = sh.updateHours > 0 ? sh.updateHours * HOUR : Infinity;
         // A saved engine for exactly these lists starts blocking at once, before any download.
         if (!loadedKey) use(lists.loadSaved(lists.keyFor(sources, userRules)), sources);
+        if (firstDownload && loadedKey && !force) {
+          firstDownload = false;
+          await new Promise((r) => setTimeout(r, 15_000));
+          if (again) continue; // settings changed meanwhile: start over with the new choices
+        }
+        firstDownload = false;
         setStatus({ updating: true, error: undefined });
         await lists.ensure(sources, maxAge, force);
         force = false;
@@ -417,6 +425,16 @@ export function createNetwork(deps: NetworkDeps) {
     clearStats,
     media: (wcId: number) => [...(media.get(wcId)?.values() ?? [])],
     allowHttp: (host: string) => void allowHttp.add(host.toLowerCase()),
+    /** Open the connection (DNS, TCP, TLS) for a site before it is asked for, in a cookie jar. */
+    preconnect: (ses: Session, url: string) => {
+      try {
+        const u = new URL(url);
+        if (!/^https?:$/.test(u.protocol)) return;
+        ses.preconnect({ url: u.origin, numSockets: 1 });
+      } catch {
+        /* not an address */
+      }
+    },
     isAllowed: (url: string) => isAllowedSite(deps.prefs().shields, url),
     /** The address without its tracking parameters (unchanged when there are none). */
     cleanUrl: (url: string) => stripped(url, url, 'main_frame') ?? url,

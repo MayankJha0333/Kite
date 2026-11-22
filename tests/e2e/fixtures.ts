@@ -41,6 +41,11 @@ export function visibleFrame(page: Page) {
   return page.frameLocator('.surface-slot[data-visible] iframe').first();
 }
 
+/** Wait for sidebar rows to stop gliding (flip.ts) before measuring where they are. */
+export async function settledRows(page: Page) {
+  await page.evaluate(() => Promise.all([...document.querySelectorAll('.sb-scroll [data-flip]')].flatMap((el) => el.getAnimations().map((a) => a.finished.catch(() => undefined)))));
+}
+
 /** Wait for an element's entry/exit animations (and its children's) to finish. */
 export async function settled(page: Page, testId: string) {
   await page.getByTestId(testId).evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined))));

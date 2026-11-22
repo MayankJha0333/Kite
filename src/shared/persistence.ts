@@ -31,6 +31,9 @@ export function loadState(raw: unknown): AppState {
     closed: Array.isArray(s.closed) ? s.closed : [],
   };
   state.settings.shortcuts = { ...DEFAULT_SHORTCUTS, ...(state.settings.shortcuts ?? {}) };
+  // Google is the default search. Data saved by earlier versions carried the old default
+  // (DuckDuckGo) whether or not anyone chose it; an engine picked by hand is kept as is.
+  if (state.settings.searchEngine === 'https://duckduckgo.com/?q=%s' && !(isObj(s.settings) && (s.settings as { searchEngineChosen?: boolean }).searchEngineChosen)) state.settings.searchEngine = defaultSettings().searchEngine;
   state.settings.look = sanitizeLook(state.settings.look);
   state.settings.shields = sanitizeShields(state.settings.shields);
   if (!(state.settings.soundVolume >= 0 && state.settings.soundVolume <= 1)) state.settings.soundVolume = 0.4;

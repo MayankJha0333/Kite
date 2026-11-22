@@ -764,7 +764,7 @@ function setupIpc() {
     });
 
   handle('state:load', () => storage.load());
-  handle('state:save', (_e, json: string) => storage.save(json));
+  handle('state:save', (_e, json: string) => storage.saveAsync(json));
   // Used on quit, when there's no time to wait for an async reply.
   ipcMain.on('state:save-sync', (e, json: string) => {
     if (!fromKite(e)) return void (e.returnValue = false);
@@ -856,6 +856,24 @@ function setupIpc() {
     return network.status();
   });
   on('net:allow-http', (_e, host: string) => typeof host === 'string' && /^[a-z0-9.-]{1,253}$/i.test(host) && network.allowHttp(host));
+  // While you type an address, its connection opens, so Enter has less to wait for.
+  const preconnected = new Map<string, number>();
+  on('net:preconnect', (_e, url: string, partition: string) => {
+    if (typeof url !== 'string' || !isWebUrl(url) || url.length > 2048) return;
+    const ses = ensureJar(isKitePartition(partition) ? partition : PARTITION);
+    let origin = '';
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      return;
+    }
+    // Once per origin per few seconds: typing letter by letter must not open a socket each keystroke.
+    const now = Date.now();
+    if ((preconnected.get(origin) ?? 0) > now - 10_000) return;
+    preconnected.set(origin, now);
+    if (preconnected.size > 200) preconnected.delete(preconnected.keys().next().value!);
+    network.preconnect(ses, origin);
+  });
   handle('permissions:list', () => permissions.list());
   on('permissions:forget', (_e, site?: string, permission?: string) => permissions.forget(typeof site === 'string' ? site : undefined, typeof permission === 'string' ? permission : undefined));
   handle('privacy:clear', (_e, what: ClearWhat, site?: string) => clearData({ cookies: !!what?.cookies, cache: !!what?.cache, storage: !!what?.storage }, typeof site === 'string' ? site : undefined));

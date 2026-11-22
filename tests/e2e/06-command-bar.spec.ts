@@ -40,7 +40,7 @@ test.describe('command bar', () => {
     await expect(page.locator('.cb-row[data-on]')).toHaveAttribute('data-kind', 'search');
     await page.keyboard.press('Enter');
     await expect(todayRows(page)).toHaveCount(2);
-    await expect(page.getByTestId('url-pill')).toContainText('duckduckgo.com');
+    await expect(page.getByTestId('url-pill')).toContainText('google.com');
   });
 
   test('a URL offers Open first', async ({ page }) => {

@@ -1,7 +1,9 @@
 // Every user action in one place. Shortcuts, menus and the command bar all call these.
 
 import * as ops from '@shared/ops';
-import { hostOf, isNewTabUrl, NEW_TAB_URL, normalizeInput, sourceUrlFor } from '@shared/url';
+import { hostOf, isNewTabUrl, looksLikeUrl, NEW_TAB_URL, normalizeInput, sourceUrlFor } from '@shared/url';
+import { partitionForSpace } from '@shared/profiles';
+import { activeSpace } from '@shared/tree';
 import { locate } from '@shared/tree';
 import type { ID } from '@shared/types';
 import { act, getS, getUi, markLoaded, setUi, toast, unload, useKite } from './store';
@@ -44,6 +46,24 @@ export function openUrl(input: string, where: OpenWhere = 'new', opts: { spaceId
   const id = act((d) => ops.newTab(d, { url, now: now(), activate: where !== 'background', spaceId: opts.spaceId }));
   if (where !== 'background') markLoaded(id);
   return id;
+}
+
+/**
+ * Warm the connection to what the user is about to open, while they are still typing:
+ * the address they typed, or the suggestion they have highlighted. Debounced, so a
+ * letter-by-letter address only reaches the network once it stops changing.
+ */
+let preconnectTimer: ReturnType<typeof setTimeout> | null = null;
+export function preconnectSoon(target: string | null) {
+  if (preconnectTimer) clearTimeout(preconnectTimer);
+  if (!target) return;
+  preconnectTimer = setTimeout(() => {
+    preconnectTimer = null;
+    const s = getS();
+    const url = /^https?:\/\//i.test(target) ? target : looksLikeUrl(target) ? normalizeInput(target, s.settings.searchEngine) : null;
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    bridge.preconnect(url, partitionForSpace(activeSpace(s)));
+  }, 180);
 }
 
 /** Filled in by pipRuntime (kept separate to avoid an import loop). */

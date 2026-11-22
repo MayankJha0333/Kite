@@ -92,6 +92,17 @@ describe('Storage (disk)', () => {
     expect(existsSync(`${st.file}.tmp`)).toBe(false);
   });
 
+  it('the routine (async) save writes atomically, keeps the backup, and never interleaves', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kite-'));
+    const st = new Storage(dir);
+    await Promise.all([st.saveAsync('{"v":1}'), st.saveAsync('{"v":2}'), st.saveAsync('{"v":3}')]);
+    expect(st.load()).toEqual({ v: 3 });
+    expect(JSON.parse(readFileSync(st.backup, 'utf8'))).toEqual({ v: 2 });
+    expect(existsSync(`${st.file}.tmp`)).toBe(false);
+    await expect(st.saveAsync('{broken')).rejects.toThrow();
+    expect(st.load()).toEqual({ v: 3 });
+  });
+
   it('keeps one dated snapshot per day for a week', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'kite-'));
     const st = new Storage(dir);
@@ -117,5 +128,17 @@ describe('Storage (disk)', () => {
     const st = new Storage(mkdtempSync(join(tmpdir(), 'kite-')));
     expect(() => st.save('{nope')).toThrow();
     expect(st.load()).toBeNull();
+  });
+});
+
+describe('search engine default', () => {
+  it('new data starts on Google; the old DuckDuckGo default becomes Google unless it was chosen on purpose', () => {
+    expect(loadState(null).settings.searchEngine).toBe('https://www.google.com/search?q=%s');
+    const old = loadState({ settings: { searchEngine: 'https://duckduckgo.com/?q=%s' } });
+    expect(old.settings.searchEngine).toBe('https://www.google.com/search?q=%s');
+    const chosen = loadState({ settings: { searchEngine: 'https://duckduckgo.com/?q=%s', searchEngineChosen: true } });
+    expect(chosen.settings.searchEngine).toBe('https://duckduckgo.com/?q=%s');
+    const kagi = loadState({ settings: { searchEngine: 'https://kagi.com/search?q=%s' } });
+    expect(kagi.settings.searchEngine).toBe('https://kagi.com/search?q=%s');
   });
 });

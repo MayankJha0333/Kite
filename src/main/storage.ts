@@ -7,6 +7,7 @@
 //   protects against mistakes that get saved, like an unwanted reset.
 
 import { closeSync, copyFileSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, unlinkSync, writeSync } from 'node:fs';
+import { copyFile, open, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { STATE_VERSION } from '../shared/defaults';
 
@@ -43,6 +44,30 @@ export class Storage {
     }
     return null;
   }
+
+  /**
+   * The routine save: the same steps as `save`, but the flush to disk happens off the
+   * main thread, so a save mid-browsing never holds up a page's network callbacks.
+   * Saves are serialised so two never interleave.
+   */
+  async saveAsync(json: string): Promise<void> {
+    JSON.parse(json); // never write something we couldn't read back (rejects, like any other failure)
+    const run = async () => {
+      const tmp = `${this.file}.tmp`;
+      const fh = await open(tmp, 'w');
+      try {
+        await fh.writeFile(json, 'utf8');
+        await fh.sync();
+      } finally {
+        await fh.close();
+      }
+      if (existsSync(this.file)) await copyFile(this.file, this.backup).catch(() => undefined);
+      await rename(tmp, this.file);
+    };
+    this.queue = this.queue.then(run, run);
+    return this.queue;
+  }
+  private queue: Promise<void> = Promise.resolve();
 
   save(json: string): void {
     JSON.parse(json); // never write something we couldn't read back

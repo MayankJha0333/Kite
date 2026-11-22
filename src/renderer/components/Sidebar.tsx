@@ -10,6 +10,7 @@ import { ItemRow } from './ItemRow';
 import { Favorites } from './Favorites';
 import { SpaceBar, SpaceHeader, useSpaceSwipe } from './Spaces';
 import { useRef } from 'react';
+import { useFlip } from '../flip';
 import { formatShortcut } from '@shared/shortcuts';
 import { openMenu } from './ContextMenu';
 import { DropZone } from '../dnd';
@@ -28,6 +29,12 @@ export function Sidebar() {
   const needsLightsGap = desktopChrome && isMac && !fullscreen;
   const onWheel = useSpaceSwipe();
   const spaceIndex = useKite((st) => st.s.spaces.findIndex((x) => x.id === st.s.activeSpaceId));
+  // Rows glide to their new place when the tree changes (see flip.ts): render on every
+  // change to items or Favorites, so the measurement runs after each commit.
+  useKite((st) => st.s.items);
+  useKite((st) => st.s.favorites);
+  const scroll = useRef<HTMLDivElement>(null);
+  useFlip(scroll, space.id);
   const lastIndex = useRef(spaceIndex);
   const dir = spaceIndex === lastIndex.current ? 'none' : spaceIndex > lastIndex.current ? 'next' : 'prev';
   lastIndex.current = spaceIndex;
@@ -46,7 +53,7 @@ export function Sidebar() {
       {showUrl && <UrlPill />}
       <SiteInfo />
 
-      <div className="sb-scroll" data-testid="sb-scroll" onWheel={onWheel}>
+      <div className="sb-scroll" data-testid="sb-scroll" onWheel={onWheel} ref={scroll}>
         <Favorites />
         <div className="space-pane" key={space.id} data-dir={dir}>
         <SpaceHeader space={space} />

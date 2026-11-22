@@ -46,6 +46,11 @@ export function onSpringSpace(fn: (id: ID) => void) {
 }
 
 const THRESHOLD = 5;
+
+/** Finish any row glide still playing (renderer/flip.ts), so geometry is at rest. */
+export function settleRows() {
+  document.querySelectorAll<HTMLElement>('[data-flip]').forEach((el) => el.getAnimations().forEach((a) => a.id === 'flip' && a.finish()));
+}
 /** How long to hold over a closed folder / another Space before it opens. */
 export const SPRING_MS = 550;
 const EDGE = 36;
@@ -203,6 +208,7 @@ export function useDragRow(id: ID, isFolder: boolean, axis: 'x' | 'y' = 'y') {
         if (!sel.includes(id) && sel.length) setUi({ selected: [] });
         useDnd.setState({ dragging: id, group, target: null });
         document.body.classList.add('dragging');
+        settleRows(); // a drag needs every row at rest: hit-testing a gliding list would lie
         ghost = document.createElement('div');
         ghost.className = 'drag-ghost';
         ghost.dataset.testid = 'drag-ghost';

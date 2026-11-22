@@ -162,6 +162,8 @@ export interface Settings {
   archiveAfterMs: number | null;
   littleArchiveAfterMs: number | null;
   searchEngine: string; // template with %s
+  /** Set once the user picks an engine themselves (so a changed default never overrides it). */
+  searchEngineChosen?: boolean;
   peekOnExternalLinksFromPinned: boolean;
   peekOnShiftClick: boolean;
   externalLinksTarget: 'little' | 'active';

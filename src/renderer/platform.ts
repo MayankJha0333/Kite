@@ -222,6 +222,7 @@ function makeWebBridge(): KiteBridge {
     onShieldsStatus: (cb) => shieldsStatus.on(cb),
     onShieldsCount: (cb) => shieldsCount.on(cb),
     allowHttp: (host) => void hooks.calls.push(`allowHttp:${host}`),
+    preconnect: (url) => void hooks.calls.push(`preconnect:${url}`),
     permissions: async () => hooks.permissions,
     onPermissions: (cb) => permState.on(cb),
     forgetPermission: (site, permission) => {

@@ -275,6 +275,7 @@ test.describe('Spaces with separate logins, and animation settings', () => {
     await page.getByTestId('settings-motion').click();
     await page.getByTestId('set-motion').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-motion', 'reduced');
-    expect(await page.getByTestId('settings').evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+    // Reduce Motion is gentler, not dead: the page still fades in briefly, but nothing moves.
+    expect(await page.getByTestId('settings').evaluate((el) => [getComputedStyle(el).animationName, getComputedStyle(el).animationDuration])).toEqual(['fade-in', '0.14s']);
   });
 });

@@ -480,7 +480,7 @@ function SearchLinks() {
             onChange={(e) => {
               const v = e.target.value;
               setOwnEngine(v === 'custom');
-              if (v !== 'custom') set({ searchEngine: v });
+              if (v !== 'custom') set({ searchEngine: v, searchEngineChosen: true });
             }}
           >
             {SEARCH_ENGINES.map((e) => <option key={e.label} value={e.template}>{e.label}</option>)}
@@ -489,7 +489,7 @@ function SearchLinks() {
         </Row>
         {ownEngine && (
         <Row title="Your own search engine" desc="A full https:// address with %s where the words go" stack>
-          <form className="inline-form" onSubmit={(e) => { e.preventDefault(); set({ searchEngine: tpl }); toast(getS().settings.searchEngine === tpl ? 'Search engine saved' : 'Use a full https:// address with %s where the words go'); }}>
+          <form className="inline-form" onSubmit={(e) => { e.preventDefault(); set({ searchEngine: tpl, searchEngineChosen: true }); toast(getS().settings.searchEngine === tpl ? 'Search engine saved' : 'Use a full https:// address with %s where the words go'); }}>
             <input className="input" aria-label="Custom search address" placeholder="https://example.com/search?q=%s" value={tpl} data-testid="set-engine-custom" onChange={(e) => setTpl(e.target.value)} />
             <button className="btn">Use</button>
           </form>

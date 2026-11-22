@@ -38,6 +38,36 @@ Last audit: 17 November 2026, against Arc 1.171 as the behaviour and design refe
 - Root error boundary with a recovery screen; crash logging in every build.
 - Windows (NSIS) and Linux (AppImage, deb) build targets.
 
+## Design and motion pass
+
+Run with the installed design skills (impeccable critique/animate, Emil Kowalski's animation audit, Apple's fluid-interface rules, Vercel's Web Interface Guidelines). What changed:
+
+- **Instant where it matters.** Tab switches and the command bar (⌘T) no longer animate: at 100+ uses a day, motion there reads as latency.
+- **The sidebar is a physical list.** Rows glide to their new place when pinned, unpinned, dropped, or left behind by a closed neighbour (FLIP over the Web Animations API, `src/renderer/flip.ts`); a new row slides in. Measured inside the list, so the list itself shifting (the address bar appearing) never moves rows; a drag snaps everything to rest first.
+- **Reduce Motion is gentler, not dead.** Nothing slides, scales or blurs; sheets, menus and toasts fade in 140ms; hover, press and toggle colours still answer; decorative background loops stop outright. Both the system setting and Kite's own switch.
+- **Shorter choreography.** Settings sections settle within ~250ms (was ~420ms); Space switches no longer re-stagger every row; Peek uses the shared arrival curve instead of a one-off overshoot; one `transition: all` and a dead duplicate menu animation removed.
+- **Menus grow from the corner nearest the pointer**, even when flipped to fit the window.
+- **Keyboard access.** Sidebar tabs and folders are reachable with Tab, moved through with ↑/↓, opened with Enter or Space, folders opened and closed with → and ←.
+- **Guidelines pass.** Scroll containment on every scrolling pane, balanced headings, a quiet neutral rule on note quotes instead of a thick accent bar. The mechanical design detector reports no findings.
+- Tests: `tests/e2e/27-motion-keyboard.spec.ts` covers the glide, the instant actions, reduced motion and keyboard navigation; the drag specs now measure rows at rest.
+
+## Page-load performance (measured 22 Nov 2026)
+
+Chromium's own load events, Kite tab versus a bare Electron window in the same process, same network:
+
+| Site | Kite, repeat visit | Bare window, warm | Kite, first visit | Bare window, cold |
+|---|---|---|---|---|
+| example.com | 72 ms to navigate, 111 ms loaded | 73 ms, 95 ms | 417 ms, 574 ms | 1299 ms, 1485 ms |
+| news.ycombinator.com | 400 ms, 437 ms | 393 ms, 416 ms | 1117 ms, 2223 ms | 1331 ms, 2435 ms |
+| en.wikipedia.org | 174 ms, 299 ms | 182 ms, 324 ms | 539 ms, 1677 ms | 904 ms, 2238 ms |
+
+Kite adds no measurable overhead over Chromium itself; Shields makes ad-heavy pages faster (The Verge: 10.5 s with Shields, 14 s without). First visits are dominated by DNS and TLS setup on the network, not by Kite. The `handshake failed … net_error -100` lines in the dev console are Chromium noting third-party hosts that closed a TLS handshake (trackers, odd servers); they are logged, retried where sensible, and do not fail the page.
+
+What changed to make first visits quicker:
+- **Preconnect while typing.** The command bar and the new-tab box open the connection (DNS, TCP, TLS) to the address being typed, or the highlighted suggestion, about 180 ms after typing pauses, once per origin per 10 s.
+- **First launch stays quiet.** When a saved filter is already blocking, filter-list downloads wait 15 s after launch so the first pages you open get the connection.
+- **Saves never block the network.** Routine state saves flush to disk off the main thread (the quit-time save is still synchronous).
+
 ## Known limitations
 
 - **Unsigned builds.** There is no Apple Developer ID or Windows code-signing certificate in this repository. macOS users must right-click → Open the first time; Windows SmartScreen will warn. To sign: set `CSC_LINK`/`CSC_KEY_PASSWORD` (and `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` for notarisation) in CI and remove `CSC_IDENTITY_AUTO_DISCOVERY: 'false'` from the workflow.

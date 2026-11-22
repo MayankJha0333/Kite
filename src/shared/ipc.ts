@@ -172,6 +172,8 @@ export interface KiteBridge {
   onShieldsCount(cb: (v: { tabId: string; count: number }) => void): () => void;
   /** Open this host over http although HTTPS-only is on (until Kite quits). */
   allowHttp(host: string): void;
+  /** Warm the connection to a site you are about to open (DNS, TCP, TLS), in a Space's cookie jar. */
+  preconnect(url: string, partition: string): void;
   permissions(): Promise<SitePermission[]>;
   onPermissions(cb: (v: SitePermission[]) => void): () => void;
   /** Forget remembered answers: one, a whole site's, or (no arguments) all. */

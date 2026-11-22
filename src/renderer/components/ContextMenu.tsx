@@ -62,7 +62,13 @@ function MenuList({ items, x, y, onClose, level = 0 }: { items: ContextMenuItem[
   }, [items, focus, onClose, level]);
 
   return (
-    <div ref={ref} className="menu" role="menu" style={{ left: pos.x, top: pos.y }} data-testid={level === 0 ? 'context-menu' : 'context-submenu'}>
+    <div
+      ref={ref}
+      className="menu"
+      role="menu"
+      style={{ left: pos.x, top: pos.y, transformOrigin: `${pos.x < x - 8 ? '100%' : '0'} ${pos.y < y - 8 ? '100%' : '0'}` }}
+      data-testid={level === 0 ? 'context-menu' : 'context-submenu'}
+    >
       {items.map((it, i) =>
         it.separator ? (
           <div key={i} className="menu-sep" />

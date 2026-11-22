@@ -12,7 +12,7 @@ import type { HistoryEntry, ID, Item } from '@shared/types';
 import * as ops from '@shared/ops';
 import { displayUrl, hostOf, isNewTabUrl, normalizeInput } from '@shared/url';
 import { act, useKite } from '../store';
-import { navigateTab, openUrl, selectItem } from '../commands';
+import { navigateTab, openUrl, preconnectSoon, selectItem } from '../commands';
 import { isMac, now } from '../platform';
 import { KiteLogo } from './KiteLogo';
 import { activeSpace } from '@shared/tree';
@@ -168,6 +168,7 @@ export function StartPage({ tabId }: { tabId?: ID }) {
               onChange={(e) => {
                 setQ(e.target.value);
                 setSel(-1);
+                preconnectSoon(e.target.value);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown' && matches.length) {
