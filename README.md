@@ -40,12 +40,13 @@ cookies or history.
 | Feature | What you get |
 |---|---|
 | **Sidebar tabs** | Vertical tabs, newest on top. Close + Undo, ⌘⇧T reopen, rename, duplicate, middle-click close, ⌘1…⌘9, ⌃Tab, resizable or hidden sidebar (slides out from the edge) |
-| **Home page** | Every new tab: a greeting, a big search box with a search-engine chip, your Favorites as site tiles (add, edit, remove right there), frequently visited sites, and widgets you place anywhere — Clock, Weather, Note, To-do, Calendar, Focus timer. Drag widgets by their title, resize from their menu, pick one of seven background scenes from the + button. Everything is saved with your data; only the Weather widget uses the network (the place name you type goes to open-meteo.com, nothing else) |
+| **Home page** | Every new tab: a greeting, a big search box with a search-engine chip, your Favorites as site tiles (add, edit, remove right there), frequently visited sites if you turn them on, and widgets you place anywhere — Clock, Weather, Note, To-do, Calendar, Focus timer. Drag widgets by their title, resize from their menu, pick one of seven background scenes from the + button. Everything is saved with your data; only the Weather widget uses the network (the place name you type goes to open-meteo.com, nothing else) |
 | **Favorites** | Icon grid at the top, shared by every Space |
 | **Pinned tabs** | Remember their home page; “back to pinned page”; closing keeps them and resets them |
 | **Folders** | Nested, drag and drop, collapse/expand all, ungroup; deleting moves contents to the Archive (with Undo) |
 | **Auto-archive** | Unused Today tabs move to the Archive after 1h…30 days (default 12h) or never; per-Space override; pinned and Favorites never touched |
 | **Archive** | Grouped by day, search, restore (notes keep their text), delete, clear |
+| **Site icons** | Every place that names a site shows its real icon: pages report theirs, history remembers it, and a site you have not opened yet is asked once for the icon it declares on its home page before falling back to a letter |
 | **History** | ⌘⇧H: every page you visited, grouped by day; search, reopen (⌘-click for the background), forget one, clear the last hour / today / week / all (with Undo) |
 | **Pages** | Find in page with match counts (⌘F), zoom with a level badge in the address bar (⌘+ / ⌘− / ⌘0), print (⌘P), Save Page As… (⌘⇧S), View Page Source, developer tools for a page; a page whose process dies says so and offers Try again |
 | **Spaces** | Name, emoji, two colours, light/dark/auto, colour strength, grain; ⌃1…⌃9, ⌘⌥←/→, two-finger swipe; drop tabs on a Space icon to move them |

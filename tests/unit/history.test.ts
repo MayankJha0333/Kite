@@ -53,3 +53,54 @@ describe('history', () => {
     expect(s.history).toEqual([{ url: 'https://a.com', title: 'A again', visits: 2, lastVisitAt: now }]);
   });
 });
+
+describe('site icons', () => {
+  it('a tab reporting its icon stamps it on the history of that site, and new visits inherit it', async () => {
+    const { createInitialState } = await import('@shared/defaults');
+    const { newTab, updateTab } = await import('@shared/ops');
+    const { faviconIndex, knownFavicon } = await import('@shared/icons');
+    const s = createInitialState();
+    const id = newTab(s, { url: 'https://github.com/a', now: 1 });
+    updateTab(s, id, { url: 'https://github.com/a', title: 'A' }, 2);
+    recordVisit(s, 'https://github.com/a', 'A', 2);
+    recordVisit(s, 'https://github.com/b', 'B', 3);
+    updateTab(s, id, { favicon: 'data:icon' }, 4);
+    expect(s.history.map((h) => h.favicon)).toEqual(['data:icon', 'data:icon']);
+    recordVisit(s, 'https://github.com/c', 'C', 5);
+    expect(s.history[0].favicon).toBe('data:icon');
+    expect(faviconIndex(s.items, s.history).get('github.com')).toBe('data:icon');
+    expect(knownFavicon(s, 'https://www.github.com/anything')).toBe('data:icon');
+    expect(knownFavicon(s, 'https://other.com')).toBeUndefined();
+  });
+
+  it('an icon found for a site goes to its tabs and history entries that have none', async () => {
+    const { createInitialState } = await import('@shared/defaults');
+    const { newTab, rememberSiteIcon, recordVisit } = await import('@shared/ops');
+    const s = createInitialState();
+    const a = newTab(s, { url: 'https://stackoverflow.com/q/1', now: 1 });
+    const b = newTab(s, { url: 'https://other.com', now: 2 });
+    recordVisit(s, 'https://stackoverflow.com/', 'SO', 3);
+    (s.items[a] as { favicon?: string }).favicon = 'data:own';
+    rememberSiteIcon(s, 'https://stackoverflow.com/x', 'https://cdn/so.png');
+    expect((s.items[a] as { favicon?: string }).favicon).toBe('data:own'); // a page's own icon is never replaced
+    expect((s.items[b] as { favicon?: string }).favicon).toBeUndefined();
+    expect(s.history[0].favicon).toBe('https://cdn/so.png');
+  });
+});
+
+describe('iconFromHtml', () => {
+  it('picks the declared icon, preferring SVG and larger sizes, and resolves it against the page', async () => {
+    const { iconFromHtml } = await import('@shared/siteIcon');
+    const html = `<html><head>
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple.png">
+      <link rel="shortcut icon" href="/f.ico">
+      <link rel="icon" type="image/png" sizes="32x32" href="/i32.png">
+      <link rel='icon' sizes='192x192' href='https://cdn.example.net/i192.png?v=1&amp;x=2'>
+      <link rel="stylesheet" href="/s.css"></head><body>`;
+    expect(iconFromHtml(html, 'https://example.com/')).toBe('https://cdn.example.net/i192.png?v=1&x=2');
+    expect(iconFromHtml('<link rel="icon" href="icon.svg">', 'https://example.com/a/')).toBe('https://example.com/a/icon.svg');
+    expect(iconFromHtml('<link rel="icon" href="/i.svg"><link rel="icon" sizes="512x512" href="/i.png">', 'https://e.com/')).toBe('https://e.com/i.svg');
+    expect(iconFromHtml('<link rel="stylesheet" href="/s.css">', 'https://example.com/')).toBeNull();
+    expect(iconFromHtml('<link rel="icon" href="javascript:alert(1)">', 'https://example.com/')).toBeNull();
+  });
+});

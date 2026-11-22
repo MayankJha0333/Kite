@@ -15,6 +15,32 @@ async function addWidget(page: Page, kind: string) {
 const widgets = (page: Page) => page.locator('[data-testid^="widget-"]:not([data-testid^="widget-menu"]):not([data-testid^="widget-size"])');
 
 test.describe('home page', () => {
+  test('sites show their real icon in suggestions and tiles; frequently visited is off until asked for', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'github.com');
+    await newTab(page, 'github.com/kite');
+    await page.getByTestId('btn-new-tab').click();
+    // Off by default: no "Frequently visited" section.
+    await expect(page.getByTestId('start-sites')).toHaveCount(0);
+    // A typed suggestion shows the icon the site reported, not a letter.
+    await page.getByTestId('start-input').fill('git');
+    const sug = page.getByTestId('start-suggest').getByRole('option').first();
+    await expect(sug.locator('img.site-icon')).toHaveCount(1);
+    await expect(sug.locator('.site-icon.letter')).toHaveCount(0);
+    await page.getByTestId('start-input').fill('');
+    // Turn Frequently visited on: its tile carries the same icon.
+    await customize(page);
+    await page.getByTestId('home-toggle-frequent').click();
+    await expect(page.getByTestId('start-site').first().locator('img.site-icon')).toHaveCount(1);
+    expect((await savedState(page)).history.find((h: { url: string }) => h.url.includes('github.com'))?.favicon).toMatch(/^data:image\/svg/);
+    // A shortcut typed by hand (never opened): the site is asked for its icon once, and the tile shows it.
+    await page.getByTestId('start-add-shortcut').click();
+    await page.getByTestId('shortcut-url').fill('stackoverflow.com');
+    await page.getByTestId('shortcut-name').fill('SO');
+    await page.getByTestId('shortcut-save').click();
+    await expect(page.getByTestId('start-favorite').locator('img.site-icon')).toHaveCount(1);
+  });
+
   test('widgets are added from the + button, keep their place, and are saved', async ({ page }) => {
     await openApp(page);
     await expect(page.getByTestId('empty-state')).toBeVisible();
@@ -132,7 +158,7 @@ test.describe('home page', () => {
     await expect(widgets(page)).toHaveCount(1);
     await customize(page);
     await page.getByTestId('home-toggle-frequent').click();
-    expect((await savedState(page)).home.showFrequent).toBe(false);
+    expect((await savedState(page)).home.showFrequent).toBe(true);
     await page.keyboard.press(`${MOD}+Comma`); // no crash with Settings over it
     await expect(page.getByTestId('settings')).toBeVisible();
   });

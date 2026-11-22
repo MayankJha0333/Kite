@@ -56,7 +56,8 @@ export const GRID = 20;
 export const MAX_WIDGETS = 12;
 
 export function defaultHome(): HomeState {
-  return { widgets: [], scene: 'space', showGreeting: true, showFrequent: true, showHints: true };
+  // Frequently visited starts hidden: it is a list of where you have been, shown only when you ask.
+  return { widgets: [], scene: 'space', showGreeting: true, showFrequent: false, showHints: true };
 }
 
 const MAX_PX = 8000;

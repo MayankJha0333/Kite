@@ -85,6 +85,7 @@ const api: KiteBridge = {
   allowHttp: (host) => ipcRenderer.send('net:allow-http', host),
   preconnect: (url, partition) => ipcRenderer.send('net:preconnect', url, partition),
   weather: (place) => ipcRenderer.invoke('home:weather', place),
+  siteIcon: (url) => ipcRenderer.invoke('site:icon', url),
   permissions: () => ipcRenderer.invoke('permissions:list'),
   onPermissions: (cb) => listen('permissions-state', cb),
   forgetPermission: (site, permission) => ipcRenderer.send('permissions:forget', site, permission),

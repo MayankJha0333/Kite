@@ -15,6 +15,15 @@ export function fakeTitle(url: string): string {
   }
 }
 
+/** A small per-site icon, so test-mode pages have a favicon like real ones. */
+export function fakeFavicon(url: string): string {
+  const host = hostOf(url) || '?';
+  let hue = 0;
+  for (const c of host) hue = (hue * 31 + c.charCodeAt(0)) % 360;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" rx="4" fill="hsl(${hue} 60% 50%)"/><text x="8" y="12" font-size="10" font-family="sans-serif" font-weight="700" fill="#fff" text-anchor="middle">${host.charAt(0).toUpperCase()}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }

@@ -5,7 +5,7 @@ import { parseLinkMessage } from '@shared/links';
 import { NONCE } from '../nonce';
 import { bridge, isElectron } from '../platform';
 import { registerSurface, type SurfaceHandle } from '../surfaces';
-import { fakePageHtml, fakeTitle } from '../fakePage';
+import { fakeFavicon, fakePageHtml, fakeTitle } from '../fakePage';
 import { DEFAULT_PARTITION } from '@shared/profiles';
 import { PAGE_GONE } from '@shared/shields';
 
@@ -346,6 +346,7 @@ function SimulatedSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITI
       doc.addEventListener('mousedown', () => evRef.current.onFocus?.());
       evRef.current.onNavigate(url);
       evRef.current.onTitle(fakeTitle(url));
+      evRef.current.onFavicon(fakeFavicon(url));
       evRef.current.onLoading(false);
       report();
       evRef.current.onReady(handle, url);

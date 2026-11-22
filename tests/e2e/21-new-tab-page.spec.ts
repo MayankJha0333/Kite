@@ -37,6 +37,10 @@ test.describe('New Tab opens a new-tab page', () => {
     await newTab(page, 'https://github.com');
     await newTab(page, 'https://example.com');
     await page.getByTestId('btn-new-tab').click();
+    // Frequently visited is off until asked for.
+    await expect(page.getByTestId('start-site')).toHaveCount(0);
+    await page.getByTestId('home-customize').click();
+    await page.getByTestId('home-toggle-frequent').click();
     await expect(page.getByTestId('start-site')).toHaveCount(2);
     await page.getByTestId('start-input').fill('git');
     await expect(page.getByTestId('start-suggest').getByRole('option')).toHaveCount(1);

@@ -106,6 +106,8 @@ export interface HistoryEntry {
   title: string;
   visits: number;
   lastVisitAt: number;
+  /** The page's icon as it last reported it, so history, suggestions and tiles show the site, not a letter. */
+  favicon?: string;
 }
 
 export interface Boost {

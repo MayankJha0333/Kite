@@ -111,6 +111,25 @@ export function updateTab(s: AppState, id: ID, patch: Partial<Pick<TabItem, 'url
   }
   if (patch.favicon !== undefined) t.favicon = patch.favicon || undefined;
   if (urlChanged) recordVisit(s, t.url, patch.title ?? t.title, now);
+  if (patch.favicon) rememberFavicon(s, t.url, patch.favicon);
+}
+
+/** An icon found for a site (not reported by a page): give it to every tab and history entry of that site that has none. */
+export function rememberSiteIcon(s: AppState, url: string, favicon: string): void {
+  const host = hostOf(url);
+  if (!host) return;
+  for (const it of Object.values(s.items)) if (it.kind === 'tab' && !it.favicon && hostOf(it.url) === host) it.favicon = favicon;
+  for (const h of s.history) if (!h.favicon && hostOf(h.url) === host) h.favicon = favicon;
+}
+
+/** Keep a site's icon on its history entries (the page's own, or the site's for entries that have none). */
+export function rememberFavicon(s: AppState, url: string, favicon: string): void {
+  const host = hostOf(url);
+  if (!host) return;
+  for (const h of s.history) {
+    if (h.url === url) h.favicon = favicon;
+    else if (!h.favicon && hostOf(h.url) === host) h.favicon = favicon;
+  }
 }
 
 export function recordVisit(s: AppState, url: string, title: string, now: number): void {
@@ -121,7 +140,10 @@ export function recordVisit(s: AppState, url: string, title: string, now: number
     h.lastVisitAt = now;
     if (title) h.title = title;
   } else {
-    s.history.unshift({ url, title, visits: 1, lastVisitAt: now });
+    // A new entry starts with the icon already known for its site.
+    const host = hostOf(url);
+    const known = host ? s.history.find((x) => x.favicon && hostOf(x.url) === host)?.favicon : undefined;
+    s.history.unshift({ url, title, visits: 1, lastVisitAt: now, ...(known ? { favicon: known } : {}) });
     if (s.history.length > MAX_HISTORY) s.history.length = MAX_HISTORY;
   }
 }

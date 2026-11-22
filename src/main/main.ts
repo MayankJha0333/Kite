@@ -19,6 +19,7 @@ import {
 } from 'electron';
 import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { iconFromHtml } from '@shared/siteIcon';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Storage } from './storage';
@@ -884,6 +885,26 @@ function setupIpc() {
       return { error: `Couldn’t reach the weather service: ${(err as Error).message}` };
     }
   });
+  // A site's icon when no page has reported one (a shortcut typed by hand, a search engine):
+  // read the <link rel="icon"> from its home page, else its /favicon.ico if that is an image.
+  // Only the site itself is contacted, through the app's own session (no site cookies there).
+  const siteIconCache = new Map<string, Promise<string | null>>();
+  handle('site:icon', (_e, url: string): Promise<string | null> => {
+    if (typeof url !== 'string' || !isWebUrl(url) || url.length > 2048) return Promise.resolve(null);
+    let origin: string;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      return Promise.resolve(null);
+    }
+    let p = siteIconCache.get(origin);
+    if (!p) {
+      p = findSiteIcon(origin);
+      siteIconCache.set(origin, p);
+      if (siteIconCache.size > 500) siteIconCache.delete(siteIconCache.keys().next().value!);
+    }
+    return p;
+  });
   on('net:allow-http', (_e, host: string) => typeof host === 'string' && /^[a-z0-9.-]{1,253}$/i.test(host) && network.allowHttp(host));
   // While you type an address, its connection opens, so Enter has less to wait for.
   const preconnected = new Map<string, number>();
@@ -1339,4 +1360,78 @@ if (!gotLock) {
   });
   process.on('uncaughtException', (err) => errorLog(`uncaught: ${err?.stack ?? err}`));
   process.on('unhandledRejection', (err) => errorLog(`unhandled rejection: ${(err as Error)?.stack ?? String(err)}`));
+}
+
+/** The icon a site declares on its home page, else its /favicon.ico when that is really an image; null when it has neither. */
+async function findSiteIcon(origin: string): Promise<string | null> {
+  // Some sites answer only a browser-looking request; the apex host sometimes stalls where www answers.
+  const u = new URL(origin);
+  const alt = new URL(origin);
+  alt.hostname = u.hostname.startsWith('www.') ? u.hostname.slice(4) : `www.${u.hostname}`;
+  // Both at once: the first that answers wins, so a stalled apex host does not hold things up.
+  return new Promise((resolve) => {
+    let pending = 2;
+    for (const o of [u.origin, alt.origin]) {
+      siteIconAt(o)
+        .catch(() => null)
+        .then((found) => {
+          if (found) resolve(found);
+          else if (--pending === 0) resolve(null);
+        });
+    }
+  });
+}
+
+/** Looks like a page request from this browser, so sites answer the way they do for a tab. */
+function browserHeaders(kind: 'page' | 'image'): Record<string, string> {
+  return {
+    accept: kind === 'page' ? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8' : 'image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5',
+    'accept-language': `${app.getLocale() || 'en-US'},en;q=0.8`,
+    'user-agent': app.userAgentFallback.replace(/\s(?:Kite|kite-browser|Electron)\/\S+/g, ''),
+  };
+}
+
+async function siteIconAt(origin: string): Promise<string | null> {
+  const withTimeout = (ms: number) => {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms);
+    return { signal: c.signal, done: () => clearTimeout(t) };
+  };
+  try {
+    const t = withTimeout(6000);
+    const res = await net.fetch(origin + '/', { headers: browserHeaders('page'), signal: t.signal, redirect: 'follow' });
+    if (res.ok && res.body && /text\/html/i.test(res.headers.get('content-type') ?? '')) {
+      // Only the head matters, and the first chunks hold it: read up to 128KB.
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let html = '';
+      while (html.length < 131072) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        html += dec.decode(value, { stream: true });
+        if (/<\/head>/i.test(html) || /<body[\s>]/i.test(html)) break;
+      }
+      void reader.cancel().catch(() => {});
+      t.done();
+      const found = iconFromHtml(html, res.url || origin + '/');
+      if (found) return found;
+    } else {
+      t.done();
+      void res.body?.cancel().catch(() => {});
+    }
+  } catch {
+    /* unreachable or odd: try the plain favicon below */
+  }
+  try {
+    const t = withTimeout(5000);
+    const res = await net.fetch(origin + '/favicon.ico', { headers: browserHeaders('image'), signal: t.signal, redirect: 'follow' });
+    t.done();
+    const type = res.headers.get('content-type') ?? '';
+    const len = Number(res.headers.get('content-length') ?? '1');
+    void res.body?.cancel().catch(() => {});
+    if (res.ok && /^image\//i.test(type) && len > 0) return res.url || origin + '/favicon.ico';
+  } catch {
+    /* no icon */
+  }
+  return null;
 }

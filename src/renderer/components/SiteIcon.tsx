@@ -1,10 +1,24 @@
 import { Code2, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { knownFavicon } from '@shared/icons';
 import { siteLetter, hostOf, isNewTabUrl, sourceTarget } from '@shared/url';
+import { lookupSiteIcon } from '../siteIcons';
+import { useKite } from '../store';
 
-/** A page's favicon, or a colored letter tile when there isn't one. */
+/**
+ * A page's favicon, or a colored letter tile when there isn't one.
+ * Without one of its own, it takes the icon any tab or history entry reported for the same
+ * site; failing that it asks the site itself for its icon once, so a shortcut typed by hand
+ * or a search result shows the real site as soon as it can.
+ */
 export function SiteIcon({ url, favicon, title, size = 16 }: { url: string; favicon?: string; title?: string; size?: number }) {
-  const [broken, setBroken] = useState<string | null>(null);
+  const [broken, setBroken] = useState<string[]>([]);
+  const known = useKite((st) => (favicon ? undefined : knownFavicon(st.s, url)));
+  const src = [favicon, known].find((c) => c && !broken.includes(c));
+  const wantsLookup = !src && !isNewTabUrl(url) && !sourceTarget(url);
+  useEffect(() => {
+    if (wantsLookup) lookupSiteIcon(url);
+  }, [wantsLookup, url]);
   // Kite's own new-tab page.
   if (isNewTabUrl(url)) {
     return (
@@ -20,8 +34,8 @@ export function SiteIcon({ url, favicon, title, size = 16 }: { url: string; favi
       </span>
     );
   }
-  if (favicon && broken !== favicon) {
-    return <img className="site-icon" src={favicon} width={size} height={size} alt="" draggable={false} onError={() => setBroken(favicon)} />;
+  if (src) {
+    return <img className="site-icon" src={src} width={size} height={size} alt="" draggable={false} onError={() => setBroken((b) => [...b, src])} />;
   }
   const host = hostOf(url);
   let hue = 0;

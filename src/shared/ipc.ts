@@ -176,6 +176,8 @@ export interface KiteBridge {
   preconnect(url: string, partition: string): void;
   /** The weather for a place (city name), from Open-Meteo; cached for half an hour. */
   weather(place: string): Promise<Result<import('./home').WeatherReport>>;
+  /** The icon a site declares on its home page (or its /favicon.ico), for sites no page has reported yet. Only that site is contacted. */
+  siteIcon(url: string): Promise<string | null>;
   permissions(): Promise<SitePermission[]>;
   onPermissions(cb: (v: SitePermission[]) => void): () => void;
   /** Forget remembered answers: one, a whole site's, or (no arguments) all. */
