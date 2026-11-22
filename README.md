@@ -40,6 +40,7 @@ cookies or history.
 | Feature | What you get |
 |---|---|
 | **Sidebar tabs** | Vertical tabs, newest on top. Close + Undo, ⌘⇧T reopen, rename, duplicate, middle-click close, ⌘1…⌘9, ⌃Tab, resizable or hidden sidebar (slides out from the edge) |
+| **Home page** | Every new tab: a greeting, a big search box with a search-engine chip, your Favorites as site tiles (add, edit, remove right there), frequently visited sites, and widgets you place anywhere — Clock, Weather, Note, To-do, Calendar, Focus timer. Drag widgets by their title, resize from their menu, pick one of seven background scenes from the + button. Everything is saved with your data; only the Weather widget uses the network (the place name you type goes to open-meteo.com, nothing else) |
 | **Favorites** | Icon grid at the top, shared by every Space |
 | **Pinned tabs** | Remember their home page; “back to pinned page”; closing keeps them and resets them |
 | **Folders** | Nested, drag and drop, collapse/expand all, ungroup; deleting moves contents to the Archive (with Undo) |

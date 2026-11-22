@@ -223,6 +223,14 @@ function makeWebBridge(): KiteBridge {
     onShieldsCount: (cb) => shieldsCount.on(cb),
     allowHttp: (host) => void hooks.calls.push(`allowHttp:${host}`),
     preconnect: (url) => void hooks.calls.push(`preconnect:${url}`),
+    // Browser test mode: a made-up forecast for any place, so the widget can be exercised offline.
+    weather: async (place) => {
+      const q = place.trim();
+      if (!q) return { error: 'Type a place.' };
+      if (/^nowhere/i.test(q)) return { error: `Couldn’t find “${q}”.` };
+      const day = (i: number) => ({ date: new Date(Date.UTC(2026, 10, 22 + i)).toISOString().slice(0, 10), max: 14 - i, min: 6 - i, code: [1, 3, 61, 0, 2][i] });
+      return { value: { place: q.replace(/\b\w/g, (c) => c.toUpperCase()), current: { temp: 12, code: 2, wind: 14 }, daily: [0, 1, 2, 3, 4].map(day), fetchedAt: Date.now() } };
+    },
     permissions: async () => hooks.permissions,
     onPermissions: (cb) => permState.on(cb),
     forgetPermission: (site, permission) => {

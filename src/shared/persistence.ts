@@ -1,5 +1,6 @@
 import { sanitizeLook, sanitizeTheme } from './look';
 import { sanitizeShields } from './shields';
+import { sanitizeHome } from './home';
 // Loading saved state safely: fill in anything missing, drop anything broken.
 
 import { createInitialState, defaultSettings, DEFAULT_SHORTCUTS, defaultTheme, STATE_VERSION } from './defaults';
@@ -28,6 +29,7 @@ export function loadState(raw: unknown): AppState {
     boosts: Array.isArray(s.boosts) ? s.boosts : [],
     routes: Array.isArray(s.routes) ? s.routes : [],
     settings: { ...defaultSettings(), ...(isObj(s.settings) ? s.settings : {}) },
+    home: sanitizeHome(s.home),
     closed: Array.isArray(s.closed) ? s.closed : [],
   };
   state.settings.shortcuts = { ...DEFAULT_SHORTCUTS, ...(state.settings.shortcuts ?? {}) };

@@ -2,6 +2,7 @@ import { DEFAULT_THEME_ID, defaultLook, PALETTES, THEMES } from './look';
 import { defaultShields } from './shields';
 import type { AppState, Settings, Space, SpaceTheme } from './types';
 import { newId } from './ids';
+import { defaultHome } from './home';
 
 export const STATE_VERSION = 1;
 
@@ -171,6 +172,7 @@ export function createInitialState(): AppState {
     boosts: [],
     routes: [],
     settings: defaultSettings(),
+    home: defaultHome(),
     closed: [],
   };
 }

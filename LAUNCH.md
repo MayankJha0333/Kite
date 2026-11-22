@@ -37,6 +37,7 @@ Last audit: 17 November 2026, against Arc 1.171 as the behaviour and design refe
 - About page with build details, data-folder and error-log access.
 - Root error boundary with a recovery screen; crash logging in every build.
 - Windows (NSIS) and Linux (AppImage, deb) build targets.
+- **Home page** (`src/shared/home.ts`, `src/renderer/components/home/`): the new-tab page is a start page with a greeting, a search box (engine switchable in a chip), Favorites as tiles you can add, edit and remove from the page, frequently visited sites, and up to 12 widgets — Clock (12/24h, seconds), Weather (place you pick, °C/°F, 4-day forecast when wide), Note, To-do, Calendar, Focus timer (5/15/25/50 min, toast and sound when done). Widgets are dragged by their title, snapped to a 20px grid, resized (Small/Wide/Tall/Large) and removed from their menu, and kept inside the page as the window shrinks. Seven background scenes (the Space's own colours plus Aurora, Dusk, Ocean, Forest, Ember, Night) from the + button; greeting, frequent sites and hints can be hidden. Everything is plain JSON in the saved state and checked on load. The Weather widget is the one feature that talks to a server: the place name goes to open-meteo.com from the main process (no key, no account), cached for 30 minutes; the page says so before the first lookup. Tests: `tests/unit/home.test.ts`, `tests/e2e/28-home.spec.ts`.
 
 ## Design and motion pass
 

@@ -9,6 +9,7 @@ import {
   ipcMain,
   Menu,
   nativeTheme,
+  net,
   session,
   shell,
   webContents as allWebContents,
@@ -854,6 +855,34 @@ function setupIpc() {
   handle('shields:refresh', async () => {
     await network.refresh();
     return network.status();
+  });
+  // Home page weather widget: Open-Meteo (no key, no account). Only the place name leaves the computer.
+  const weatherCache = new Map<string, { at: number; value: unknown }>();
+  handle('home:weather', async (_e, place: string): Promise<Result<unknown>> => {
+    const q = String(place ?? '').trim().slice(0, 80);
+    if (!q) return { error: 'Type a place.' };
+    const key = q.toLowerCase();
+    const hit = weatherCache.get(key);
+    if (hit && Date.now() - hit.at < 30 * 60_000) return { value: hit.value };
+    try {
+      const geo = (await (await net.fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`)).json()) as { results?: { name: string; admin1?: string; country?: string; latitude: number; longitude: number }[] };
+      const g = geo.results?.[0];
+      if (!g) return { error: `Couldn’t find “${q}”.` };
+      const f = (await (
+        await net.fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=5&timezone=auto`)
+      ).json()) as { current: { temperature_2m: number; weather_code: number; wind_speed_10m: number }; daily: { time: string[]; temperature_2m_max: number[]; temperature_2m_min: number[]; weather_code: number[] } };
+      const value = {
+        place: [g.name, g.admin1 && g.admin1 !== g.name ? g.admin1 : '', g.country].filter(Boolean).join(', '),
+        current: { temp: Math.round(f.current.temperature_2m), code: f.current.weather_code, wind: Math.round(f.current.wind_speed_10m) },
+        daily: f.daily.time.map((date, i) => ({ date, max: Math.round(f.daily.temperature_2m_max[i]), min: Math.round(f.daily.temperature_2m_min[i]), code: f.daily.weather_code[i] })),
+        fetchedAt: Date.now(),
+      };
+      weatherCache.set(key, { at: Date.now(), value });
+      if (weatherCache.size > 50) weatherCache.delete(weatherCache.keys().next().value!);
+      return { value };
+    } catch (err) {
+      return { error: `Couldn’t reach the weather service: ${(err as Error).message}` };
+    }
   });
   on('net:allow-http', (_e, host: string) => typeof host === 'string' && /^[a-z0-9.-]{1,253}$/i.test(host) && network.allowHttp(host));
   // While you type an address, its connection opens, so Enter has less to wait for.

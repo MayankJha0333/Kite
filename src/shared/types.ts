@@ -211,6 +211,8 @@ export interface AppState {
   boosts: Boost[];
   routes: RouteRule[];
   settings: Settings;
+  /** The home page: its widgets, scene and what it shows (see shared/home.ts). */
+  home: import('./home').HomeState;
   /** Recently closed tabs (newest first) for "reopen closed tab". */
   closed: { item: Item; spaceId: ID; list: 'pinned' | 'today' | 'favorites'; parentId?: ID; index: number }[];
 }

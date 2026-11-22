@@ -174,6 +174,8 @@ export interface KiteBridge {
   allowHttp(host: string): void;
   /** Warm the connection to a site you are about to open (DNS, TCP, TLS), in a Space's cookie jar. */
   preconnect(url: string, partition: string): void;
+  /** The weather for a place (city name), from Open-Meteo; cached for half an hour. */
+  weather(place: string): Promise<Result<import('./home').WeatherReport>>;
   permissions(): Promise<SitePermission[]>;
   onPermissions(cb: (v: SitePermission[]) => void): () => void;
   /** Forget remembered answers: one, a whole site's, or (no arguments) all. */

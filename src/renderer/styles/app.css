@@ -7128,3 +7128,377 @@ button.dl-name:not(:disabled):hover {
     animation: none !important;
   }
 }
+
+/* ==== Home page: scenes, engine chip, shortcuts, widgets, customize ============== */
+
+/* Scenes: layered light over a dark field, drawn in CSS (no pictures), all text light. */
+.start-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.start-scene::before,
+.start-scene::after {
+  content: '';
+  position: absolute;
+  inset: -12%;
+}
+.start[data-scene] {
+  background: var(--scene-base, #0b1220);
+  color: #fff;
+}
+.start[data-scene] > .start-inner,
+.start[data-scene] > .home-widgets,
+.start[data-scene] > .start-foot {
+  position: relative;
+  z-index: 1;
+}
+.start[data-scene='aurora'] { --scene-base: #07111f; }
+.start[data-scene='aurora'] .start-scene::before {
+  background:
+    radial-gradient(60% 45% at 20% 18%, rgba(45, 212, 191, 0.55), transparent 65%),
+    radial-gradient(55% 40% at 70% 10%, rgba(74, 222, 128, 0.35), transparent 65%),
+    radial-gradient(70% 50% at 85% 60%, rgba(56, 189, 248, 0.28), transparent 65%),
+    radial-gradient(80% 60% at 40% 100%, rgba(30, 58, 138, 0.6), transparent 70%);
+}
+.start[data-scene='aurora'] .start-scene::after {
+  background: radial-gradient(40% 30% at 50% 35%, rgba(167, 243, 208, 0.22), transparent 70%);
+}
+.start[data-scene='dusk'] { --scene-base: #170f2a; }
+.start[data-scene='dusk'] .start-scene::before {
+  background:
+    radial-gradient(70% 55% at 50% 100%, rgba(251, 146, 60, 0.55), transparent 65%),
+    radial-gradient(60% 50% at 15% 20%, rgba(168, 85, 247, 0.45), transparent 65%),
+    radial-gradient(55% 45% at 85% 25%, rgba(236, 72, 153, 0.3), transparent 65%);
+}
+.start[data-scene='dusk'] .start-scene::after {
+  background: radial-gradient(35% 25% at 50% 80%, rgba(254, 215, 170, 0.28), transparent 70%);
+}
+.start[data-scene='ocean'] { --scene-base: #06182e; }
+.start[data-scene='ocean'] .start-scene::before {
+  background:
+    radial-gradient(70% 45% at 50% 0%, rgba(125, 211, 252, 0.45), transparent 65%),
+    radial-gradient(60% 50% at 20% 70%, rgba(14, 116, 144, 0.55), transparent 65%),
+    radial-gradient(60% 50% at 85% 80%, rgba(30, 64, 175, 0.5), transparent 65%);
+}
+.start[data-scene='ocean'] .start-scene::after {
+  background: radial-gradient(50% 20% at 50% 12%, rgba(224, 242, 254, 0.25), transparent 70%);
+}
+.start[data-scene='forest'] { --scene-base: #0a1a12; }
+.start[data-scene='forest'] .start-scene::before {
+  background:
+    radial-gradient(60% 50% at 25% 15%, rgba(74, 222, 128, 0.3), transparent 65%),
+    radial-gradient(70% 55% at 80% 85%, rgba(20, 83, 45, 0.7), transparent 65%),
+    radial-gradient(50% 40% at 70% 20%, rgba(163, 230, 53, 0.18), transparent 65%);
+}
+.start[data-scene='forest'] .start-scene::after {
+  background: radial-gradient(70% 30% at 50% 100%, rgba(226, 232, 240, 0.14), transparent 70%);
+}
+.start[data-scene='ember'] { --scene-base: #1a0d08; }
+.start[data-scene='ember'] .start-scene::before {
+  background:
+    radial-gradient(60% 50% at 30% 90%, rgba(249, 115, 22, 0.5), transparent 65%),
+    radial-gradient(50% 45% at 80% 70%, rgba(220, 38, 38, 0.4), transparent 65%),
+    radial-gradient(60% 40% at 50% 10%, rgba(120, 53, 15, 0.5), transparent 65%);
+}
+.start[data-scene='ember'] .start-scene::after {
+  background: radial-gradient(30% 25% at 40% 85%, rgba(254, 215, 170, 0.3), transparent 70%);
+}
+.start[data-scene='night'] { --scene-base: #05070d; }
+.start[data-scene='night'] .start-scene::before {
+  background:
+    radial-gradient(60% 45% at 75% 15%, rgba(99, 102, 241, 0.35), transparent 65%),
+    radial-gradient(70% 50% at 20% 90%, rgba(30, 41, 59, 0.8), transparent 65%);
+}
+.start[data-scene='night'] .start-scene::after {
+  background: radial-gradient(25% 20% at 75% 15%, rgba(199, 210, 254, 0.25), transparent 70%);
+}
+/* The light drifts, very slowly; still under Reduce Motion. */
+.start-scene::after {
+  animation: scene-drift calc(28s * var(--speed, 1)) ease-in-out infinite alternate;
+}
+@keyframes scene-drift {
+  from { transform: translate(-3%, -2%) scale(1); }
+  to { transform: translate(3%, 3%) scale(1.08); }
+}
+.app[data-motion='reduced'] .start-scene::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .start-scene::after { animation: none !important; } }
+
+/* On a scene, chrome reads like it does on a dark picture. */
+.start[data-scene] :is(.start-greet, .start-date, .start-sec-h, .start-tile, .start-foot) { color: #fff; }
+.start[data-scene] :is(.start-date, .start-sec-h, .start-foot) { color: rgba(255, 255, 255, 0.78); }
+.start[data-scene] .start-tile:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.start[data-scene] .start-tile-icon {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 20px -6px rgba(0, 0, 0, 0.5);
+}
+.start[data-scene] .start-tile-add .start-tile-icon { background: rgba(255, 255, 255, 0.16); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); }
+.start[data-scene] .start-search {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 18px 48px -14px rgba(0, 0, 0, 0.6);
+}
+.start[data-scene] .start-search .start-input { color: #1e1c1a; }
+.start[data-scene] .start-search .start-input::placeholder { color: #6b6762; }
+.start[data-scene] .start-foot kbd,
+.start[data-scene] .start-engine { background: rgba(255, 255, 255, 0.14); color: #fff; border-color: transparent; }
+.start[data-scene] .start-search .start-engine { background: rgba(30, 28, 26, 0.08); color: #1e1c1a; }
+.start[data-scene] .start-search .start-kbd { color: #6b6762; }
+
+/* The engine you search with, switchable in place. */
+.start-engine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 8px 0 7px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--hover);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: calc(12px * var(--scale));
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.start-engine:hover { background: var(--active); color: var(--ink); }
+.start-engine .site-icon { border-radius: 4px; }
+
+/* The add-shortcut tile and the in-place editor. */
+.start-tile-add { color: var(--ink-3); }
+.start-tile-add .start-tile-icon { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--ink-3); }
+.start-tile-add:hover .start-tile-icon { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.shortcut-editor {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr auto auto;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--line), var(--elev-2);
+  animation: menu-in calc(var(--dur, 220ms) * 0.7) var(--ease-out);
+  transform-origin: 20% 0;
+}
+.start[data-scene] .shortcut-editor { color: var(--ink); }
+@container (max-width: 620px) {
+  .shortcut-editor { grid-template-columns: 1fr 1fr; }
+}
+
+/* Widgets. */
+.home-widgets {
+  position: relative;
+  flex: 1;
+  min-height: 340px;
+  margin: 28px 24px 0;
+}
+.home-widgets[data-empty] { min-height: 0; flex: 0; margin: 0; }
+.widget {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: var(--overlay);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(20, 16, 12, 0.08), 0 14px 36px -10px rgba(20, 16, 12, 0.25);
+  backdrop-filter: blur(var(--blur, 20px)) saturate(1.3);
+  overflow: hidden;
+  transition: left calc(var(--dur, 220ms) * 1.2) var(--ease-out), top calc(var(--dur, 220ms) * 1.2) var(--ease-out), width calc(var(--dur, 220ms) * 1.2) var(--ease-out), height calc(var(--dur, 220ms) * 1.2) var(--ease-out), box-shadow var(--t-fast);
+  animation: pop-in calc(var(--dur, 220ms) * 1) var(--ease-out);
+}
+.start[data-scene] .widget {
+  /* On a scene the card is dark glass, so every child (buttons, inputs, lines, greys) takes light inks. */
+  --ink: #fff;
+  --ink-2: rgba(255, 255, 255, 0.82);
+  --ink-3: rgba(255, 255, 255, 0.66);
+  --ink-4: rgba(255, 255, 255, 0.5);
+  --line: rgba(255, 255, 255, 0.16);
+  --card: rgba(255, 255, 255, 0.1);
+  --hover: rgba(255, 255, 255, 0.1);
+  background: rgba(14, 18, 28, 0.62);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 16px 40px -10px rgba(0, 0, 0, 0.6);
+}
+.start[data-scene] .widget .muted { color: rgba(255, 255, 255, 0.66); }
+.start[data-scene] .widget .input { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.widget[data-dragging] {
+  transition: none;
+  z-index: 5;
+  box-shadow: 0 0 0 1px var(--line), 0 24px 56px -12px rgba(20, 16, 12, 0.4);
+  cursor: grabbing;
+}
+.widget-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  font-size: calc(11.5px * var(--scale));
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  cursor: grab;
+  user-select: none;
+}
+.start[data-scene] .widget-head { color: rgba(255, 255, 255, 0.66); }
+.widget-head:active { cursor: grabbing; }
+.widget-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-more { opacity: 0; transition: opacity var(--t-fast); }
+.widget:hover .widget-more,
+.widget-more:focus-visible { opacity: 1; }
+.widget-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+}
+.wg-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: calc(11.5px * var(--scale));
+  cursor: pointer;
+}
+.wg-link:hover { text-decoration: underline; }
+.start[data-scene] .wg-link { color: #a5d8ff; }
+.wg-chip {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: calc(11.5px * var(--scale));
+  cursor: pointer;
+}
+.wg-chip[data-on] { background: var(--accent); color: var(--accent-ink); }
+.start[data-scene] .wg-chip { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.start[data-scene] .wg-chip[data-on] { background: #fff; color: #1e1c1a; }
+
+/* Clock */
+.wg-clock { display: flex; flex-direction: column; justify-content: center; flex: 1; gap: 2px; }
+.wg-clock-time {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-family: 'Bricolage Grotesque', var(--font);
+  font-size: calc(40px * var(--scale));
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.wg-clock-date { color: var(--ink-2); font-size: calc(13px * var(--scale)); }
+.start[data-scene] .wg-clock-date { color: rgba(255, 255, 255, 0.78); }
+.wg-clock .wg-link { align-self: flex-start; margin-top: 4px; }
+
+/* Weather */
+.wg-weather { display: flex; flex-direction: column; gap: 10px; flex: 1; justify-content: center; }
+.wg-weather-ask { display: flex; flex-direction: column; gap: 8px; justify-content: center; flex: 1; }
+.wg-weather-ask p { margin: 0; font-size: calc(12px * var(--scale)); }
+.wg-weather-now { display: flex; align-items: center; gap: 12px; }
+.wg-weather-icon { flex: none; color: var(--accent); }
+.start[data-scene] .wg-weather-icon { color: #ffd166; }
+.wg-weather-main { flex: 1; min-width: 0; }
+.wg-weather-temp {
+  border: 0; padding: 0; background: none; color: inherit; font: inherit;
+  font-family: 'Bricolage Grotesque', var(--font);
+  font-size: calc(32px * var(--scale)); font-weight: 650; letter-spacing: -0.03em; line-height: 1; cursor: pointer;
+}
+.wg-weather-cond { display: flex; align-items: center; gap: 4px; color: var(--ink-2); font-size: calc(12px * var(--scale)); }
+.start[data-scene] .wg-weather-cond { color: rgba(255, 255, 255, 0.78); }
+.wg-weather-place { max-width: 40%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: right; }
+.wg-weather-days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); font-size: calc(12px * var(--scale)); }
+.start[data-scene] .wg-weather-days { border-color: rgba(255, 255, 255, 0.14); }
+.wg-weather-day { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.wg-weather-err { display: flex; flex-direction: column; gap: 6px; }
+
+/* Note */
+.wg-note {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, #ffd166 22%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: calc(13px * var(--scale));
+  line-height: 1.45;
+  outline: none;
+}
+.wg-note:focus-visible { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+/* To-do */
+.wg-todo { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 6px; }
+.wg-todo-add { display: flex; gap: 4px; align-items: center; }
+.wg-todo-add .input { flex: 1; height: 30px; }
+.wg-todo-list { flex: 1; min-height: 0; margin: 0; padding: 0; list-style: none; overflow-y: auto; }
+.wg-todo-list li { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 2px; font-size: calc(13px * var(--scale)); }
+.wg-todo-list li[data-done] .wg-todo-text { color: var(--ink-3); text-decoration: line-through; }
+.wg-todo-check {
+  display: grid; place-items: center; flex: none; width: 18px; height: 18px;
+  border: 1.5px solid var(--ink-4); border-radius: 6px; background: transparent; color: var(--accent-ink); cursor: pointer; padding: 0;
+}
+li[data-done] .wg-todo-check { background: var(--accent); border-color: var(--accent); }
+.wg-todo-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wg-todo-x { opacity: 0; }
+.wg-todo-list li:hover .wg-todo-x, .wg-todo-x:focus-visible { opacity: 1; }
+.wg-todo-foot { display: flex; justify-content: space-between; font-size: calc(11.5px * var(--scale)); }
+
+/* Calendar */
+.wg-cal { display: flex; flex-direction: column; flex: 1; gap: 6px; }
+.wg-cal-head { display: flex; align-items: center; justify-content: space-between; }
+.wg-cal-month { border: 0; background: none; color: inherit; font: inherit; font-weight: 650; cursor: pointer; }
+.wg-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: calc(12px * var(--scale)); font-variant-numeric: tabular-nums; }
+.wg-cal-dow { color: var(--ink-3); font-size: calc(10.5px * var(--scale)); font-weight: 650; }
+.wg-cal-day { display: grid; place-items: center; height: 26px; border-radius: 8px; }
+.wg-cal-day[data-today] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* Timer */
+.wg-timer { display: flex; flex-direction: column; justify-content: center; flex: 1; gap: 8px; }
+.wg-timer-time {
+  font-family: 'Bricolage Grotesque', var(--font);
+  font-size: calc(40px * var(--scale)); font-weight: 650; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums;
+  background-image: linear-gradient(90deg, var(--accent) calc(var(--p, 0) * 100%), currentColor calc(var(--p, 0) * 100%));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.wg-timer[data-running] .wg-timer-time { background-image: linear-gradient(90deg, var(--accent) calc(var(--p, 0) * 100%), currentColor calc(var(--p, 0) * 100%)); }
+.start[data-scene] .wg-timer-time { background-image: linear-gradient(90deg, #ffd166 calc(var(--p, 0) * 100%), #fff calc(var(--p, 0) * 100%)); }
+.wg-timer-ctl { display: flex; align-items: center; gap: 6px; }
+.wg-timer-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* The customize button. */
+.home-fab {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 1px 2px rgba(20, 16, 12, 0.15), 0 10px 28px -6px color-mix(in srgb, var(--accent) 55%, transparent);
+  cursor: pointer;
+  transition: transform var(--press-dur, 160ms) var(--press-ease, var(--ease-out)), box-shadow var(--t-fast), background var(--t-fast);
+}
+.home-fab:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(20, 16, 12, 0.15), 0 14px 32px -6px color-mix(in srgb, var(--accent) 65%, transparent); }
+.home-fab:active { transform: scale(0.94); }
+.start[data-scene] .home-fab { background: #fff; color: #1e1c1a; box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.5); }
