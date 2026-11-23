@@ -150,6 +150,7 @@ export function defaultSettings(): Settings {
     httpsOnly: true,
     sendGpc: true,
     askWhereToSave: false,
+    downloadConnections: 8,
   };
 }
 

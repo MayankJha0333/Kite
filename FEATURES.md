@@ -54,11 +54,11 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Clear cookies / cache **and refresh** this site | Menu: Clear Cookies and Refresh, Clear Cache and Refresh | ✅ View menu and command bar |
 | Site Control Center (per-site permissions, cookies, zoom, developer mode) | `ARC_SiteControlCenter`, "site settings view" | ✅ address-bar popover: connection, Shields, permissions, erase site data |
 | Built-in ad blocking and cookie-banner blocking | `ARC_AdBlocking`, "Block Cookie Banners" | ✅ Shields (EasyList/EasyPrivacy, per-site exceptions) |
-| Downloads list | Menu: Downloads, View Downloads | ✅ (plus image conversion and video/HLS saving) |
+| Downloads list | Menu: Downloads, View Downloads | ✅ (plus multi-connection accelerated downloads, image conversion and video/HLS saving) |
 | Full History page | Menu: View History | ✅ ⌘⇧H: grouped by day, search, reopen, forget, clear by time span |
 | Print, Save Page As, View Source | Menu items | ✅ |
 | Developer tools for a page, JavaScript console, network inspector, task manager | Menu: Developer | 🟡 View → Developer Tools for This Page (console and network inside it); no task manager |
-| Picture-in-picture video, floats over other apps | `ARC_PictureInPicture` | ✅ (plus controls and mini player) |
+| Picture-in-picture video, floats over other apps | `ARC_PictureInPicture` | ✅ Arc's control layout (corner buttons, Back to Tab, skips, scrubber, mute, compact size) plus a mini player |
 | Translate page | `ARC_Translation`, "Never Translate This Site" | ☁️ needs a translation service |
 | Passwords and autofill | "manage passwords", "Autofill your passwords" | ❌ (big job; macOS Passwords app works meanwhile) |
 | Chrome extensions | Menu: Extensions, Add Extension | 🟡 install/manage/remove; runs what Electron supports (no toolbar buttons, see Settings → Extensions) |

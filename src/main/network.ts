@@ -10,7 +10,9 @@ import { app, net, type Session, type WebContents } from 'electron';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FiltersEngine, Request } from '@ghostery/adblocker';
-import { BUILTIN_FILTERS, BUILTIN_PARAMS, capCookie, httpsUpgrade, isAllowedSite, languageCodes, listSources, searchReferrer, shieldsActive, type Shields } from '../shared/shields';
+import { BUILTIN_FILTERS, BUILTIN_PARAMS, capCookie, deAmpUrl, debounceUrl, httpsUpgrade, isAllowedSite, languageCodes, listSources, searchReferrer, shieldsActive, type Shields } from '../shared/shields';
+import { farbleSeed } from '../shared/fingerprint';
+import { randomInt } from 'node:crypto';
 import { mediaKind, nameFromUrl, type MediaItem } from '../shared/downloads';
 import type { PageLog, Prefs, ShieldsStatus } from '../shared/ipc';
 import { createFilterLists } from './filterLists';
@@ -41,7 +43,14 @@ export interface FrameFixes {
   scripts: string[];
   /** Keep watching the page for new elements to hide. */
   watch: boolean;
+  /** Fingerprinting protection's seed for this page's site (0 = off). */
+  farble: number;
 }
+
+/** New every time Kite starts: fingerprinting answers differ between runs, as in Brave. */
+const SESSION_KEY = randomInt(1, 2 ** 31);
+/** Sites a link in a page recently warmed (per cookie jar), so each is warmed at most every few seconds. */
+const warmed = new Map<string, number>();
 
 const hostOf = (url: string) => {
   try {
@@ -219,6 +228,14 @@ export function createNetwork(deps: NetworkDeps) {
       if (!/^(https?|wss?):/i.test(url)) return cb({});
       const prefs = deps.prefs();
       if (resourceType === 'mainFrame') {
+        // Brave's debouncing and De-AMP: go straight to the real page (the new request comes back through here).
+        const sh = prefs.shields;
+        if (sh.enabled && wcId !== undefined && deps.isPage(wcId) && active(url)) {
+          const bounced = sh.debounce ? debounceUrl(url) : null;
+          const unamp = sh.deAmp ? deAmpUrl(bounced ?? url) : null;
+          const real = unamp ?? bounced;
+          if (real && real !== url) return cb({ redirectURL: real });
+        }
         const up = httpsUpgrade(url, prefs.httpsOnly, allowHttp);
         const target = up ?? url;
         const clean = wcId !== undefined && deps.isPage(wcId) && active(target) ? stripped(target, target, 'main_frame') : null;
@@ -269,6 +286,17 @@ export function createNetwork(deps: NetworkDeps) {
         changed = true;
       }
       const wcId = details.webContentsId;
+      // Brave blocks cross-site cookies: other sites embedded in a page get none of theirs.
+      if (sh.enabled && sh.crossSiteCookies && wcId !== undefined && deps.isPage(wcId)) {
+        const top = topUrl.get(wcId) ?? '';
+        if (top && active(top) && request(details.url, top, 'other').isThirdParty) {
+          for (const k of Object.keys(headers)) {
+            if (k.toLowerCase() !== 'cookie') continue;
+            delete headers[k];
+            changed = true;
+          }
+        }
+      }
       const refKey = Object.keys(headers).find((k) => k.toLowerCase() === 'referer');
       if (refKey && sh.enabled && wcId !== undefined && deps.isPage(wcId) && active(topUrl.get(wcId) ?? headers[refKey])) {
         const ref = headers[refKey];
@@ -309,8 +337,15 @@ export function createNetwork(deps: NetworkDeps) {
           // no CSP for this one
         }
       }
-      // Third-party cookies get a short life.
-      if (sh.cookieMinutes > 0 && headers && top && request(details.url, top, 'other').isThirdParty) {
+      // Cross-site cookies: blocked (Brave's default), else given a short life.
+      if (sh.crossSiteCookies && headers && top && request(details.url, top, 'other').isThirdParty) {
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() !== 'set-cookie') continue;
+          const { [k]: _gone, ...rest } = headers;
+          headers = rest;
+          changed = true;
+        }
+      } else if (sh.cookieMinutes > 0 && headers && top && request(details.url, top, 'other').isThirdParty) {
         for (const k of Object.keys(headers)) {
           if (k.toLowerCase() !== 'set-cookie') continue;
           headers = { ...headers, [k]: headers[k].map((c) => capCookie(c, sh.cookieMinutes * 60)) };
@@ -344,17 +379,28 @@ export function createNetwork(deps: NetworkDeps) {
   /** CSS and scripts for a frame that is starting, or null when nothing applies. */
   function frameFixes(wcId: number, frameUrl: string): FrameFixes | null {
     const sh: Shields = deps.prefs().shields;
-    if (!sh.enabled || !sh.cosmetic || !deps.isPage(wcId) || !/^https?:/i.test(frameUrl)) return null;
+    if (!sh.enabled || !deps.isPage(wcId) || !/^https?:/i.test(frameUrl)) return null;
     const top = topUrl.get(wcId) ?? frameUrl;
-    if (!active(top) || !active(frameUrl)) return null;
+    if (!active(top)) return null;
+    // Fingerprinting protection follows the page's own site (the top frame), so every frame on it agrees.
+    let farble = 0;
+    if (sh.fingerprinting) {
+      try {
+        const t = request(top, top, 'main_frame');
+        farble = farbleSeed(SESSION_KEY, t.domain || t.hostname);
+      } catch {
+        farble = 0;
+      }
+    }
+    if (!sh.cosmetic || !active(frameUrl)) return farble ? { css: '', scripts: [], watch: false, farble } : null;
     try {
       const r = request(frameUrl, top, 'main_frame');
       // A whole-page exception ($document / $elemhide) turns page fixes off here.
       const { styles, scripts } = engine.getCosmeticsFilters({ url: frameUrl, hostname: r.hostname, domain: r.domain || '', getBaseRules: true, getInjectionRules: true, getExtendedRules: false, getRulesFromHostname: true, getRulesFromDOM: false });
-      return { css: styles, scripts, watch: true };
+      return { css: styles, scripts, watch: true, farble };
     } catch (err) {
       deps.log(`shields: page fixes failed: ${(err as Error).message}`);
-      return null;
+      return farble ? { css: '', scripts: [], watch: false, farble } : null;
     }
   }
 
@@ -425,6 +471,33 @@ export function createNetwork(deps: NetworkDeps) {
     clearStats,
     media: (wcId: number) => [...(media.get(wcId)?.values() ?? [])],
     allowHttp: (host: string) => void allowHttp.add(host.toLowerCase()),
+    /**
+     * A link in a page is about to be clicked (hovered a moment, or pressed): open its site's
+     * connection now. Never for something Shields would block, at most once per site per 10 s.
+     */
+    warmLink: (wcId: number, ses: Session, url: string) => {
+      let target: URL;
+      try {
+        target = new URL(httpsUpgrade(url, deps.prefs().httpsOnly, allowHttp) ?? url);
+      } catch {
+        return;
+      }
+      if (!/^https?:$/.test(target.protocol)) return;
+      const top = topUrl.get(wcId) ?? '';
+      if (deps.prefs().shields.enabled && top && active(top)) {
+        try {
+          if (engine.match(request(target.href, top, 'other')).match) return;
+        } catch {
+          return;
+        }
+      }
+      const now = Date.now();
+      const key = `${ses.storagePath ?? ''}|${target.origin}`;
+      if ((warmed.get(key) ?? 0) > now - 10_000) return;
+      warmed.set(key, now);
+      if (warmed.size > 300) warmed.delete(warmed.keys().next().value!);
+      ses.preconnect({ url: target.origin, numSockets: 1 });
+    },
     /** Open the connection (DNS, TCP, TLS) for a site before it is asked for, in a cookie jar. */
     preconnect: (ses: Session, url: string) => {
       try {

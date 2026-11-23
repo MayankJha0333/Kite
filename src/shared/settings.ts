@@ -18,6 +18,7 @@ export const LIMITS = {
   awakeTabs: [3, 30],
   motionSpeed: [0.5, 2],
   soundVolume: [0, 1],
+  downloadConnections: [1, 16],
 } as const;
 
 export function updateSettings(s: AppState, patch: Partial<Settings>): void {

@@ -116,6 +116,15 @@ export interface Shields {
   blockWebRTC: boolean;
   /** Third-party cookies live at most this many minutes; 0 = no limit. */
   cookieMinutes: number;
+  // Brave-style protections
+  /** Sites see slightly different canvas, audio, WebGL and hardware answers (per site and session), so they can't fingerprint you. */
+  fingerprinting: boolean;
+  /** Cookies are never sent to or set by other sites embedded in a page. */
+  crossSiteCookies: boolean;
+  /** Tracking redirect links (google.com/url, l.facebook.com…) go straight to where they lead. */
+  debounce: boolean;
+  /** Google AMP addresses open the publisher's own page. */
+  deAmp: boolean;
   /** Hours between list updates; 0 = only when you ask. */
   updateHours: number;
 }
@@ -143,6 +152,10 @@ export function defaultShields(): Shields {
     hideReferrer: false,
     blockWebRTC: false,
     cookieMinutes: 0,
+    fingerprinting: true,
+    crossSiteCookies: true,
+    debounce: true,
+    deAmp: true,
     updateHours: 24,
   };
 }
@@ -218,8 +231,89 @@ export function sanitizeShields(v: unknown): Shields {
     hideReferrer: bool('hideReferrer'),
     blockWebRTC: bool('blockWebRTC'),
     cookieMinutes: pickNum(o.cookieMinutes, COOKIE_MINUTES, d.cookieMinutes),
+    fingerprinting: bool('fingerprinting'),
+    crossSiteCookies: bool('crossSiteCookies'),
+    debounce: bool('debounce'),
+    deAmp: bool('deAmp'),
     updateHours: pickNum(o.updateHours, UPDATE_HOURS, d.updateHours),
   };
+}
+
+// ---- Debouncing and De-AMP (main-frame addresses rewritten before the page loads) ----
+
+/**
+ * Redirect links that exist to record your click before sending you on: host, path, and
+ * the parameter that holds the real destination (Brave's "debouncing").
+ */
+const BOUNCERS: { host: RegExp; path: RegExp; param: string }[] = [
+  { host: /^(www\.)?google\.[a-z.]+$/, path: /^\/url$/, param: 'q' },
+  { host: /^(www\.)?google\.[a-z.]+$/, path: /^\/url$/, param: 'url' },
+  { host: /^(l|lm)\.facebook\.com$/, path: /^\/l\.php$/, param: 'u' },
+  { host: /^l\.instagram\.com$/, path: /^\/$/, param: 'u' },
+  { host: /^l\.messenger\.com$/, path: /^\/l\.php$/, param: 'u' },
+  { host: /^out\.reddit\.com$/, path: /^\//, param: 'url' },
+  { host: /^(www\.)?youtube\.com$/, path: /^\/redirect$/, param: 'q' },
+  { host: /^t\.umblr\.com$/, path: /^\/redirect$/, param: 'z' },
+  { host: /^steamcommunity\.com$/, path: /^\/linkfilter\/?$/, param: 'url' },
+  { host: /^away\.vk\.com$/, path: /^\/away\.php$/, param: 'to' },
+  { host: /^slack-redir\.net$/, path: /^\/link$/, param: 'url' },
+  { host: /^(www\.)?linkedin\.com$/, path: /^\/redir\/redirect$/, param: 'url' },
+  { host: /^duckduckgo\.com$/, path: /^\/l\/?$/, param: 'uddg' },
+  { host: /^(www\.)?pinterest\.[a-z.]+$/, path: /^\/offsite\/?$/, param: 'url' },
+  { host: /^exit\.sc$/, path: /^\/?$/, param: 'url' },
+  { host: /^disq\.us$/, path: /^\/url$/, param: 'url' },
+];
+
+/** Where a tracking redirect link really goes, or null if it isn't one. */
+export function debounceUrl(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+  for (const b of BOUNCERS) {
+    if (!b.host.test(host) || !b.path.test(u.pathname)) continue;
+    let dest = u.searchParams.get(b.param);
+    if (!dest) continue;
+    // Disqus appends ":<hash>" to the destination.
+    if (host === 'disq.us') dest = dest.replace(/:[A-Za-z0-9_-]+$/, '');
+    if (!/^https?:\/\//i.test(dest)) continue;
+    try {
+      const d = new URL(dest);
+      return d.href !== u.href ? d.href : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** The publisher's own page for a Google AMP address, or null. */
+export function deAmpUrl(url: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+  let m: RegExpExecArray | null = null;
+  // https://www.google.com/amp/s/example.com/story  ·  /amp/example.com/story (plain http)
+  if (/^(www\.)?google\.[a-z.]+$/.test(host)) m = /^\/amp\/(s\/)?(.+)$/.exec(u.pathname);
+  // https://example-com.cdn.ampproject.org/c/s/example.com/story (also /v/)
+  else if (host.endsWith('.cdn.ampproject.org')) m = /^\/[cv]\/(s\/)?(.+)$/.exec(u.pathname);
+  if (!m) return null;
+  const rest = decodeURIComponent(m[2]);
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(rest)) return null;
+  try {
+    const out = new URL(`${m[1] ? 'https' : 'http'}://${rest}${u.search}${u.hash}`);
+    if (out.hostname.endsWith('.cdn.ampproject.org') || /(^|\.)google\./.test(out.hostname)) return null;
+    return out.href;
+  } catch {
+    return null;
+  }
 }
 
 /** A small, stable number for a string (FNV-1a). */
@@ -427,3 +521,11 @@ export function loadErrorText(code: number, desc: string): { title: string; deta
   if (code === -107 || code === -113 || code === -110) return { title: 'Secure connection failed', detail: 'This site doesn’t support a secure (https) connection properly.', cert };
   return { title: 'This page didn’t load', detail: desc ? `${desc} (${code})` : `Error ${code}`, cert };
 }
+
+/**
+ * A filter-list scriptlet wrapped in its own block. Several scriptlets declare the same
+ * top-level helper (e.g. `class JSONPath`); run one after another in a page's global
+ * scope, the second declaration is a SyntaxError and that scriptlet dies. On YouTube
+ * this left the page stuck on its grey loading skeleton.
+ */
+export const scopedScriptlet = (code: string) => `{\n${code}\n}`;

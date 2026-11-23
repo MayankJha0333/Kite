@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dragTo, fromCocoa, miniBounds, resizeTo, toCocoa, MINI_SIZE, MIN_VIDEO_WIDTH } from '@shared/pipFrame';
-import { formatTime, isPipMediaCommand, isThumb, MEDIA_STATE_SCRIPT, pipMediaScript, PIP_REENTER_SCRIPT, PIP_TO_MINI_SCRIPT } from '@shared/pip';
+import { formatTime, isPipMediaCommand, isThumb, MEDIA_STATE_SCRIPT, pipMediaScript, PIP_REENTER_SCRIPT, PIP_TO_MINI_SCRIPT, PIP_UNMUTE_VIDEO_SCRIPT } from '@shared/pip';
 
 const screenH = 1117;
 const workArea = { x: 0, y: 38, width: 1728, height: 1079 }; // below the menu bar
@@ -66,6 +66,7 @@ describe('controlling the floating video', () => {
     expect(isPipMediaCommand({ cmd: 'toggle' })).toBe(true);
     expect(isPipMediaCommand({ cmd: 'seek', t: 12.5 })).toBe(true);
     expect(isPipMediaCommand({ cmd: 'skip', by: -10 })).toBe(true);
+    expect(isPipMediaCommand({ cmd: 'mute' })).toBe(true);
     expect(isPipMediaCommand({ cmd: 'seek', t: -1 })).toBe(false);
     expect(isPipMediaCommand({ cmd: 'seek', t: 'alert(1)' })).toBe(false);
     expect(isPipMediaCommand({ cmd: 'skip', by: Infinity })).toBe(false);
@@ -101,7 +102,10 @@ describe('controlling the floating video', () => {
 
   it('reads where the video is', () => {
     const v = video();
-    expect(page(v).run(MEDIA_STATE_SCRIPT)).toEqual({ t: 100, d: 660, paused: false, pip: true });
+    expect(page(v).run(MEDIA_STATE_SCRIPT)).toEqual({ t: 100, d: 660, paused: false, muted: false, pip: true });
+    // Muted by the page, or turned all the way down: the speaker button shows muted.
+    expect(page(video({ muted: true })).run(MEDIA_STATE_SCRIPT).muted).toBe(true);
+    expect(page(video({ volume: 0 })).run(MEDIA_STATE_SCRIPT).muted).toBe(true);
     // Live streams have no length: no slider.
     expect(page(video({ duration: Infinity })).run(MEDIA_STATE_SCRIPT).d).toBe(0);
     // Still found while it's in the mini player (out of the floating window).
@@ -125,6 +129,16 @@ describe('controlling the floating video', () => {
     await p.run(pipMediaScript({ cmd: 'seek', t: 4 }));
     await p.run(pipMediaScript({ cmd: 'skip', by: -10 }));
     expect(v.currentTime).toBe(0); // not before the start
+  });
+
+  it('unmuting the tab also unmutes the video if the page had silenced it', async () => {
+    const v = video({ muted: true, volume: 0 });
+    expect(await page(v).run(PIP_UNMUTE_VIDEO_SCRIPT)).toBe(true);
+    expect(v.muted).toBe(false);
+    expect(v.volume).toBe(1);
+    const loud = video({ muted: true, volume: 0.4 });
+    await page(loud).run(PIP_UNMUTE_VIDEO_SCRIPT);
+    expect(loud.volume).toBe(0.4); // your volume is kept
   });
 
   it('minimize leaves the floating window but keeps playing; "show video" pops the same video out again', async () => {

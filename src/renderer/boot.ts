@@ -5,9 +5,9 @@ import { loadState } from '@shared/persistence';
 import { findAction } from '@shared/shortcuts';
 import * as ops from '@shared/ops';
 import type { Settings } from '@shared/types';
-import { bridge, isMac } from './platform';
-import { getS, getUi, markLoaded, startAutosave, useKite } from './store';
-import { openUrl, runAction, autoArchiveNow, openInSplit, selectItem } from './commands';
+import { bridge, isMac, now } from './platform';
+import { getS, getUi, markLoaded, startAutosave, unload, useKite } from './store';
+import { openUrl, runAction, autoArchiveNow, openInSplit, selectItem, warmPinnedSites } from './commands';
 import { handleOpenRequest, handleExternalUrl } from './routingRuntime';
 import { watchBoosts } from './boostRuntime';
 import { startPip } from './pipRuntime';
@@ -44,6 +44,9 @@ export async function boot() {
     if (it.kind === 'split') it.panes.forEach(markLoaded);
   }
 
+  // Warm the pinned and favourite sites once the window has settled.
+  setTimeout(warmPinnedSites, 2500);
+
   // Auto-archive: once at launch (Kite may have been closed for days), then every minute.
   autoArchiveNow();
   setInterval(autoArchiveNow, 60_000);
@@ -54,6 +57,27 @@ export async function boot() {
   // "Back to tab" on the floating video.
   bridge.onFocusTab((tabId) => {
     if (useKite.getState().s.items[tabId]) selectItem(tabId);
+  });
+  // The floating video's speaker button muted its tab: show that in the sidebar.
+  bridge.onTabMuted(({ tabId, muted }) => useKite.getState().setUi((u) => ({ muted: { ...u.muted, [tabId]: muted } })));
+  // A tab opened just to download a file is closed once the download starts, as browsers do (no Undo: nothing was there).
+  bridge.onDownloadOnlyPage((wcId) => {
+    const wv = [...document.querySelectorAll<HTMLElement & { getWebContentsId?(): number }>('webview[data-tab]')].find((w) => {
+      try {
+        return w.getWebContentsId?.() === wcId;
+      } catch {
+        return false;
+      }
+    });
+    const tabId = wv?.dataset.tab;
+    if (!tabId) return;
+    const s = useKite.getState().s;
+    const it = s.items[tabId];
+    if (it?.kind !== 'tab' || !s.spaces.some((sp) => sp.today.includes(tabId))) return;
+    useKite.getState().act((d) => ops.closeItem(d, tabId, now()));
+    unload(tabId);
+    const next = ops.activeItemId(useKite.getState().s);
+    if (next) selectItem(next);
   });
   bridge.onOpenSplit(({ url }) => openInSplit(url));
   bridge.onLittleToMain(({ url, spaceId }) => openUrl(url, 'new', { spaceId: spaceId ?? undefined }));

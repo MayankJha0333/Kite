@@ -540,6 +540,14 @@ function Privacy() {
 
       <Group title="Downloads" desc="Kite always asks before keeping a file that can run programs (apps, installers, scripts).">
         <SwitchRow title="Ask where to save each file" checked={st.askWhereToSave} onChange={(v) => set({ askWhereToSave: v })} testId="set-ask-save" label="Ask where to save" />
+        <Row title="Accelerate downloads" desc="Big files come down over several connections at once, like a download manager. Paused ones carry on after Kite restarts.">
+          <select className="input" aria-label="Connections per download" data-testid="set-download-connections" value={st.downloadConnections} onChange={(e) => set({ downloadConnections: Number(e.target.value) })}>
+            <option value={1}>Off</option>
+            <option value={4}>4 connections</option>
+            <option value={8}>8 connections</option>
+            <option value={16}>16 connections</option>
+          </select>
+        </Row>
       </Group>
 
       <Group title="Site permissions" desc="Sites must ask before using your camera, microphone, location or notifications. These are the answers you chose to remember.">

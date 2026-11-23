@@ -47,6 +47,7 @@ export interface TestHooks {
   pipFrameState(v: import('@shared/pipFrame').PipFrameState): void;
   /** Simulate the floating video's "Back to tab". */
   focusTab(tabId: string): void;
+  tabMuted(v: { tabId: string; muted: boolean }): void;
   /** What the main process was told or asked (Shields, downloads, extensions, privacy). */
   prefs: import('@shared/ipc').Prefs | null;
   windowButtons: { visible: boolean; x: number; y: number }[];
@@ -74,6 +75,7 @@ function makeWebBridge(): KiteBridge {
   const pipState = new Emitter<{ tabId: string; popped: boolean }>();
   const pipFrameState = new Emitter<import('@shared/pipFrame').PipFrameState>();
   const focusTab = new Emitter<string>();
+  const tabMuted = new Emitter<{ tabId: string; muted: boolean }>();
   const windowState = new Emitter<{ fullscreen: boolean }>();
   const shieldsCount = new Emitter<{ tabId: string; count: number }>();
   const shieldsStatus = new Emitter<import('@shared/ipc').ShieldsStatus>();
@@ -121,6 +123,7 @@ function makeWebBridge(): KiteBridge {
     pipFrameDrags: [],
     pipFrameState: (v) => pipFrameState.emit(v),
     focusTab: (id) => focusTab.emit(id),
+    tabMuted: (v) => tabMuted.emit(v),
     prefs: null,
     windowButtons: [],
     windowState: (v) => windowState.emit(v),
@@ -167,6 +170,8 @@ function makeWebBridge(): KiteBridge {
     pipFrameDrag: (phase, edge) => void hooks.pipFrameDrags.push(edge ? `${phase}:${edge}` : phase),
     onPipFrameState: (cb) => pipFrameState.on(cb),
     onFocusTab: (cb) => focusTab.on(cb),
+    onTabMuted: (cb) => tabMuted.on(cb),
+    onDownloadOnlyPage: () => () => undefined,
     setPipTargets: (ids) => {
       pipTargets = [...ids];
     },
@@ -250,6 +255,10 @@ function makeWebBridge(): KiteBridge {
     downloads: async () => dl,
     onDownloads: (cb) => downloadsState.on(cb),
     onDownloadDone: (cb) => downloadDone.on(cb),
+    downloadLink: async (url) => {
+      hooks.calls.push(`downloadLink:${url}`);
+      return /^https?:\/\//i.test(url) ? null : 'That isn’t a web address.';
+    },
     downloadAction: async (action, id) => {
       hooks.calls.push(`download:${action}:${id ?? ''}`);
       if (action === 'clear') dl = dl.filter((d) => d.state === 'progressing' || d.state === 'paused');

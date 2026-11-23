@@ -80,6 +80,8 @@ export interface PipFrameState {
   /** 0 = live or unknown length (no slider). */
   d: number;
   paused: boolean;
+  /** The video's tab is muted (or the video itself is). */
+  muted?: boolean;
   title: string;
   host: string;
   /** Mini player: a small snapshot of the video (JPEG data URL). */

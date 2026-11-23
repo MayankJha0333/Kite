@@ -156,7 +156,10 @@ export function Row({ title, desc, value, children, stack, off }: { title: React
         </span>
         {desc && <span className="set-row-desc">{desc}</span>}
       </span>
-      <span className="set-row-control">{children}</span>
+      {/* A fieldset so "off" really disables every control in the row (keyboard included), not just dims it. */}
+      <fieldset className="set-row-control" disabled={off || undefined}>
+        {children}
+      </fieldset>
     </div>
   );
 }

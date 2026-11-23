@@ -29,7 +29,7 @@ import type { OpenRequest } from '../shared/ipc';
 import { findPipWindow, ignoreMouseOnPipWindow, inspectPipWindow, keepPipWindowIgnoringMouse, roundPipWindowIfSafe, floatPipWindowsSoon, frameStep, installVideoPanelHooks, setPipWindowFrame } from './macWindows';
 import { createPipFrame } from './pipFrame';
 import { PIP_FRAME_ACTIONS, RESIZE_EDGES, type PipFrameAction, type ResizeEdge } from '../shared/pipFrame';
-import { isPipMediaCommand, isThumb, MEDIA_STATE_SCRIPT, pipMediaScript, PIP_REENTER_SCRIPT, PIP_THUMB_SCRIPT, PIP_TO_MINI_SCRIPT } from '../shared/pip';
+import { isPipMediaCommand, isThumb, MEDIA_STATE_SCRIPT, pipMediaScript, PIP_REENTER_SCRIPT, PIP_THUMB_SCRIPT, PIP_TO_MINI_SCRIPT, PIP_UNMUTE_VIDEO_SCRIPT } from '../shared/pip';
 import { createNetwork } from './network';
 import { createDownloads } from './downloads';
 import { createExtensions } from './extensions';
@@ -69,11 +69,12 @@ function rendererUrl(query = ''): string {
 
 // ---- Cookie jars, Shields, downloads, extensions, permissions --------------------
 
-let prefs: Prefs = { shields: defaultShields(), httpsOnly: true, sendGpc: true, askWhereToSave: false };
+let prefs: Prefs = { shields: defaultShields(), httpsOnly: true, sendGpc: true, askWhereToSave: false, downloadConnections: 8 };
 function readPrefs(raw: unknown): Prefs {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const bool = (k: keyof Prefs, d: boolean) => (typeof o[k] === 'boolean' ? (o[k] as boolean) : d);
-  return { shields: sanitizeShields(o.shields), httpsOnly: bool('httpsOnly', true), sendGpc: bool('sendGpc', true), askWhereToSave: bool('askWhereToSave', false) };
+  const conns = Number(o.downloadConnections);
+  return { shields: sanitizeShields(o.shields), httpsOnly: bool('httpsOnly', true), sendGpc: bool('sendGpc', true), askWhereToSave: bool('askWhereToSave', false), downloadConnections: Number.isInteger(conns) ? Math.max(1, Math.min(16, conns)) : 8 };
 }
 
 /** Every web page Kite shows (webviews and the popups they open), by webContents id. */
@@ -107,9 +108,16 @@ function setupFeatures() {
   downloads = createDownloads({
     dir,
     ask: () => prefs.askWhereToSave,
+    connections: () => prefs.downloadConnections,
+    session: (partition) => ensureJar(partition),
     window: () => BrowserWindow.getFocusedWindow() ?? mainWindow,
     onChange: (list) => toMain('downloads-state', list),
     onDone: (entry) => toMain('download-done', entry),
+    onDownloadOnlyPage: (wc) => {
+      // A page that turned into a download never finished loading, so it isn't registered yet: its window finds the tab by page id.
+      const host = pages.get(wc.id)?.host ?? wc.hostWebContents;
+      if (host && !host.isDestroyed()) host.send('download-only-page', wc.id);
+    },
     log: debugLog,
   });
   extensions = createExtensions({
@@ -141,7 +149,7 @@ function ensureJar(partition: string): Electron.Session {
   network.attach(ses);
   // Shields' page fixes, in every frame at document start (see pagePreload.ts).
   ses.registerPreloadScript({ type: 'frame', id: 'kite-shields', filePath: join(__dirname, 'pagePreload.cjs') });
-  downloads.attach(ses);
+  downloads.attach(ses, partition);
   permissions.attach(ses);
   void extensions.attach(ses);
   return ses;
@@ -306,7 +314,7 @@ const pipFrame = createPipFrame({
     if (!pip) return null;
     const wc = allWebContents.fromId(pip.wcId);
     if (!wc || wc.isDestroyed()) return null;
-    const m = (await runInPipPage(MEDIA_STATE_SCRIPT, false)) as { t: number; d: number; paused: boolean; pip: boolean } | null;
+    const m = (await runInPipPage(MEDIA_STATE_SCRIPT, false)) as { t: number; d: number; paused: boolean; muted?: boolean; pip: boolean } | null;
     if (!m) return null;
     let host = '';
     try {
@@ -314,7 +322,7 @@ const pipFrame = createPipFrame({
     } catch {
       /* not a web page */
     }
-    return { ...m, title: wc.getTitle(), host };
+    return { ...m, muted: wc.isAudioMuted() || !!m.muted, title: wc.getTitle(), host };
   },
   thumb: async () => {
     const t = await runInPipPage(PIP_THUMB_SCRIPT, false);
@@ -331,6 +339,18 @@ const pipFrame = createPipFrame({
 });
 /** The page whose video is floating right now (however it got there). */
 let currentPip: { wcId: number; tabId: string; host: WebContents } | null = null;
+
+/** The floating video's speaker button: mute or unmute its tab, and tell the main window (its sidebar shows it). */
+async function toggleFloatingMute() {
+  const pip = currentPip;
+  const wc = pip ? allWebContents.fromId(pip.wcId) : undefined;
+  if (!pip || !wc || wc.isDestroyed()) return;
+  const m = (await runInPipPage(MEDIA_STATE_SCRIPT, false)) as { muted?: boolean } | null;
+  const mute = !(wc.isAudioMuted() || !!m?.muted);
+  wc.setAudioMuted(mute);
+  if (!mute) await runInPipPage(PIP_UNMUTE_VIDEO_SCRIPT, true);
+  if (!pip.host.isDestroyed()) pip.host.send('tab-muted', { tabId: pip.tabId, muted: mute });
+}
 
 /** Tab ids the main window wants popped out on an app switch, best first. */
 let pipTargets: string[] = [];
@@ -895,6 +915,11 @@ function setupIpc() {
     const url = frameUrlOf(e, claimed);
     e.returnValue = webPages.has(e.sender.id) && url ? network.frameFixes(e.sender.id, url) : null;
   });
+  // A link in a page is about to be followed: warm its site's connection (see pagePreload.ts).
+  ipcMain.on('page:warm', (e, url: unknown) => {
+    if (!webPages.has(e.sender.id) || typeof url !== 'string' || url.length > 2048 || !/^https?:\/\//i.test(url)) return;
+    network.warmLink(e.sender.id, e.sender.session, url);
+  });
   ipcMain.handle('shields:dom', (e, claimed: unknown, classes: unknown, ids: unknown, hrefs: unknown) => {
     const url = frameUrlOf(e, claimed);
     const strs = (v: unknown, max: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length < 512).slice(0, max) : []);
@@ -992,8 +1017,13 @@ function setupIpc() {
     return page && page.host === e.sender && wc && !wc.isDestroyed() ? wc : null;
   };
   handle('downloads:list', () => downloads.list());
+  handle('downloads:link', (_e, url: string, partition: string) => {
+    if (typeof url !== 'string' || !isWebUrl(url) || url.length > 4096) return 'That isn’t a web address.';
+    downloads.downloadLink(ensureJar(typeof partition === 'string' && jars.has(partition) ? partition : PARTITION), url);
+    return null;
+  });
   handle('downloads:act', (_e, action: string, id?: string) =>
-    ['pause', 'resume', 'cancel', 'open', 'reveal', 'remove', 'clear'].includes(action) ? downloads.act(action as 'pause', typeof id === 'string' ? id : undefined) : null,
+    ['pause', 'resume', 'cancel', 'open', 'reveal', 'remove', 'clear', 'retry'].includes(action) ? downloads.act(action as 'pause', typeof id === 'string' ? id : undefined) : null,
   );
   handle('media:list', async (e, id: number) => {
     const wc = pageOf(e, id);
@@ -1065,6 +1095,7 @@ function setupIpc() {
   // Play/pause, seek (drag the slider), skip 10 seconds.
   on('pip-frame:media', (e, cmd: unknown) => {
     if (!pipFrame.isFrameWindow(BrowserWindow.fromWebContents(e.sender)) || !isPipMediaCommand(cmd)) return;
+    if (cmd.cmd === 'mute') return void toggleFloatingMute().then(() => pipFrame.refresh());
     void runInPipPage(pipMediaScript(cmd), true).then(() => pipFrame.refresh());
   });
   // Drag on the video: move the floating window; drag an edge or corner: resize it.

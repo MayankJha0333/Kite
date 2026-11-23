@@ -3268,6 +3268,10 @@ body.resizing-v * {
 }
 
 .set-row-control {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -3563,12 +3567,24 @@ html.pip-frame-doc #root {
   border-radius: 10px;
 }
 
+/* Arc's floating-video palette: a dark chip (#212123) edged by a 20% white hairline.
+   This window sits over Chromium's video window, so a backdrop blur has nothing to
+   sample; the chips are near-opaque instead of frosted. */
+.pipd {
+  --pip-chip: rgba(33, 33, 35, 0.8);
+  --pip-chip-hover: rgba(52, 52, 56, 0.9);
+  --pip-hairline: rgba(255, 255, 255, 0.2);
+  --pip-ease: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
 .pipd-corner,
 .pipd-back,
 .pipd-center,
 .pipd-bottom {
+  position: absolute;
+  z-index: 3;
   opacity: 0;
-  transition: opacity calc(180ms * var(--speed, 1)) ease;
+  transition: opacity calc(180ms * var(--speed, 1)) ease, transform calc(220ms * var(--speed, 1)) var(--pip-ease);
 }
 .pipd[data-shown] .pipd-corner,
 .pipd[data-shown] .pipd-back,
@@ -3576,146 +3592,230 @@ html.pip-frame-doc #root {
 .pipd[data-shown] .pipd-bottom {
   opacity: 1;
 }
+/* Controls settle in from slightly off their spot as they appear. */
+.pipd:not([data-shown]) .pipd-corner,
+.pipd:not([data-shown]) .pipd-back {
+  transform: translateY(-3px);
+}
+.pipd:not([data-shown]) .pipd-bottom {
+  transform: translateY(3px);
+}
 .pipd:not([data-shown]) button,
 .pipd:not([data-shown]) input {
   pointer-events: none;
 }
 
-.pipd-corner,
-.pipd-back,
-.pipd-center,
-.pipd-bottom {
-  z-index: 3;
-}
-
+/* ---- Top bar ---- */
 .pipd-corner {
-  position: absolute;
   top: 10px;
   left: 10px;
   display: flex;
-  gap: 7px;
+  gap: 6px;
+}
+.pipd-round,
+.pipd-back,
+.pipd-mute {
+  border: 0;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.92);
+  background: var(--pip-chip);
+  box-shadow: inset 0 0 0 0.5px var(--pip-hairline), 0 2px 8px rgba(0, 0, 0, 0.28);
+  transition: transform calc(160ms * var(--speed, 1)) var(--pip-ease), background calc(120ms * var(--speed, 1)) ease, color calc(120ms * var(--speed, 1)) ease;
 }
 .pipd-round {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 0;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
-  background: rgba(245, 245, 247, 0.96);
-  color: #2a2b30;
   display: grid;
   place-items: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(0, 0, 0, 0.2);
-  transition: transform calc(120ms * var(--speed, 1)) ease, background calc(120ms * var(--speed, 1)) ease, color calc(120ms * var(--speed, 1)) ease;
 }
-.pipd-round:hover {
+.pipd-round:hover,
+.pipd-back:hover,
+.pipd-mute:hover {
+  background: var(--pip-chip-hover);
+  color: #fff;
   transform: scale(1.08);
 }
-.pipd-close:hover {
-  background: #ff5f57;
-  color: #4d0000;
+.pipd-round:active,
+.pipd-back:active,
+.pipd-mute:active {
+  transform: scale(0.94);
 }
 
 .pipd-back {
-  position: absolute;
-  top: 9px;
+  top: 10px;
   right: 10px;
-  height: 22px;
+  height: 24px;
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 0 9px 0 7px;
-  border: 0;
+  padding: 0 10px 0 8px;
   border-radius: 999px;
-  background: rgba(245, 245, 247, 0.96);
-  color: #2a2b30;
-  font-size: 11px !important;
+  font-size: 11.5px !important;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(0, 0, 0, 0.2);
-  transition: background calc(120ms * var(--speed, 1)) ease;
-}
-.pipd-back:hover {
-  background: #fff;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
 }
 
+/* ---- Play and skips ---- */
 .pipd-center {
-  position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -55%);
+  translate: -50% -50%;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 .pipd-play,
 .pipd-skip {
   border: 0;
   padding: 0;
-  border-radius: 999px;
   color: #fff;
   display: grid;
   place-items: center;
-  background: rgba(12, 12, 16, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 4px 14px rgba(0, 0, 0, 0.22);
-  transition: transform calc(120ms * var(--speed, 1)) ease, background calc(120ms * var(--speed, 1)) ease;
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.45));
+  transition: transform calc(160ms * var(--speed, 1)) var(--pip-ease), background calc(120ms * var(--speed, 1)) ease;
 }
 .pipd-play {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--pip-chip);
+  box-shadow: inset 0 0 0 0.5px var(--pip-hairline);
+  filter: none;
+}
+.pipd-play svg {
+  translate: 0.5px 0;
 }
 .pipd-skip {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--pip-chip);
+  box-shadow: inset 0 0 0 0.5px var(--pip-hairline);
+  filter: none;
 }
-.pipd-skip span {
+.pipd-skip-arrow {
+  display: grid;
+  transform-origin: 50% 50%;
+}
+.pipd-skip-arrow[data-spin='back'] {
+  animation: pipd-spin-back calc(360ms * var(--speed, 1)) var(--pip-ease);
+}
+.pipd-skip-arrow[data-spin='fwd'] {
+  animation: pipd-spin-fwd calc(360ms * var(--speed, 1)) var(--pip-ease);
+}
+@keyframes pipd-spin-back {
+  40% {
+    transform: rotate(-40deg);
+  }
+}
+@keyframes pipd-spin-fwd {
+  40% {
+    transform: rotate(40deg);
+  }
+}
+.pipd-skip-n {
   position: absolute;
-  top: 14px;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-top: 1px;
   font-size: 7.5px;
   font-weight: 700;
 }
 .pipd-play:hover,
 .pipd-skip:hover {
-  transform: scale(1.06);
-  background: rgba(12, 12, 16, 0.6);
+  transform: scale(1.08);
+}
+.pipd-play:hover,
+.pipd-skip:hover {
+  background: var(--pip-chip-hover);
+}
+.pipd-play:active,
+.pipd-skip:active {
+  transform: scale(0.92);
 }
 
+/* ---- Scrubber bar ---- */
 .pipd-bottom {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-}
-/* No shade: the time and slider sit in a small rounded bar so they stay readable. */
-.pipd .pipd-bottom {
   left: 8px;
   right: 8px;
   bottom: 8px;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 9px;
-  background: rgba(12, 12, 16, 0.55);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 14px rgba(0, 0, 0, 0.2);
-  text-shadow: none;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 5px 0 11px;
+  border-radius: 10px;
+  background: var(--pip-chip);
+  box-shadow: inset 0 0 0 0.5px var(--pip-hairline), 0 4px 14px rgba(0, 0, 0, 0.24);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pipd-time {
+  color: rgba(255, 255, 255, 0.92);
+  min-width: 3ch;
+}
+.pipd-total {
+  color: rgba(255, 255, 255, 0.55);
+}
+.pipd-mute {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
+}
+.pipd-mute[aria-pressed='true'] {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .pipd-live {
   margin-left: auto;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #e5484d;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-weight: 700;
-  font-size: 9.5px;
-  letter-spacing: 0.05em;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  text-shadow: none;
+}
+.pipd-live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ff453a;
+  box-shadow: 0 0 0 3px rgba(255, 69, 58, 0.25);
+}
+
+/* ---- Small videos: just the essentials (Arc's compact size class) ---- */
+.pipd[data-size='compact'] .pipd-skip,
+.pipd[data-size='compact'] .pipd-total,
+.pipd[data-size='compact'] .pipd-back-label {
+  display: none;
+}
+.pipd[data-size='compact'] .pipd-back {
+  width: 24px;
+  padding: 0;
+  justify-content: center;
+}
+.pipd[data-size='compact'] .pipd-play {
+  width: 42px;
+  height: 42px;
+}
+.pipd[data-size='compact'] .pipd-bottom {
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  height: 28px;
 }
 
 /* Resize from any edge or corner. */
@@ -3732,11 +3832,13 @@ html.pip-frame-doc #root {
 .pipd-edge[data-edge='ne'] { top: 0; right: 0; width: 10px; height: 10px; cursor: nesw-resize; }
 .pipd-edge[data-edge='sw'] { bottom: 0; left: 0; width: 10px; height: 10px; cursor: nesw-resize; }
 
-/* The seek slider: a native range input (drag, click, keyboard) over a drawn track. */
+/* The seek slider: a native range input (drag, click, keyboard) over a drawn track.
+   It thickens under the mouse and while you drag (Arc's grow-on-hover). */
 .pipd-seek {
   position: relative;
   flex: 1;
-  height: 16px;
+  min-width: 40px;
+  height: 18px;
   display: flex;
   align-items: center;
 }
@@ -3744,18 +3846,20 @@ html.pip-frame-doc #root {
   position: absolute;
   left: 0;
   right: 0;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.28);
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
   overflow: hidden;
-  transition: height calc(120ms * var(--speed, 1)) ease;
+  transition: height calc(160ms * var(--speed, 1)) var(--pip-ease, ease);
 }
 .pipd-seek:hover .pipd-track,
+.pipd-seek[data-scrubbing] .pipd-track,
 .pipm[data-scrubbing] .pipd-track {
-  height: 5px;
+  height: 7px;
 }
 .pipd-fill {
   height: 100%;
+  border-radius: inherit;
   background: #fff;
 }
 .pipd-seek input {
@@ -3763,28 +3867,53 @@ html.pip-frame-doc #root {
   appearance: none;
   position: relative;
   width: 100%;
-  height: 16px;
+  height: 18px;
   margin: 0;
   background: transparent;
   cursor: pointer;
 }
 .pipd-seek input::-webkit-slider-runnable-track {
-  height: 16px;
+  height: 18px;
   background: transparent;
 }
 .pipd-seek input::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 12px;
   height: 12px;
-  margin-top: 2px;
+  margin-top: 3px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-  transform: scale(0.7);
-  transition: transform calc(120ms * var(--speed, 1)) ease;
+  transform: scale(0);
+  transition: transform calc(160ms * var(--speed, 1)) var(--pip-ease, ease);
 }
-.pipd-seek:hover input::-webkit-slider-thumb {
+.pipd-seek:hover input::-webkit-slider-thumb,
+.pipd-seek[data-scrubbing] input::-webkit-slider-thumb {
   transform: scale(1);
+}
+.pipd-scrub-label {
+  position: absolute;
+  bottom: 22px;
+  translate: -50% 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--pip-chip, rgba(33, 33, 35, 0.85));
+  box-shadow: inset 0 0 0 0.5px var(--pip-hairline, rgba(255, 255, 255, 0.2)), 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pipd-skip-arrow[data-spin] {
+    animation: none;
+  }
+  .pipd:not([data-shown]) .pipd-corner,
+  .pipd:not([data-shown]) .pipd-back,
+  .pipd:not([data-shown]) .pipd-bottom {
+    transform: none;
+  }
 }
 
 /* ---- Mini player: a compact card; drag it anywhere ---- */
@@ -3801,7 +3930,7 @@ html.pip-frame-doc #root {
   gap: 10px;
   padding: 0 8px 8px 10px;
   border-radius: 18px;
-  background: #18191e;
+  background: #212123;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -6510,4 +6639,61 @@ li[data-done] .wg-todo-check { background: var(--accent); border-color: var(--ac
 }
 .grad-add:hover {
   color: var(--ink);
+}
+
+/* Accelerated downloads: IDM's segmented bar (each connection fills its own range) and a small bolt on the icon. */
+.dl-bar-parts {
+  position: relative;
+}
+.dl-bar-parts > i[data-part] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  transform: none;
+  border-radius: 0;
+  background: var(--accent);
+  transition: width calc(0.45s * var(--speed, 1)) linear;
+}
+.dl-bar-parts > i[data-part] + i[data-part] {
+  box-shadow: -1px 0 0 color-mix(in srgb, var(--card) 70%, transparent);
+}
+.dl-icon {
+  position: relative;
+}
+.dl-fast {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 0 2px var(--card);
+}
+.dl-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 12px;
+  background: var(--hover);
+  color: var(--ink-3);
+}
+.dl-add:focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft);
+}
+.dl-add-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(13px * var(--scale));
+  outline: none;
+}
+.app .dl-add-input:focus-visible {
+  outline: none;
 }

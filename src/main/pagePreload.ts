@@ -9,16 +9,51 @@
 // ids are fetched and inserted (batched, at most a few times a second).
 
 import { ipcRenderer, webFrame } from 'electron';
+import { farbleScript } from '../shared/fingerprint';
+import { scopedScriptlet } from '../shared/shields';
 
 interface FrameFixes {
   css: string;
   scripts: string[];
   watch: boolean;
+  farble: number;
+}
+
+/**
+ * Faster link clicks: when the pointer rests on a link to another site for a moment, or
+ * presses it, Kite opens that site's connection (DNS, TCP, TLS) before the click lands.
+ * Only the connection: nothing is fetched and no cookies are sent until you click.
+ */
+function warmLinks() {
+  const asked = new Set<string>();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const linkOf = (t: EventTarget | null) => (t instanceof Element ? (t.closest('a[href]') as HTMLAnchorElement | null) : null);
+  const warm = (a: HTMLAnchorElement) => {
+    let u: URL;
+    try {
+      u = new URL(a.href, location.href);
+    } catch {
+      return;
+    }
+    if (!/^https?:$/.test(u.protocol) || u.origin === location.origin || asked.has(u.origin) || asked.size > 60) return;
+    asked.add(u.origin);
+    ipcRenderer.send('page:warm', u.href);
+  };
+  document.addEventListener('pointerover', (e) => {
+    const a = linkOf(e.target);
+    if (timer) clearTimeout(timer);
+    timer = a ? setTimeout(() => warm(a), 90) : null;
+  }, { capture: true, passive: true });
+  document.addEventListener('pointerdown', (e) => {
+    const a = linkOf(e.target);
+    if (a) warm(a);
+  }, { capture: true, passive: true });
 }
 
 function start() {
   const url = location.href;
   if (!/^https?:/i.test(url)) return;
+  if (window.top === window) warmLinks();
   let fixes: FrameFixes | null = null;
   try {
     // Synchronous on purpose: the fixes must land before the page's first script.
@@ -27,7 +62,10 @@ function start() {
     return;
   }
   if (!fixes) return;
-  for (const s of fixes.scripts) void webFrame.executeJavaScript(s).catch(() => undefined);
+  // Fingerprinting protection first, before any of the page's own scripts can look.
+  if (fixes.farble) void webFrame.executeJavaScript(farbleScript(fixes.farble)).catch(() => undefined);
+  // Each scriptlet in its own block (see scopedScriptlet: shared helper names collide otherwise).
+  for (const s of fixes.scripts) void webFrame.executeJavaScript(scopedScriptlet(s)).catch(() => undefined);
   if (fixes.css) webFrame.insertCSS(fixes.css, { cssOrigin: 'user' });
   if (fixes.watch) watch(url);
 }

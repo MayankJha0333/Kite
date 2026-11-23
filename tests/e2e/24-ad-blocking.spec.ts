@@ -103,9 +103,12 @@ test.describe('Settings → Ad blocking', () => {
     await openAdblock(page);
     await page.getByTestId('shields-hide-referrer').click();
     await page.getByTestId('shields-webrtc').click();
+    // A cookie lifetime only matters once cross-site cookies are allowed again.
+    await expect(page.getByTestId('shields-cookie-life-2880')).toBeDisabled();
+    await page.getByTestId('shields-cross-site-cookies').click();
     await page.getByTestId('shields-cookie-life-2880').click();
     await page.getByTestId('shields-update-6').click();
-    await expect.poll(async () => await shields(page)).toMatchObject({ hideReferrer: true, blockWebRTC: true, cookieMinutes: 2880, updateHours: 6, stripParams: true });
+    await expect.poll(async () => await shields(page)).toMatchObject({ hideReferrer: true, blockWebRTC: true, crossSiteCookies: false, cookieMinutes: 2880, updateHours: 6, stripParams: true });
     expect((await savedState(page)).settings.shields.cookieMinutes).toBe(2880);
     if (SHOTS) {
       await page.getByTestId('shields-strip').scrollIntoViewIfNeeded();

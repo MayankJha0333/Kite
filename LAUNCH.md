@@ -8,9 +8,9 @@ Last audit: 17 November 2026, against Arc 1.171 as the behaviour and design refe
 | Area | State |
 |---|---|
 | Type check | clean (`npm run typecheck`) |
-| Unit tests | 303 pass (`npm test`), including the new history module; the Objective-C runtime test is skipped where libobjc is absent |
+| Unit tests | 321 pass (`npm test`), including the new history module; the Objective-C runtime test is skipped where libobjc is absent |
 | UI tests (browser, simulated pages) | all pass (`npm run test:e2e`), including the new History, Find, zoom and About tests |
-| Real-app tests (Electron) | pass (`env -u ELECTRON_RUN_AS_NODE npm run test:electron`): security, Shields, downloads, extensions, permissions, PiP controls, view source, page-crash recovery, menu bar, About. The two "switch to another app" PiP tests need Kite to be the active macOS app and must run from a normal terminal, not an IDE-hosted one |
+| Real-app tests (Electron) | pass (`env -u ELECTRON_RUN_AS_NODE npm run test:electron`): security, Shields, downloads (multi-connection, pause/resume, fallback, resume after restart), Brave-style privacy, link warming, extensions, permissions, PiP controls, view source, page-crash recovery, menu bar, About. The two "switch to another app" PiP tests need Kite to be the active macOS app and must run from a normal terminal, not an IDE-hosted one |
 | Production build | `npm run build` — UI 2.0 MB (editor and Settings load on demand), main 2.4 MB |
 | Packaging | `npm run dist:dir` then `npm run test:packaged` starts the packaged app and checks CSP and the native window bridge |
 | Crash handling | UI process crash → automatic reload (dialog after 3 in a minute); page crash → readable error with Try again; everything else → `kite-errors.log` in the data folder |
@@ -110,6 +110,29 @@ What changed to make first visits quicker:
 - **Preconnect while typing.** The command bar and the new-tab box open the connection (DNS, TCP, TLS) to the address being typed, or the highlighted suggestion, about 180 ms after typing pauses, once per origin per 10 s.
 - **First launch stays quiet.** When a saved filter is already blocking, filter-list downloads wait 15 s after launch so the first pages you open get the connection.
 - **Saves never block the network.** Routine state saves flush to disk off the main thread (the quit-time save is still synchronous).
+- **Warm on hover.** Resting the pointer on a link to another site (90 ms) or pressing on it opens that site's connection before the click; nothing is fetched until you click. Sidebar rows, Favorites and home-page tiles do the same for tabs that aren't loaded yet, and pinned and favourite sites (up to 8) are warmed 2.5 s after launch. Hosts Shields would block are never warmed; once per origin per 10 s. This saves the DNS, TCP and TLS time only, not the page itself.
+
+## Downloads, IDM-style
+
+- **Several connections per file.** When a server accepts byte ranges (checked with a one-byte `Range` request before taking over from Chromium), Kite splits the file into parts and fetches them in parallel: 8 connections by default, 4 or 16 in Settings → Downloads → Accelerate downloads, or Off. A finished part takes over the back half of the largest part still running, so connections never sit idle. The row shows each part's progress, the connection count and a fast badge.
+- **Safe resume.** Parts are written in place into `name.kitepart`, which is renamed when complete. Pause/resume, dropped connections (6 retries with backoff) and quitting Kite all resume where they stopped; the server's ETag or Last-Modified is checked so a file that changed on the server restarts instead of being stitched together.
+- **Falls back cleanly.** Servers without range support, or that answer a range with the whole file, download through Chromium as before. Retry on a failed download, and an "Add link" box in the Downloads sheet (sent with the right Space's cookies). A tab opened only to download a file closes once the download starts.
+
+## Privacy, Brave-style
+
+Four switches in Settings → Privacy → Shields, all on by default:
+- **Fingerprinting protection** ("farbling", as Brave's standard mode): canvas and audio read-back vary by an invisible amount, WebGL reports a generic GPU, and CPU core count and memory are plausible per-site values. The answers stay the same on one site for a session and differ between sites and launches; the wrapped functions still report native code.
+- **Block cross-site cookies**: third-party requests neither send nor set cookies.
+- **Skip tracking redirects** (debouncing): links through known bouncers such as `google.com/url?q=` go straight to the destination.
+- **Skip AMP pages** (De-AMP): Google AMP and AMP-cache links open the publisher's own page.
+
+## Floating video, Arc's layout
+
+Laid out after Arc's floating-video controls (names read from Arc 1.171's binary: corner buttons, a Back to Tab pill, play with animated skip buttons, a scrubber with a time label, a mute toggle, size classes, grow-on-hover). Arc's exact pixel measurements aren't recoverable from its binary, so sizes and spacing here are Kite's own reading of it. Arc's own colours are used: a #212123 chip with a 20% white hairline. The controls are drawn in a window above Chromium's video window, so the chips are near-opaque rather than blurred.
+- Close and Minimize as 24 px round buttons top-left; a "Back to Tab" pill top-right.
+- Play in the middle with 10-second skips whose arrows turn when pressed.
+- A bottom bar with the time, a slider that thickens under the mouse, a time label that follows the knob while you drag, the length, and a speaker button. The speaker mutes the video's whole tab, and the sidebar shows it; unmuting also unmutes the video if the page had silenced it.
+- Videos under 340×190 drop the skips, the length and the pill's words.
 
 ## Known limitations
 

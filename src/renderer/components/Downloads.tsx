@@ -2,12 +2,14 @@
 // finished, and the videos and sounds on the current page that can be saved.
 
 import { useEffect, useState } from 'react';
-import { Download, FileDown, Film, FolderOpen, Image, Music, Pause, Play, RotateCw, Trash2, X, AlertTriangle, Radio } from 'lucide-react';
+import { Download, FileDown, Film, FolderOpen, Image, Link2, Music, Pause, Play, RotateCw, Trash2, X, AlertTriangle, Radio, Zap } from 'lucide-react';
 import * as ops from '@shared/ops';
 import { formatBytes, progressOf, timeLeft, type DownloadEntry, type HlsVariant, type MediaItem } from '@shared/downloads';
 import { bridge } from '../platform';
 import { toast, useKite } from '../store';
 import { surface } from '../surfaces';
+import { activeSpace } from '@shared/tree';
+import { partitionForSpace } from '@shared/profiles';
 import { Sheet } from './Sheet';
 
 const ICON = { file: FileDown, image: Image, video: Film, audio: Music } as const;
@@ -18,7 +20,8 @@ function statusText(d: DownloadEntry): string {
   if (d.state === 'failed') return d.error || 'Failed';
   const size = d.total ? `${formatBytes(d.received)} of ${formatBytes(d.total)}` : formatBytes(d.received);
   if (d.state === 'paused') return `Paused · ${size}`;
-  return [size, d.speed ? `${formatBytes(d.speed)}/s` : '', timeLeft(d)].filter(Boolean).join(' · ');
+  const lanes = d.accelerated && d.parts ? d.parts.filter((p) => p.done < p.end - p.start + 1).length : 0;
+  return [size, d.speed ? `${formatBytes(d.speed)}/s` : '', timeLeft(d), lanes ? `${lanes} connection${lanes === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
 }
 
 async function run(action: Parameters<typeof bridge.downloadAction>[0], id?: string) {
@@ -32,20 +35,33 @@ function Row({ d }: { d: DownloadEntry }) {
   const live = d.state === 'progressing' || d.state === 'paused';
   return (
     <div className="dl-row" data-state={d.state} data-testid={`download-${d.id}`}>
-      <span className="dl-icon"><Icon size={17} /></span>
+      <span className="dl-icon">
+        <Icon size={17} />
+        {d.accelerated && <Zap size={10} className="dl-fast" aria-label="Accelerated" />}
+      </span>
       <div className="dl-main">
         <button className="dl-name" title={d.path || d.url} disabled={d.state !== 'completed'} onClick={() => void run('open', d.id)}>{d.name}</button>
         <span className="dl-status" data-testid="download-status">{d.state === 'failed' && <AlertTriangle size={11} />} {statusText(d)}</span>
-        {live && (
-          <span className="dl-bar" data-unknown={p === null || undefined} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p === null ? undefined : Math.round(p * 100)}>
-            <i style={p === null ? undefined : { transform: `scaleX(${p})` }} />
+        {live && d.accelerated && d.parts && d.total > 0 ? (
+          // IDM's segmented bar: each connection's range fills in its own place.
+          <span className="dl-bar dl-bar-parts" data-testid="download-parts" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p === null ? undefined : Math.round(p * 100)}>
+            {d.parts.map((x, i) => (
+              <i key={i} data-part style={{ left: `${(x.start / d.total) * 100}%`, width: `${(Math.min(x.done, x.end - x.start + 1) / d.total) * 100}%` }} />
+            ))}
           </span>
+        ) : (
+          live && (
+            <span className="dl-bar" data-unknown={p === null || undefined} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p === null ? undefined : Math.round(p * 100)}>
+              <i style={p === null ? undefined : { transform: `scaleX(${p})` }} />
+            </span>
+          )
         )}
       </div>
       <div className="dl-actions">
         {d.state === 'progressing' && d.resumable && <button className="icon-btn" aria-label="Pause" title="Pause" data-testid="download-pause" onClick={() => void run('pause', d.id)}><Pause size={14} /></button>}
         {d.state === 'paused' && d.resumable && <button className="icon-btn" aria-label="Resume" title="Resume" data-testid="download-resume" onClick={() => void run('resume', d.id)}><Play size={14} /></button>}
         {live && <button className="icon-btn" aria-label="Cancel" title="Cancel" data-testid="download-cancel" onClick={() => void run('cancel', d.id)}><X size={14} /></button>}
+        {(d.state === 'failed' || d.state === 'cancelled') && <button className="icon-btn" aria-label="Try again" title={d.accelerated && d.state === 'failed' ? 'Try again, from where it stopped' : 'Download again'} data-testid="download-retry" onClick={() => void run('retry', d.id)}><RotateCw size={14} /></button>}
         {d.state === 'completed' && <button className="icon-btn" aria-label="Show in folder" title="Show in folder" data-testid="download-reveal" onClick={() => void run('reveal', d.id)}><FolderOpen size={14} /></button>}
         {!live && <button className="icon-btn" aria-label="Remove from list" title="Remove from list (keeps the file)" data-testid="download-remove" onClick={() => void run('remove', d.id)}><Trash2 size={14} /></button>}
       </div>
@@ -115,12 +131,34 @@ function PageMedia() {
   );
 }
 
+/** IDM's "Add URL": paste a link, Kite downloads it with this Space's cookies. */
+function AddLink() {
+  const partition = useKite((st) => partitionForSpace(activeSpace(st.s)));
+  const [url, setUrl] = useState('');
+  const go = async () => {
+    const v = url.trim();
+    if (!v) return;
+    const problem = await bridge.downloadLink(/^[a-z]+:\/\//i.test(v) ? v : `https://${v}`, partition);
+    if (problem) return toast(problem);
+    setUrl('');
+    toast('Download started');
+  };
+  return (
+    <form className="dl-add" onSubmit={(e) => { e.preventDefault(); void go(); }}>
+      <Link2 size={14} aria-hidden="true" />
+      <input className="dl-add-input" placeholder="Paste a link to download" aria-label="Link to download" value={url} data-testid="download-link" onChange={(e) => setUrl(e.target.value)} />
+      <button type="submit" className="btn small" disabled={!url.trim()} data-testid="download-link-go">Download</button>
+    </form>
+  );
+}
+
 export function DownloadsPanel() {
   const list = useKite((st) => st.ui.downloads);
   const hasPage = useKite((st) => !!ops.activeTab(st.s));
   const done = list.some((d) => d.state !== 'progressing' && d.state !== 'paused');
   return (
     <Sheet title="Downloads" subtitle="Files are saved to your Downloads folder" testId="downloads">
+      <AddLink />
       <PageMedia />
       {(hasPage || done) && (
         <header className="dl-sec-head">

@@ -12,7 +12,7 @@ import { playSound } from './sound';
 
 const prefsOf = (): Prefs => {
   const s = getS().settings;
-  return { shields: s.shields, httpsOnly: s.httpsOnly, sendGpc: s.sendGpc, askWhereToSave: s.askWhereToSave };
+  return { shields: s.shields, httpsOnly: s.httpsOnly, sendGpc: s.sendGpc, askWhereToSave: s.askWhereToSave, downloadConnections: s.downloadConnections };
 };
 
 export function startBrowser() {

@@ -10,6 +10,8 @@ import {
   type DownloadEntry, type HlsVariant, type ImageFormat,
 } from '../shared/downloads';
 import { hostOf } from '../shared/url';
+import { ACCELERATE_MIN, sanitizeParts } from '../shared/segments';
+import { probeRanges, startJob, type Job } from './segmented';
 
 const KEEP = 200;
 const MAX_IMAGE = 150 * 1024 * 1024;
@@ -18,9 +20,15 @@ const MAX_SEGMENTS = 20_000;
 export interface DownloadDeps {
   dir: string;
   ask(): boolean;
+  /** Connections per download (1 = leave it to Chromium's single connection). */
+  connections(): number;
+  /** A Space's cookie jar by partition (to resume or retry with the right cookies). */
+  session(partition: string): Session;
   window(): BrowserWindow | null;
   onChange(list: DownloadEntry[]): void;
   onDone(entry: DownloadEntry): void;
+  /** A tab whose only "page" was this download (an address typed or opened in a new tab): it can close. */
+  onDownloadOnlyPage?(wc: WebContents): void;
   log(msg: string): void;
 }
 
@@ -34,12 +42,20 @@ export function createDownloads(deps: DownloadDeps) {
   let list: DownloadEntry[] = [];
   try {
     const raw = JSON.parse(readFileSync(file, 'utf8')) as DownloadEntry[];
-    // Anything that was mid-download when Kite quit can't be continued.
-    if (Array.isArray(raw)) list = raw.filter((d) => d && typeof d.id === 'string').map((d) => (d.state === 'progressing' || d.state === 'paused' ? { ...d, state: 'failed' as const, error: 'Kite quit before it finished', speed: 0 } : d));
+    // Accelerated downloads carry on after a restart (their ranges and part file are kept); others can't.
+    if (Array.isArray(raw))
+      list = raw
+        .filter((d) => d && typeof d.id === 'string')
+        .map((d) => {
+          if (d.state !== 'progressing' && d.state !== 'paused') return d;
+          const parts = d.accelerated && d.tmp && existsSync(d.tmp) ? sanitizeParts(d.parts, d.total) : undefined;
+          return parts ? { ...d, parts, state: 'paused' as const, speed: 0, resumable: true } : { ...d, state: 'failed' as const, error: 'Kite quit before it finished', speed: 0 };
+        });
   } catch {
     /* no list yet */
   }
   const items = new Map<string, DownloadItem>();
+  const jobs = new Map<string, Job>();
   const aborts = new Map<string, AbortController>();
   /** Options for downloads Kite itself started, by URL. */
   const wanted = new Map<string, Wanted>();
@@ -103,7 +119,67 @@ export function createDownloads(deps: DownloadDeps) {
     return res.canceled || !res.filePath ? null : res.filePath;
   }
 
-  function attach(ses: Session) {
+  /** Run (or continue) an accelerated download. */
+  function runJob(entry: DownloadEntry, ses: Session, resume: boolean, restarted = false) {
+    if (!entry.tmp || !entry.total) return;
+    const job = startJob({
+      ses,
+      url: entry.url,
+      referrer: entry.referrer ?? '',
+      total: entry.total,
+      validator: entry.validator ?? null,
+      tmp: entry.tmp,
+      path: entry.path,
+      connections: entry.connections ?? deps.connections(),
+      parts: resume ? entry.parts : undefined,
+      onProgress: (st) => {
+        entry.parts = st.parts.map((x) => ({ ...x }));
+        entry.received = st.received;
+        entry.speed = st.speed;
+        changed();
+      },
+    });
+    jobs.set(entry.id, job);
+    Object.assign(entry, { state: 'progressing', error: undefined, resumable: true });
+    changed(true);
+    void job.done.then((r) => {
+      jobs.delete(entry.id);
+      if (r.state === 'completed') return finish(entry, 'completed');
+      if (r.state === 'paused') return void (Object.assign(entry, { state: 'paused', speed: 0 }), changed(true));
+      if (r.state === 'cancelled') return finish(entry, 'cancelled');
+      // The file changed on the server: start it over once, cleanly.
+      if (r.restart && !restarted) return runJob(Object.assign(entry, { parts: undefined, received: 0 }), ses, false, true);
+      finish(entry, 'failed', r.error);
+    });
+  }
+
+  /**
+   * IDM's trick for downloads Chromium started: if the server hands out byte ranges for the
+   * very same file, take it over and fetch it over several connections. Anything else
+   * (form posts, servers without ranges, small files) carries on as it was.
+   */
+  async function maybeAccelerate(entry: DownloadEntry, item: DownloadItem, ses: Session, partition: string, referrer: string) {
+    const connections = deps.connections();
+    const total = item.getTotalBytes();
+    if (connections < 2 || total < ACCELERATE_MIN) return;
+    const url = item.getURLChain().at(-1) ?? item.getURL();
+    if (!/^https?:\/\//i.test(url)) return;
+    const support = await probeRanges(ses, url, referrer);
+    if (!support || support.total !== total) return;
+    const take = () => {
+      const path = item.getSavePath();
+      if (!path || item.getState() !== 'progressing' || entry.accelerated) return false;
+      Object.assign(entry, { accelerated: true, url: support.url, path, name: path.split(/[\\/]/).pop() || entry.name, tmp: `${path}.kitepart`, connections, validator: support.validator, partition, referrer: /^https?:/i.test(referrer) ? referrer : undefined });
+      items.delete(entry.id);
+      item.cancel(); // its 'done' is ignored for accelerated entries
+      runJob(entry, ses, false);
+      return true;
+    };
+    // With "ask where to save", wait for the chosen path.
+    if (!take()) item.on('updated', () => void take());
+  }
+
+  function attach(ses: Session, partition = '') {
     ses.on('will-download', (_e, item, wc) => {
       const url = item.getURL();
       const opts = wanted.get(url) ?? {};
@@ -129,7 +205,14 @@ export function createDownloads(deps: DownloadDeps) {
       else item.setSavePath(path);
       const entry = add({ url, name, path: opts.saveAs || deps.ask() ? '' : path, kind: kindForName(name, item.getMimeType()), total: item.getTotalBytes(), resumable: true, site });
       items.set(entry.id, item);
+      void maybeAccelerate(entry, item, ses, partition, wc?.getURL() ?? '');
+      // A tab that never showed a page before this download is left empty: browsers close it, and so does Kite.
+      if (wc && !wc.isDestroyed()) {
+        const shown = wc.getURL();
+        if (!/^https?:/i.test(shown) || shown === url || item.getURLChain().includes(shown)) deps.onDownloadOnlyPage?.(wc);
+      }
       item.on('updated', (_ev, state) => {
+        if (entry.accelerated) return;
         entry.received = item.getReceivedBytes();
         entry.total = item.getTotalBytes();
         entry.path = item.getSavePath() || entry.path;
@@ -140,6 +223,7 @@ export function createDownloads(deps: DownloadDeps) {
         changed();
       });
       item.once('done', (_ev, state) => {
+        if (entry.accelerated) return; // taken over by the accelerated download
         items.delete(entry.id);
         entry.received = item.getReceivedBytes();
         entry.path = item.getSavePath() || entry.path;
@@ -312,7 +396,7 @@ export function createDownloads(deps: DownloadDeps) {
     }
   }
 
-  type Action = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear';
+  type Action = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear' | 'retry';
   async function act(action: Action, id?: string): Promise<string | null> {
     if (action === 'clear') {
       list = list.filter((d) => d.state === 'progressing' || d.state === 'paused');
@@ -322,13 +406,29 @@ export function createDownloads(deps: DownloadDeps) {
     const entry = list.find((d) => d.id === id);
     if (!entry) return null;
     const item = items.get(entry.id);
-    if (action === 'pause') item?.pause();
-    else if (action === 'resume') item?.canResume() ? item.resume() : null;
-    else if (action === 'cancel') {
+    const job = jobs.get(entry.id);
+    if (action === 'pause') {
+      item?.pause();
+      job?.pause();
+    } else if (action === 'resume') {
+      if (item?.canResume()) item.resume();
+      else if (entry.accelerated && !job && entry.state === 'paused') runJob(entry, deps.session(entry.partition ?? ''), true);
+    } else if (action === 'retry') {
+      if (entry.state !== 'failed' && entry.state !== 'cancelled') return null;
+      // An accelerated download picks up where its connections stopped; anything else starts again.
+      if (entry.accelerated && entry.tmp && existsSync(entry.tmp) && entry.parts) runJob(entry, deps.session(entry.partition ?? ''), true);
+      else {
+        list = list.filter((d) => d !== entry);
+        changed(true);
+        deps.session(entry.partition ?? '').downloadURL(entry.url);
+      }
+    } else if (action === 'cancel') {
       item?.cancel();
+      job?.cancel();
       aborts.get(entry.id)?.abort();
     } else if (action === 'remove') {
       item?.cancel();
+      job?.cancel();
       aborts.get(entry.id)?.abort();
       list = list.filter((d) => d !== entry);
       changed(true);
@@ -341,8 +441,14 @@ export function createDownloads(deps: DownloadDeps) {
     return null;
   }
 
+  /** IDM's "Add URL": download a pasted link with a Space's cookies. */
+  function downloadLink(ses: Session, url: string) {
+    if (/^https?:\/\//i.test(url)) ses.downloadURL(url);
+  }
+
   return {
     attach,
+    downloadLink,
     list: () => list,
     act,
     downloadUrl,

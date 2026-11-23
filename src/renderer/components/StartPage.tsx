@@ -377,7 +377,7 @@ export function StartPage({ tabId }: { tabId?: ID }) {
 function Tile({ url, title, favicon, index, testId, onOpen, onMenu }: { url: string; title?: string; favicon?: string; index: number; testId: string; onOpen: () => void; onMenu?: (e: React.MouseEvent) => void }) {
   const name = siteName(url, title);
   return (
-    <button className="start-tile" data-testid={testId} title={`${name}\n${displayUrl(url)}`} style={{ '--i': index } as React.CSSProperties} onClick={onOpen} onContextMenu={onMenu}>
+    <button className="start-tile" data-testid={testId} title={`${name}\n${displayUrl(url)}`} style={{ '--i': index } as React.CSSProperties} onClick={onOpen} onPointerEnter={() => preconnectSoon(url)} onContextMenu={onMenu}>
       <span className="start-tile-icon">
         <SiteIcon url={url} favicon={favicon} title={title} size={26} />
       </span>

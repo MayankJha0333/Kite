@@ -306,11 +306,15 @@ function TrackingGroup({ sh, off }: { sh: Shields; off: boolean }) {
   const gpc = useKite((x) => x.s.settings.sendGpc);
   return (
     <Group title="Tracking protection" desc="Beyond blocking trackers: what sites can learn about you from links, referrers, cookies and your connection.">
+      <SwitchRow title="Block fingerprinting" desc="Canvas, audio, graphics-card and hardware details vary slightly on every site, so sites can’t recognise this computer. The same within a site, so pages keep working." checked={sh.fingerprinting} onChange={(v) => setSh({ fingerprinting: v })} testId="shields-fingerprinting" off={off} />
+      <SwitchRow title="Block cross-site cookies" desc="Other sites embedded in a page can’t read or set cookies. If a sign-in box inside a page stops working, add that page as an exception." checked={sh.crossSiteCookies} onChange={(v) => setSh({ crossSiteCookies: v })} testId="shields-cross-site-cookies" off={off} />
+      <SwitchRow title="Skip tracking redirects" desc="Links that go through Google, Facebook, Reddit, YouTube and others to record your click open the real page directly" checked={sh.debounce} onChange={(v) => setSh({ debounce: v })} testId="shields-debounce" off={off} />
+      <SwitchRow title="Open original pages instead of AMP" desc="Google AMP links open the publisher’s own page" checked={sh.deAmp} onChange={(v) => setSh({ deAmp: v })} testId="shields-deamp" off={off} />
       <SwitchRow title="Remove tracking parameters from links" desc="utm_source, fbclid, gclid and hundreds more, before the page loads" checked={sh.stripParams} onChange={(v) => setSh({ stripParams: v })} testId="shields-strip" off={off} />
       <SwitchRow title="Hide search queries" desc="Sites you open from search results don’t see what you searched for" checked={sh.hideSearchQueries} onChange={(v) => setSh({ hideSearchQueries: v })} testId="shields-hide-search" off={off} />
       <SwitchRow title="Hide where you came from" desc="Third parties only see their own address as the referrer. May break some image hosts." checked={sh.hideReferrer} onChange={(v) => setSh({ hideReferrer: v })} testId="shields-hide-referrer" off={off} />
       <SwitchRow title="Prevent IP leaks through WebRTC" desc="Video-call features can reveal your real IP address, even behind a VPN. May affect calls on some sites." checked={sh.blockWebRTC} onChange={(v) => setSh({ blockWebRTC: v })} testId="shields-webrtc" off={off} />
-      <Row title="Limit third-party cookies" desc="Cookies set by other sites are deleted after this long" off={off}>
+      <Row title="Limit third-party cookies" desc={sh.crossSiteCookies ? 'Not needed while cross-site cookies are blocked' : 'Cookies set by other sites are deleted after this long'} off={off || sh.crossSiteCookies}>
         <Segmented testId="shields-cookie-life" value={String(sh.cookieMinutes)} onChange={(v) => setSh({ cookieMinutes: Number(v) })} options={COOKIE_MINUTES.map((m) => ({ value: String(m), label: cookieLabel(m) }))} />
       </Row>
       <button className="set-row set-link" data-testid="shields-gpc-link" onClick={() => setUi({ panel: 'settings', panelArg: 'privacy' })}>

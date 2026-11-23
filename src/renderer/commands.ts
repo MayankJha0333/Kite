@@ -2,7 +2,7 @@
 
 import * as ops from '@shared/ops';
 import { hostOf, isNewTabUrl, looksLikeUrl, NEW_TAB_URL, normalizeInput, sourceUrlFor } from '@shared/url';
-import { partitionForSpace } from '@shared/profiles';
+import { partitionForSpace, partitionForTab } from '@shared/profiles';
 import { activeSpace } from '@shared/tree';
 import { locate } from '@shared/tree';
 import type { ID } from '@shared/types';
@@ -64,6 +64,44 @@ export function preconnectSoon(target: string | null) {
     if (!url || !/^https?:\/\//i.test(url)) return;
     bridge.preconnect(url, partitionForSpace(activeSpace(s)));
   }, 180);
+}
+
+/** Warm a tab's site when the pointer reaches it, if its page isn't loaded (asleep, or never opened this run). */
+export function warmTab(id: ID) {
+  const s = getS();
+  const it = s.items[id];
+  if (it?.kind !== 'tab' || !/^https?:\/\//i.test(it.url) || getUi().loaded.includes(id)) return;
+  bridge.preconnect(it.url, partitionForTab(s, id));
+}
+
+/** A few seconds after launch: open connections to this Space's pinned and favourite sites, so the first click on each is quick. */
+export function warmPinnedSites() {
+  const s = getS();
+  const sp = activeSpace(s);
+  const ids: ID[] = [...s.favorites];
+  const walk = (list: ID[]) => {
+    for (const id of list) {
+      const it = s.items[id];
+      if (it?.kind === 'folder') walk(it.children);
+      else if (it?.kind === 'tab') ids.push(id);
+    }
+  };
+  walk(sp.pinned);
+  const seen = new Set<string>();
+  for (const id of ids) {
+    const it = s.items[id];
+    if (it?.kind !== 'tab' || !/^https?:\/\//i.test(it.url)) continue;
+    let origin = '';
+    try {
+      origin = new URL(it.url).origin;
+    } catch {
+      continue;
+    }
+    if (seen.has(origin)) continue;
+    seen.add(origin);
+    bridge.preconnect(it.url, partitionForTab(s, id));
+    if (seen.size >= 8) break;
+  }
 }
 
 /** Filled in by pipRuntime (kept separate to avoid an import loop). */

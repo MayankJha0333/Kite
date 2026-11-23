@@ -19,6 +19,8 @@ export interface Prefs {
   httpsOnly: boolean;
   sendGpc: boolean;
   askWhereToSave: boolean;
+  /** Connections per download; 1 = no acceleration. */
+  downloadConnections: number;
 }
 
 export interface ListStatus {
@@ -83,7 +85,7 @@ export interface AppInfo {
 /** An answer that may be a readable error instead. */
 export type Result<T> = { value: T; error?: undefined } | { error: string; value?: undefined };
 
-export type DownloadAction = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear';
+export type DownloadAction = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear' | 'retry';
 export interface ClearWhat {
   cookies: boolean;
   cache: boolean;
@@ -122,6 +124,10 @@ export interface KiteBridge {
   onPipFrameState(cb: (v: import('./pipFrame').PipFrameState) => void): () => void;
   /** Main window: show this tab (from the floating video's "Back to tab"). */
   onFocusTab(cb: (tabId: string) => void): () => void;
+  /** The floating video muted or unmuted its tab. */
+  onTabMuted(cb: (v: { tabId: string; muted: boolean }) => void): () => void;
+  /** A page (by its webContents id) whose only content turned out to be a download: its tab can close. */
+  onDownloadOnlyPage(cb: (webContentsId: number) => void): () => void;
   /** Tabs to pop a video out of the moment you switch to another app (best first). */
   setPipTargets(tabIds: string[]): void;
   /** The main process popped a video out (you left Kite) or put it back (you returned). */
@@ -195,6 +201,8 @@ export interface KiteBridge {
   onDownloadDone(cb: (v: DownloadEntry) => void): () => void;
   /** Resolves to a readable problem, or null. */
   downloadAction(action: DownloadAction, id?: string): Promise<string | null>;
+  /** IDM's "Add URL": download a link you paste, with this Space's cookies. */
+  downloadLink(url: string, partition: string): Promise<string | null>;
   /** Videos, sounds and streams the page has loaded. */
   pageMedia(webContentsId: number): Promise<import('./downloads').MediaItem[]>;
   downloadMedia(webContentsId: number, url: string): void;

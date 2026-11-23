@@ -15,6 +15,7 @@ export interface PipMediaInfo {
   t: number;
   d: number;
   paused: boolean;
+  muted?: boolean;
   pip: boolean;
 }
 
@@ -111,7 +112,7 @@ export function createPipFrame(deps: PipFrameDeps) {
       return;
     }
     missing = 0;
-    send({ mode: mode === 'mini' ? 'mini' : 'full', t: m.t, d: m.d, paused: m.paused, title: m.title, host: m.host, thumb, rounded });
+    send({ mode: mode === 'mini' ? 'mini' : 'full', t: m.t, d: m.d, paused: m.paused, muted: !!m.muted, title: m.title, host: m.host, thumb, rounded });
   }
 
   async function pollThumb() {

@@ -123,23 +123,26 @@ const PIP_VIDEO = `(document.pictureInPictureElement || (window.__kitePipVideo &
 export const MEDIA_STATE_SCRIPT = `(() => {
   const v = ${PIP_VIDEO};
   if (!v) return null;
-  return { t: v.currentTime || 0, d: Number.isFinite(v.duration) ? v.duration : 0, paused: !!v.paused, pip: document.pictureInPictureElement === v };
+  return { t: v.currentTime || 0, d: Number.isFinite(v.duration) ? v.duration : 0, paused: !!v.paused, muted: !!v.muted || v.volume === 0, pip: document.pictureInPictureElement === v };
 })()`;
 
-export type PipMediaCommand = { cmd: 'toggle' } | { cmd: 'play' } | { cmd: 'pause' } | { cmd: 'seek'; t: number } | { cmd: 'skip'; by: number };
+/** Commands from the floating video's buttons. 'mute' mutes or unmutes the video's whole tab, as Arc does. */
+export type PipMediaCommand = { cmd: 'toggle' } | { cmd: 'play' } | { cmd: 'pause' } | { cmd: 'seek'; t: number } | { cmd: 'skip'; by: number } | { cmd: 'mute' };
+/** The commands that run inside the page (mute is done on the tab, by the main process). */
+export type PipPlaybackCommand = Exclude<PipMediaCommand, { cmd: 'mute' }>;
 
 /** Is this a well-formed command (it comes from another window, so check it)? */
 export function isPipMediaCommand(c: unknown): c is PipMediaCommand {
   if (!c || typeof c !== 'object') return false;
   const o = c as Record<string, unknown>;
-  if (o.cmd === 'toggle' || o.cmd === 'play' || o.cmd === 'pause') return true;
+  if (o.cmd === 'toggle' || o.cmd === 'play' || o.cmd === 'pause' || o.cmd === 'mute') return true;
   if (o.cmd === 'seek') return typeof o.t === 'number' && Number.isFinite(o.t) && o.t >= 0;
   if (o.cmd === 'skip') return typeof o.by === 'number' && Number.isFinite(o.by) && Math.abs(o.by) <= 600;
   return false;
 }
 
 /** Script that applies a command to the floating video. Resolves true if this frame had it. */
-export function pipMediaScript(c: PipMediaCommand): string {
+export function pipMediaScript(c: PipPlaybackCommand): string {
   const body =
     c.cmd === 'toggle'
       ? `if (v.paused) { await v.play(); } else { v.pause(); }`
@@ -152,6 +155,9 @@ export function pipMediaScript(c: PipMediaCommand): string {
             : `v.currentTime = Math.max(0, Math.min((v.currentTime || 0) + (${Number(c.by)}), Number.isFinite(v.duration) ? v.duration : Infinity));`;
   return `(async () => { const v = ${PIP_VIDEO}; if (!v) return false; try { ${body} } catch (e) {} return true; })()`;
 }
+
+/** Unmuting the tab also unmutes the video itself, if the page had muted it (otherwise nothing would be heard). */
+export const PIP_UNMUTE_VIDEO_SCRIPT = `(() => { const v = ${PIP_VIDEO}; if (!v) return false; v.muted = false; if (v.volume === 0) v.volume = 1; return true; })()`;
 
 /** Mini player → "Show video": pop the same video out again (even if paused). */
 export const PIP_REENTER_SCRIPT = `(async () => {

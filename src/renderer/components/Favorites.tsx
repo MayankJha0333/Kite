@@ -1,5 +1,5 @@
 import { useKite } from '../store';
-import { selectItem } from '../commands';
+import { selectItem, warmTab } from '../commands';
 import { SiteIcon } from './SiteIcon';
 import { openMenu } from './ContextMenu';
 import { itemMenu } from '../itemMenus';
@@ -48,6 +48,7 @@ function FavTile({ id }: { id: ID }) {
       title={displayTitle(it)}
       aria-label={displayTitle(it)}
       onClick={() => selectItem(id)}
+      onPointerEnter={() => warmTab(id)}
       onContextMenu={(e) => openMenu(e, itemMenu(id))}
     >
       <SiteIcon url={it.url} favicon={it.favicon} title={it.title} size={20} />

@@ -6,7 +6,7 @@ const shallowEq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringi
 import type { ID, Item, ListName } from '@shared/types';
 import { displayTitle } from '@shared/ops';
 import { act, setUi, useKite } from '../store';
-import { closeItemCmd, selectItem, navigateTab } from '../commands';
+import { closeItemCmd, selectItem, navigateTab, warmTab } from '../commands';
 import { SiteIcon } from './SiteIcon';
 import { openMenu } from './ContextMenu';
 import { itemMenu, selectionMenu } from '../itemMenus';
@@ -98,6 +98,7 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
       data-title={title}
       style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px` }}
       onClick={(e) => clickRow(e, id, () => selectItem(id))}
+      onPointerEnter={() => warmTab(id)}
       onKeyDown={(e) => rowKeys(e, () => selectItem(id))}
       onAuxClick={(e) => e.button === 1 && closeItemCmd(id)}
       onDoubleClick={(e) => !(e.metaKey || e.ctrlKey || e.shiftKey) && setUi({ renaming: id })}

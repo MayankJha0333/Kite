@@ -187,6 +187,7 @@ function ElectronSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITIO
       ref={ref as never}
       className="surface"
       data-testid={`surface-${id}`}
+      data-tab={id}
       data-visible={visible ? 'true' : 'false'}
       src={src.current}
       partition={partition}

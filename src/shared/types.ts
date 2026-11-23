@@ -195,6 +195,8 @@ export interface Settings {
   sendGpc: boolean;
   /** Ask where to save each download. */
   askWhereToSave: boolean;
+  /** Connections per download (IDM-style acceleration); 1 = off. */
+  downloadConnections: number;
 }
 
 export interface AppState {

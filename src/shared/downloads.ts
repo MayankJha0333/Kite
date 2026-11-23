@@ -25,6 +25,20 @@ export interface DownloadEntry {
   resumable: boolean;
   /** The site it came from. */
   site: string;
+  /** Fetched over several connections at once (IDM-style). */
+  accelerated?: boolean;
+  /** How many connections it uses. */
+  connections?: number;
+  /** Each connection's byte range and progress (drawn as the segmented bar; kept to resume). */
+  parts?: import('./segments').Part[];
+  /** Where the bytes go until the download completes. */
+  tmp?: string;
+  /** The file's ETag or Last-Modified date, to resume safely. */
+  validator?: string | null;
+  /** Which Space's cookie jar it was downloaded with (to resume after a restart). */
+  partition?: string;
+  /** The page it was downloaded from (sent as the Referer, as the browser did). */
+  referrer?: string;
 }
 
 /** A video, sound or stream found on the current page. */
