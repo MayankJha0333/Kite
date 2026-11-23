@@ -13,6 +13,7 @@ import { ZapHint } from './components/Boosts';
 import { bridge, desktopChrome, isMac } from './platform';
 import { useEffect } from 'react';
 import { useSystemDark } from './systemDark';
+import { pruneImages, useImageUrl } from './images';
 
 export { useSystemDark };
 
@@ -29,7 +30,13 @@ function Shell() {
   const spaceId = useKite((st) => st.s.activeSpaceId);
   const sidebarPeek = useKite((st) => st.ui.sidebarPeek);
   const systemDark = useSystemDark();
-  const vars = useMemo(() => themeVars(theme, settings, systemDark), [theme, settings, systemDark]);
+  const photoUrl = useImageUrl(theme.photo?.id);
+  const vars = useMemo(() => themeVars(theme, settings, systemDark, { photoUrl }), [theme, settings, systemDark, photoUrl]);
+  // Once at start: delete stored pictures no Space uses any more.
+  useEffect(() => {
+    const t = window.setTimeout(() => void pruneImages(useKite.getState().s.spaces.map((sp) => sp.theme.photo?.id).filter((x): x is string => !!x)), 4000);
+    return () => window.clearTimeout(t);
+  }, []);
   const dark = resolveDark(theme, systemDark);
   const collapsed = settings.sidebarCollapsed;
   const fullscreen = useKite((st) => st.ui.fullscreen);
@@ -70,7 +77,7 @@ function Shell() {
       data-mac={isMac || undefined}
       data-space={spaceId}
       data-page={onSettings ? 'settings' : undefined}
-      data-backdrop={theme.backdrop}
+      data-backdrop={theme.photo && photoUrl ? 'photo' : theme.backdrop}
     >
       <div className="grain" aria-hidden="true" />
       <Sidebar />

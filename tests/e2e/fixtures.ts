@@ -51,6 +51,10 @@ export async function settled(page: Page, testId: string) {
   await page.getByTestId(testId).evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => undefined))));
 }
 
+/** Which Settings tab each section lives in (Settings has Arc-style tabs; sections stack inside them). */
+export const SETTINGS_TAB: Record<string, string> = {"tabs": "general", "motion": "general", "spaces": "appearance", "layout": "appearance", "links": "links", "adblock": "privacy", "privacy": "privacy", "extensions": "advanced", "keys": "shortcuts", "data": "advanced", "about": "advanced"};
+export const settingsTab = (section: string) => SETTINGS_TAB[section] ?? section;
+
 export const test = base;
 export { expect };
 

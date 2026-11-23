@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, ShieldBan, Puzzle, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus, FolderOpen, Copy } from 'lucide-react';
+import { Keyboard, Puzzle, Route, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, Trash2, Search, ChevronRight, X, Plus, FolderOpen, Copy, Palette, Settings2, SlidersHorizontal } from 'lucide-react';
 import { listSources } from '@shared/shields';
 import type { AppInfo, SitePermission } from '@shared/ipc';
 import { AdBlockPage, useShieldsStatus } from './AdBlock';
@@ -16,71 +16,63 @@ import { EMOJIS } from './Spaces';
 import { ThemeControls } from './ThemeEditor';
 import { backdropUrl } from '../backdrops';
 import { createSpace, deleteSpace, updateSpace } from '@shared/spaces';
-import { sleepOtherTabs, switchSpaceCmd, undoable } from '../commands';
+import { actions, sleepOtherTabs, switchSpaceCmd, undoable } from '../commands';
 import { now } from '../platform';
 import { playSound } from '../sound';
 
 type Section = 'spaces' | 'layout' | 'motion' | 'tabs' | 'links' | 'adblock' | 'privacy' | 'extensions' | 'keys' | 'data' | 'about';
+type Tab = 'general' | 'appearance' | 'links' | 'privacy' | 'shortcuts' | 'advanced';
 interface SectionDef {
   id: Section;
   label: string;
   /** One line under the section title. */
   desc: string;
-  icon: React.ReactNode;
   /** Extra words the search box matches (what lives in the section). */
   words: string;
 }
 
-/**
- * How Settings is organised, by what people come to do (not by how Kite is built):
- * - Personalize: how Kite looks and feels. Whole-window look first, then each Space.
- * - Browsing: how tabs, search and links behave day to day.
- * - Privacy: what's blocked, shared, remembered and cleared, all in one place.
- * - Power tools: extensions, Boosts and shortcuts, for when you want more.
- * - Kite: your data and the app itself; rare and risky things live last.
- * Each page lists its most-used settings first, and anything destructive last.
- */
-const GROUPS: { label: string; items: SectionDef[] }[] = [
-  {
-    label: 'Personalize',
-    items: [
-      { id: 'spaces', label: 'Spaces', desc: 'Name, icon and theme of each Space', icon: <Shapes size={15} />, words: 'space name icon emoji theme colour color swatch wheel hue mode dark light appearance grain intensity strength logins accounts separate isolated archive delete background' },
-      { id: 'layout', label: 'Layout', desc: 'Sidebar, spacing, corners, text size and Favorites', icon: <LayoutPanelLeft size={15} />, words: 'sidebar side left right width spacing density compact roomy gap margin corner radius roundness favorites columns address bar url close buttons hover text size font scale reset' },
-      { id: 'motion', label: 'Motion & Sound', desc: 'Animations, their speed, and interface sounds', icon: <AudioLines size={15} />, words: 'reduce motion animation feel smooth snappy bouncy springy spring speed sound sounds volume audio accessibility' },
-    ],
-  },
-  {
-    label: 'Browsing',
-    items: [
-      { id: 'tabs', label: 'Tabs', desc: 'Archiving, memory, Peek and videos', icon: <Layers size={15} />, words: 'archive tabs little window memory sleep awake tidy titles pinned peek shift click video picture floating pop out' },
-      { id: 'links', label: 'Search & Links', desc: 'Your search engine, and where links from other apps open', icon: <Route size={15} />, words: 'search engine google duckduckgo kagi bing custom routing default browser links other apps air traffic rules' },
-    ],
-  },
-  {
-    label: 'Privacy',
-    items: [
-      { id: 'adblock', label: 'Ad blocking', desc: 'Ads, trackers, filter lists, your rules and tracking protection', icon: <ShieldBan size={15} />, words: 'shields ads ad block blocker adblock adguard ublock easylist filters lists trackers cookie notices banners popups annoyances social widgets malware phishing language allowlist exceptions invert custom lists user rules tracking parameters utm referrer referer search queries webrtc ip leak cookies lifetime statistics update' },
-      { id: 'privacy', label: 'Privacy & Security', desc: 'Connection, permissions, downloads and your data', icon: <ShieldCheck size={15} />, words: 'https gpc global privacy control do not track downloads permissions camera microphone location notifications clear data cache cookies history' },
-    ],
-  },
-  {
-    label: 'Power tools',
-    items: [
-      { id: 'extensions', label: 'Extensions & Boosts', desc: 'Add features to Kite, and restyle the sites you use', icon: <Puzzle size={15} />, words: 'extensions chrome web store boosts restyle hide clutter css' },
-      { id: 'keys', label: 'Keyboard', desc: 'Every shortcut, ready to change', icon: <Keyboard size={15} />, words: 'shortcut keys hotkey keyboard' },
-    ],
-  },
-  {
-    label: 'Kite',
-    items: [
-      { id: 'data', label: 'Backup & Import', desc: 'Import from Arc, back up, restore or start over', icon: <Database size={15} />, words: 'import arc backup restore export reset erase start over data' },
-      { id: 'about', label: 'About Kite', desc: 'Version and credits', icon: <Info size={15} />, words: 'version about credits' },
-    ],
-  },
+const SECTIONS: SectionDef[] = [
+  { id: 'spaces', label: 'Spaces', desc: 'Name, icon and theme of each Space', words: 'space name icon emoji theme colour color swatch wheel hue mode dark light appearance grain intensity strength logins accounts separate isolated archive delete background' },
+  { id: 'layout', label: 'Layout', desc: 'Sidebar, spacing, corners, text size and Favorites', words: 'sidebar side left right width spacing density compact roomy gap margin corner radius roundness favorites columns address bar url close buttons hover text size font scale reset' },
+  { id: 'motion', label: 'Motion & Sound', desc: 'Animations, their speed, and interface sounds', words: 'reduce motion animation feel smooth snappy bouncy springy spring speed sound sounds volume audio accessibility' },
+  { id: 'tabs', label: 'Tabs', desc: 'Archiving, memory, Peek and videos', words: 'archive tabs little window memory sleep awake tidy titles pinned peek shift click video picture floating pop out' },
+  { id: 'links', label: 'Search & Links', desc: 'Your search engine, and where links from other apps open', words: 'search engine google duckduckgo kagi bing custom routing default browser links other apps air traffic rules' },
+  { id: 'adblock', label: 'Ad blocking', desc: 'Ads, trackers, filter lists, your rules and tracking protection', words: 'shields ads ad block blocker adblock adguard ublock easylist filters lists trackers cookie notices banners popups annoyances social widgets malware phishing language allowlist exceptions invert custom lists user rules tracking parameters utm referrer referer search queries webrtc ip leak cookies lifetime statistics update' },
+  { id: 'privacy', label: 'Privacy & Security', desc: 'Connection, permissions, downloads and your data', words: 'https gpc global privacy control do not track downloads permissions camera microphone location notifications clear data cache cookies history' },
+  { id: 'extensions', label: 'Extensions & Boosts', desc: 'Add features to Kite, and restyle the sites you use', words: 'extensions chrome web store boosts restyle hide clutter css' },
+  { id: 'keys', label: 'Keyboard', desc: 'Every shortcut, ready to change', words: 'shortcut keys hotkey keyboard' },
+  { id: 'data', label: 'Backup & Import', desc: 'Import from Arc, back up, restore or start over', words: 'import arc backup restore export reset erase start over data' },
+  { id: 'about', label: 'About Kite', desc: 'Version and credits', words: 'version about credits' },
 ];
-const SECTIONS: SectionDef[] = GROUPS.flatMap((g) => g.items);
+
+/**
+ * Settings is laid out like Arc's: a row of tabs across the top, each holding one or more
+ * sections in a single centred column. General first, rare and risky things last.
+ */
+const TABS: { id: Tab; label: string; icon: React.ReactNode; sections: Section[] }[] = [
+  { id: 'general', label: 'General', icon: <Settings2 size={18} />, sections: ['tabs', 'motion'] },
+  { id: 'appearance', label: 'Appearance', icon: <Palette size={18} />, sections: ['spaces', 'layout'] },
+  { id: 'links', label: 'Links', icon: <Route size={18} />, sections: ['links'] },
+  { id: 'privacy', label: 'Privacy', icon: <ShieldCheck size={18} />, sections: ['adblock', 'privacy'] },
+  { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard size={18} />, sections: ['keys'] },
+  { id: 'advanced', label: 'Advanced', icon: <SlidersHorizontal size={18} />, sections: ['extensions', 'data', 'about'] },
+];
+/** Says who a section changes: just this Space, or every Space. */
+const SCOPES: Partial<Record<Section, string>> = { spaces: 'This Space', layout: 'All Spaces' };
 /** Old links into Settings still land somewhere sensible. */
-const ALIASES: Record<string, Section> = { shields: 'adblock', search: 'links', routing: 'links', boosts: 'extensions', shortcuts: 'keys', backup: 'data', colours: 'spaces', background: 'spaces', appearance: 'spaces', theme: 'spaces' };
+const ALIASES: Record<string, Section> = { shields: 'adblock', search: 'links', routing: 'links', boosts: 'extensions', backup: 'data', colours: 'spaces', background: 'spaces', theme: 'spaces' };
+
+const tabOf = (s: Section): Tab => TABS.find((t) => t.sections.includes(s))!.id;
+const sectionDef = (id: Section) => SECTIONS.find((x) => x.id === id)!;
+
+/** Where a link into Settings lands: a tab, and the section in it to bring into view (null = the top). */
+export function resolveSettings(arg: string | undefined): { tab: Tab; section: Section | null } {
+  if (arg && TABS.some((t) => t.id === arg) && !SECTIONS.some((x) => x.id === arg)) return { tab: arg as Tab, section: null };
+  const sec = arg && SECTIONS.some((x) => x.id === arg) ? (arg as Section) : arg ? ALIASES[arg] : undefined;
+  if (!sec) return { tab: 'general', section: null };
+  const tab = tabOf(sec);
+  return { tab, section: TABS.find((t) => t.id === tab)!.sections[0] === sec ? null : sec };
+}
 
 /** Sections whose name, description or contents match what you typed. */
 export function matchSections(query: string): Section[] {
@@ -93,27 +85,47 @@ export function matchSections(query: string): Section[] {
   }).map((x) => x.id);
 }
 
-const toSection = (arg: string | undefined): Section => (SECTIONS.some((x) => x.id === arg) ? (arg as Section) : arg && ALIASES[arg] ? ALIASES[arg] : 'spaces');
+const RENDER: Record<Section, () => React.ReactNode> = {
+  tabs: () => <TabsSection />,
+  motion: () => <MotionPage />,
+  spaces: () => <SpacesPage />,
+  layout: () => <LayoutPage />,
+  links: () => <SearchLinks />,
+  adblock: () => <AdBlockPage />,
+  privacy: () => <Privacy />,
+  keys: () => <Keys />,
+  extensions: () => <Extensions />,
+  data: () => <Data />,
+  about: () => <About />,
+};
 
 export function SettingsPanel() {
-  // The open section lives in the app state, so other parts of Kite can link to one.
-  const section = useKite((x) => {
-    // While leaving, keep showing the section that was open (see Sheet.tsx).
+  // The open tab lives in the app state, so other parts of Kite can link to a section.
+  const target = useKite((x) => {
+    // While leaving, keep showing the tab that was open (see Sheet.tsx).
     const panel = x.ui.panel ?? x.ui.leaving?.panel;
-    return panel === 'shortcuts' ? 'keys' : toSection(x.ui.panel ? x.ui.panelArg : x.ui.leaving?.panelArg);
+    return panel === 'shortcuts' ? 'shortcuts' : (x.ui.panel ? x.ui.panelArg : x.ui.leaving?.panelArg) ?? '';
   });
-  const setSection = (id: Section) => setUi({ panel: 'settings', panelArg: id });
+  const { tab, section: jumpTo } = resolveSettings(target || undefined);
+  const setTab = (id: Tab) => setUi({ panel: 'settings', panelArg: id });
   const [query, setQuery] = useState('');
   const shown = useMemo(() => matchSections(query), [query]);
+  const tabs = TABS.filter((t) => t.sections.some((x) => shown.includes(x)));
+  const def = TABS.find((t) => t.id === tab)!;
+  const sections = def.sections.filter((x) => shown.includes(x));
   const body = useRef<HTMLDivElement>(null);
-  // Searching jumps to the first section that matches.
+  // Searching jumps to the first tab that matches.
   useEffect(() => {
-    if (shown.length && !shown.includes(section)) setSection(shown[0]);
-  }, [shown, section]);
-  // A new section starts at its top.
+    if (tabs.length && !tabs.some((t) => t.id === tab)) setTab(tabs[0].id);
+  }, [tabs, tab]);
+  // A new tab starts at its top, or at the section a link asked for.
   useEffect(() => {
-    if (body.current) body.current.scrollTop = 0;
-  }, [section]);
+    const root = body.current;
+    if (!root) return;
+    const el = jumpTo ? root.querySelector<HTMLElement>(`[data-section="${jumpTo}"]`) : null;
+    if (el) el.scrollIntoView({ block: 'start' });
+    else root.scrollTop = 0;
+  }, [tab, jumpTo]);
   // While searching, bring the first matching setting into view and mark it briefly.
   useEffect(() => {
     const q = query.trim().toLowerCase();
@@ -129,19 +141,25 @@ export function SettingsPanel() {
       row.setAttribute('data-hit', 'true');
     }, 180);
     return () => window.clearTimeout(t);
-  }, [query, section]);
-  const def = SECTIONS.find((x) => x.id === section)!;
-  const scope = section === 'spaces' ? 'This Space' : section === 'layout' ? 'All Spaces' : null;
+  }, [query, tab]);
   return (
     <Page title="Settings" testId="settings">
       <div className="settings">
-        <nav className="settings-nav" aria-label="Settings sections">
-          <div className="settings-brand">Settings</div>
+        <header className="settings-bar">
+          <h1 className="settings-title">Settings</h1>
+          <div className="settings-tabs" role="tablist" aria-label="Settings">
+            {tabs.map((t) => (
+              <button key={t.id} role="tab" aria-selected={tab === t.id} className="settings-tab" data-on={tab === t.id || undefined} data-testid={`settings-${t.id}`} onClick={() => setTab(t.id)}>
+                <span className="settings-tab-icon">{t.icon}</span>
+                <span className="settings-tab-label">{t.label}</span>
+              </button>
+            ))}
+          </div>
           <label className="settings-search">
             <Search size={13} aria-hidden="true" />
             <input
               type="search"
-              placeholder="Search settings"
+              placeholder="Search"
               aria-label="Search settings"
               value={query}
               data-testid="settings-search"
@@ -160,55 +178,58 @@ export function SettingsPanel() {
               </button>
             )}
           </label>
-          <div className="settings-tabs" role="tablist" aria-orientation="vertical">
-            {GROUPS.map((g) => {
-              const items = g.items.filter((x) => shown.includes(x.id));
-              if (!items.length) return null;
-              return (
-                <div className="settings-navgroup" key={g.label} role="presentation">
-                  <div className="settings-navgroup-label" aria-hidden="true">{g.label}</div>
-                  {items.map((x) => (
-                    <button key={x.id} role="tab" aria-selected={section === x.id} aria-label={x.label} title={x.label} className="settings-tab" data-on={section === x.id || undefined} data-testid={`settings-${x.id}`} onClick={() => setSection(x.id)}>
-                      <span className="settings-tab-icon">{x.icon}</span>
-                      <span className="settings-tab-label">{x.label}</span>
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
-            {shown.length === 0 && <p className="settings-nomatch" data-testid="settings-nomatch">No settings match “{query.trim()}”.</p>}
-          </div>
-          <div className="settings-nav-foot">
-            <KiteLogo size={16} /> Kite {__KITE_VERSION__} · works offline
-          </div>
-        </nav>
+        </header>
         <div className="settings-main" ref={body}>
-          <header className="settings-head" key={`h-${section}`}>
-            <span className="settings-head-icon">{def.icon}</span>
-            <div>
-              <h2 className="settings-head-title">
-                {def.label}
-                {scope && <span className="settings-scope" data-testid="settings-scope">{scope}</span>}
-              </h2>
-              <p className="settings-head-desc">{def.desc}</p>
+          {tabs.length === 0 ? (
+            <p className="settings-nomatch" data-testid="settings-nomatch">No settings match “{query.trim()}”.</p>
+          ) : (
+            <div className="settings-body" key={tab} role="tabpanel" aria-label={def.label}>
+              {tab === 'general' && !query.trim() && <DefaultBrowserPrompt />}
+              {sections.map((id) => {
+                const d = sectionDef(id);
+                return (
+                  <section className="settings-section" key={id} data-section={id} aria-label={d.label}>
+                    <header className="settings-section-head">
+                      <h2 className="settings-section-title">
+                        {d.label}
+                        {SCOPES[id] && <span className="settings-scope" data-testid={`settings-scope-${id}`}>{SCOPES[id]}</span>}
+                      </h2>
+                      <p className="settings-section-desc">{d.desc}</p>
+                    </header>
+                    {RENDER[id]()}
+                  </section>
+                );
+              })}
             </div>
-          </header>
-          <div className="settings-body" key={section} role="tabpanel" aria-label={def.label}>
-            {section === 'spaces' && <SpacesPage />}
-            {section === 'layout' && <LayoutPage />}
-            {section === 'motion' && <MotionPage />}
-            {section === 'tabs' && <TabsSection />}
-            {section === 'links' && <SearchLinks />}
-            {section === 'adblock' && <AdBlockPage />}
-            {section === 'privacy' && <Privacy />}
-            {section === 'extensions' && <Extensions />}
-            {section === 'keys' && <Keys />}
-            {section === 'data' && <Data />}
-            {section === 'about' && <About />}
-          </div>
+          )}
         </div>
       </div>
     </Page>
+  );
+}
+
+/** Arc's first line in General: a nudge to make the browser your default, gone once it is. */
+function DefaultBrowserPrompt() {
+  const [isDefault, setIsDefault] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void bridge.isDefaultBrowser().then((v) => live && setIsDefault(v)).catch(() => live && setIsDefault(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (isDefault !== false) return null;
+  return (
+    <div className="settings-banner" data-testid="settings-default-browser">
+      <KiteLogo size={22} />
+      <span className="settings-banner-text">
+        <b>Kite works best as your default browser</b>
+        <span>Links from other apps open here, in the right Space.</span>
+      </span>
+      <button className="btn small primary" data-testid="settings-make-default" onClick={() => { actions.setDefaultBrowser?.(); setIsDefault(null); window.setTimeout(() => void bridge.isDefaultBrowser().then(setIsDefault), 600); }}>
+        Make Default
+      </button>
+    </div>
   );
 }
 
@@ -242,7 +263,7 @@ function SpacesPage() {
       <div className="space-picker" role="tablist" aria-label="Choose a Space to edit" data-testid="space-picker">
         {spaces.map((sp) => (
           <button key={sp.id} role="tab" aria-selected={sp.id === space.id} className="space-pick" data-on={sp.id === space.id || undefined} data-testid={`set-space-${sp.id}`} onClick={() => choose(sp.id)}>
-            <span className="space-pick-sw" style={{ background: sp.theme.backdrop ? `center / cover url("${backdropUrl(sp.theme.backdrop, true)}")` : `linear-gradient(135deg, ${sp.theme.colors[0]}, ${sp.theme.colors[1]})` }}>{sp.icon}</span>
+            <span className="space-pick-sw" style={{ background: sp.theme.backdrop ? `center / cover url("${backdropUrl(sp.theme.backdrop, true)}")` : sp.theme.gradient ? `linear-gradient(${sp.theme.gradient.angle}deg, ${sp.theme.gradient.colors.join(', ')})` : `linear-gradient(135deg, ${sp.theme.colors[0]}, ${sp.theme.colors[1]})` }}>{sp.icon}</span>
             <span className="space-pick-text">
               <span className="space-pick-name">{sp.name}</span>
               <span className="space-pick-meta">{tabs(sp.id)} tab{tabs(sp.id) === 1 ? '' : 's'}</span>

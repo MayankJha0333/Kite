@@ -74,7 +74,7 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Capture: screenshot area / full page, edit, copy | `ARC_Capture`, Menu: Capture Full Page | 🟡 Capture (⌘⇧2) and Capture Full Page (⌘⇧1): PNG to Downloads and the clipboard; no area selection, portrait mode or editing |
 | Easels / mood boards (canvas of captures and notes) | `ARC_EaselUI`, Menu: New Easel, Mood Board | ❌ (left out at first) |
 | Library (Downloads, Media/screenshots, Easels, Archive in one place) | Menu: View Library, View Media | ❌ |
-| Themes per Space, light/dark/auto | Menu: Edit Theme, Switch to Dark Mode | ✅ plus 11 built-in pictures (Kite's own) |
+| Themes per Space, light/dark/auto | Menu: Edit Theme, Switch to Dark Mode | ✅ plus 11 built-in pictures, your own picture, your own gradient; dark by default |
 | Custom keyboard shortcuts | "Custom Shortcuts" | ✅ |
 | Sound effects | "Play Arc sound effects" | ✅ Settings › Motion & Sound |
 | Alternative app icons | "App icon could not be set" | ❌ |

@@ -36,6 +36,6 @@ export const backdropById = (id: string | undefined): Backdrop | undefined => BA
 /** What picking a picture changes on a Space theme: the picture, its colours and its light or dark. Null goes back to plain colours. */
 export function backdropPatch(id: BackdropId | null): Partial<SpaceTheme> {
   const b = id ? backdropById(id) : undefined;
-  if (!b) return { backdrop: undefined };
-  return { backdrop: b.id, colors: [...b.colors] as [string, string], mode: b.tone };
+  if (!b) return { backdrop: undefined, photo: undefined, gradient: undefined };
+  return { backdrop: b.id, photo: undefined, gradient: undefined, colors: [...b.colors] as [string, string], mode: b.tone };
 }

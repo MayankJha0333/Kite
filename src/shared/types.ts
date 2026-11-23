@@ -67,6 +67,10 @@ export interface SpaceTheme {
   grain: boolean;
   /** One of Kite's built-in pictures, painted behind the window and the home page (see backdrops.ts). */
   backdrop?: import('./backdrops').BackdropId;
+  /** A picture you uploaded (stored on this computer), and whether it is light or dark. */
+  photo?: { id: string; tone: 'light' | 'dark' };
+  /** A gradient you made: 2–4 colours along an angle. */
+  gradient?: { colors: string[]; angle: number };
 }
 
 export interface Space {
@@ -181,6 +185,8 @@ export interface Settings {
   motionSpeed: number;
   /** The feel of animations: the style's own, or one you pick. */
   motionFeel: MotionFeel;
+  /** Which default theme this copy of Kite has had applied (see THEME_VERSION). */
+  themeVersion?: number;
   /** Ad and tracker blocking (see shared/shields.ts). */
   shields: import('./shields').Shields;
   /** Open sites over https whenever possible. */

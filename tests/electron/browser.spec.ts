@@ -157,7 +157,7 @@ test('Shields: ads and trackers are blocked, leftovers hidden, and a site except
 test('Shields, full pipeline: lists download and build off-thread; page fixes run before the page; links lose tracking parameters; your rules block', async () => {
   // The test before this one switched Shields off for this site; switch it back on in Settings.
   await win.keyboard.press(`${MOD}+Comma`);
-  await win.getByTestId('settings-adblock').click();
+  await win.getByTestId('settings-privacy').click();
   if (await win.getByLabel('Remove 127.0.0.1').count()) await win.getByLabel('Remove 127.0.0.1').click();
   await expect(win.getByTestId('shields-allow-list').locator('.chip')).toHaveCount(0);
   await win.getByTestId('sheet-close').click();
@@ -183,7 +183,7 @@ test('Shields, full pipeline: lists download and build off-thread; page fixes ru
   // Your own rule: written in Settings, applied without a restart.
   expect(requests.some((r) => r.startsWith('/mine/blocked-by-me.png'))).toBe(true);
   await win.keyboard.press(`${MOD}+Comma`);
-  await win.getByTestId('settings-adblock').click();
+  await win.getByTestId('settings-privacy').click();
   await win.getByTestId('shields-user-rules').fill('||127.0.0.1^*/mine/');
   await win.getByTestId('shields-user-save').click();
   await expect(win.getByTestId('shields-user-count')).toContainText('1 rule', { timeout: 15000 });

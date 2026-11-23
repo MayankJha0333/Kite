@@ -1,4 +1,4 @@
-import { sanitizeTheme } from './spaceTheme';
+import { sanitizeTheme, THEME_VERSION } from './spaceTheme';
 import { backdropPatch, isBackdrop } from './backdrops';
 import { sanitizeShields } from './shields';
 import { sanitizeHome } from './home';
@@ -53,6 +53,12 @@ export function loadState(raw: unknown): AppState {
     isolated: sp.isolated === true ? true : undefined,
     pinnedCollapsed: sp.pinnedCollapsed === true ? true : undefined,
   }));
+  // A new default theme reaches everyone once: each Space moves to it, and can be changed after.
+  const hadVersion = isObj(s.settings) ? (s.settings as { themeVersion?: unknown }).themeVersion : undefined;
+  if (!(typeof hadVersion === 'number' && hadVersion >= THEME_VERSION)) {
+    state.spaces.forEach((x, i) => (x.theme = defaultTheme(i)));
+    state.settings.themeVersion = THEME_VERSION;
+  }
   // Earlier versions had home page "scenes"; the same pictures are now Space themes.
   const oldScene = isObj(s.home) ? (s.home as { scene?: unknown }).scene : undefined;
   const sp = state.spaces.find((x) => x.id === state.activeSpaceId) ?? state.spaces[0];

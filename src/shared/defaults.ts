@@ -145,6 +145,7 @@ export function defaultSettings(): Settings {
     soundVolume: 0.4,
     motionSpeed: 1,
     motionFeel: 'style',
+    themeVersion: 2,
     shields: defaultShields(),
     httpsOnly: true,
     sendGpc: true,

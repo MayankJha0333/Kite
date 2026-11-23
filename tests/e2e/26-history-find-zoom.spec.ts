@@ -90,7 +90,7 @@ test.describe('about', () => {
   test('shows the version from the build and offers the data folder and shortcuts', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-about').click();
+    await page.getByTestId('settings-advanced').click();
     await expect(page.getByTestId('about-version')).toContainText(/Version \d+\.\d+\.\d+/);
     await expect(page.getByTestId('about-details')).toBeVisible();
     await page.getByTestId('about-shortcuts').click();

@@ -68,7 +68,7 @@ test.describe('layout: no wasted space around the page', () => {
     await openDesktop(page);
     await newTab(page, 'https://a.com');
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-layout').click();
+    await page.getByTestId('settings-appearance').click();
     await page.getByTestId('set-gap').fill('0');
     await page.getByTestId('sheet-close').click();
     await page.keyboard.press(`${MOD}+s`);
@@ -81,7 +81,7 @@ test.describe('layout: no wasted space around the page', () => {
     await openDesktop(page);
     await newTab(page, 'https://a.com');
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-layout').click();
+    await page.getByTestId('settings-appearance').click();
     await page.getByTestId('set-side-right').click();
     await page.getByTestId('sheet-close').click();
     const card = (await page.getByTestId('page-card').boundingBox())!;
@@ -125,9 +125,11 @@ test.describe('layout: no wasted space around the page', () => {
 });
 
 test.describe('themes', () => {
-  test('a new Kite starts on the default colours, and the editor has only the Arc controls', async ({ page }) => {
+  test('a new Kite starts on the dark default gradient, and the editor has only the Arc controls', async ({ page }) => {
     await openDesktop(page);
-    expect(await cssVar(page, '--tint-2')).toBe('#4a7fe0');
+    expect(await cssVar(page, '--tint-2')).toBe('#8f8cff');
+    await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'dark');
+    expect(await cssVar(page, '--backdrop')).toMatch(/^linear-gradient\(160deg/);
     await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-edit-space').click();
     await expect(page.getByTestId('theme-controls')).toBeVisible();
@@ -195,7 +197,7 @@ test.describe('interface sounds', () => {
   test('they can be turned off, the volume is saved, and "Play" lets you hear it', async ({ page }) => {
     await openDesktop(page);
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-motion').click();
+    await page.getByTestId('settings-general').click();
     await page.getByTestId('set-volume').fill('0.8');
     await page.getByTestId('set-sounds').click();
     expect((await savedState(page)).settings).toMatchObject({ sounds: false, soundVolume: 0.8 });
@@ -205,7 +207,7 @@ test.describe('interface sounds', () => {
     await page.keyboard.press(`${MOD}+w`);
     expect((await sounds(page)).length).toBe(before); // silence
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-motion').click();
+    await page.getByTestId('settings-general').click();
     // Volume and Play are greyed out while sounds are off.
     await expect(page.locator('.set-row[data-off]').filter({ has: page.getByTestId('set-volume') })).toHaveCount(1);
     await page.getByTestId('set-sounds').click();

@@ -4,24 +4,45 @@
 // editor and Settings › Spaces.
 
 import { useState } from 'react';
+import { ImagePlus, Plus, X } from 'lucide-react';
 import { hexToHsl } from '@shared/designTokens';
-import { SWATCH_ROWS, pairFromColor, pairFromHue, swatchOf } from '@shared/spaceTheme';
+import { PLAIN, SWATCH_ROWS, gradientPatch, pairFromColor, pairFromHue, photoPatch, starterGradient, swatchOf } from '@shared/spaceTheme';
 import { BACKDROPS, backdropPatch } from '@shared/backdrops';
 import { backdropUrl } from '../backdrops';
 import { setSpaceTheme } from '@shared/spaces';
 import type { ID, SpaceTheme } from '@shared/types';
-import { act, useKite } from '../store';
+import { act, toast, useKite } from '../store';
+import { addImage, ImageError, useImageUrl } from '../images';
+import { mix } from '../theme';
 import { Field, Segmented, Toggle } from './Sheet';
 
 export function ThemeControls({ spaceId }: { spaceId: ID }) {
   const t = useKite((st) => st.s.spaces.find((x) => x.id === spaceId)?.theme);
   const [hue, setHue] = useState(() => (t ? Math.round(hexToHsl(t.colors[1])[0]) : 210));
   const [vivid, setVivid] = useState(0.7);
+  const [busy, setBusy] = useState(false);
+  const photoUrl = useImageUrl(t?.photo?.id);
   if (!t) return null;
   const set = (patch: Partial<SpaceTheme>) => act((d) => setSpaceTheme(d, spaceId, patch));
-  // A colour you pick replaces the picture: you are back on plain colours.
-  const setColors = (colors: [string, string]) => set({ colors, backdrop: undefined });
-  const on = t.backdrop ? null : swatchOf(t);
+  // A colour you pick replaces any picture or gradient: you are back on plain colours.
+  const setColors = (colors: [string, string]) => set({ ...PLAIN, colors });
+  const plain = !t.backdrop && !t.photo && !t.gradient;
+  const on = plain ? swatchOf(t) : null;
+  const g = t.gradient;
+  const setGradient = (next: { colors: string[]; angle: number }) => set(gradientPatch(next));
+  const css = (x: { colors: string[]; angle: number }) => `linear-gradient(${x.angle}deg, ${x.colors.join(', ')})`;
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const r = await addImage(file);
+      set(photoPatch(r.id, r.luma, r.colors));
+    } catch (err) {
+      toast(err instanceof ImageError ? err.message : 'Kite couldn’t use that picture.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const wheel = (h: number, v: number) => {
     setHue(h);
     setVivid(v);
@@ -35,8 +56,8 @@ export function ThemeControls({ spaceId }: { spaceId: ID }) {
             type="button"
             role="radio"
             className="backdrop-tile"
-            aria-checked={!t.backdrop}
-            data-on={!t.backdrop || undefined}
+            aria-checked={plain}
+            data-on={plain || undefined}
             data-testid="backdrop-none"
             title="Just colours"
             style={{ background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }}
@@ -44,6 +65,49 @@ export function ThemeControls({ spaceId }: { spaceId: ID }) {
           >
             <span className="backdrop-name">Colours</span>
           </button>
+          <button
+            type="button"
+            role="radio"
+            className="backdrop-tile"
+            aria-checked={!!g}
+            data-on={g ? true : undefined}
+            data-testid="backdrop-gradient"
+            title="Your own gradient"
+            style={{ background: css(starterGradient(t)) }}
+            onClick={() => !g && setGradient(starterGradient(t))}
+          >
+            <span className="backdrop-name">Gradient</span>
+          </button>
+          {t.photo && photoUrl && (
+            <button
+              type="button"
+              role="radio"
+              className="backdrop-tile"
+              aria-checked
+              data-on
+              data-testid="backdrop-photo"
+              title="Your picture"
+              style={{ backgroundImage: `url("${photoUrl}")` }}
+            >
+              <span className="backdrop-name">Your picture</span>
+            </button>
+          )}
+          <label className="backdrop-tile backdrop-upload" title="Use a picture of your own" data-testid="backdrop-upload" data-busy={busy || undefined}>
+            <ImagePlus size={18} aria-hidden="true" />
+            <span className="backdrop-upload-label">{busy ? 'Adding…' : t.photo ? 'Replace' : 'Upload'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="visually-hidden"
+              aria-label="Upload a picture for this Space"
+              data-testid="backdrop-upload-input"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                void upload(f);
+              }}
+            />
+          </label>
           {BACKDROPS.map((b) => (
             <button
               key={b.id}
@@ -64,6 +128,35 @@ export function ThemeControls({ spaceId }: { spaceId: ID }) {
           ))}
         </div>
       </Field>
+
+      {g && (
+        <Field label="Gradient" hint={`${g.angle}°`}>
+          <div className="grad" data-testid="gradient-editor">
+            <div className="grad-preview" style={{ background: css(g) }} aria-hidden="true" />
+            <div className="grad-stops">
+              {g.colors.map((c, i) => (
+                <span className="grad-stop" key={i}>
+                  <input type="color" aria-label={`Gradient colour ${i + 1}`} data-testid={`grad-color-${i}`} value={c} onChange={(e) => setGradient({ ...g, colors: g.colors.map((x, j) => (j === i ? e.target.value : x)) })} />
+                  {g.colors.length > 2 && (
+                    <button type="button" className="grad-remove" aria-label={`Remove colour ${i + 1}`} data-testid={`grad-remove-${i}`} onClick={() => setGradient({ ...g, colors: g.colors.filter((_, j) => j !== i) })}>
+                      <X size={10} strokeWidth={2.6} />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {g.colors.length < 4 && (
+                <button type="button" className="grad-add" aria-label="Add a colour" title="Add a colour" data-testid="grad-add" onClick={() => setGradient({ ...g, colors: [...g.colors.slice(0, -1), mix(g.colors[g.colors.length - 2], g.colors[g.colors.length - 1], 0.5), g.colors[g.colors.length - 1]] })}>
+                  <Plus size={14} />
+                </button>
+              )}
+            </div>
+            <div className="wheel-row">
+              <span className="wheel-label">Angle</span>
+              <input type="range" className="range wheel-vivid" aria-label="Gradient angle" min={0} max={359} value={g.angle} data-testid="grad-angle" onChange={(e) => setGradient({ ...g, angle: Number(e.target.value) })} />
+            </div>
+          </div>
+        </Field>
+      )}
 
       <Field label="Colour">
         <div className="swatch-rows" data-testid="theme-swatches">

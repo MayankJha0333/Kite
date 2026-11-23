@@ -6,7 +6,7 @@ test.describe('memory: sleeping tabs', () => {
   test('only the most recent tabs stay awake; the rest sleep and wake when opened', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-tabs').click();
+    await page.getByTestId('settings-general').click();
     await page.getByTestId('set-awake').fill('3');
     await expect.poll(async () => (await savedState(page)).settings.awakeTabs).toBe(3);
     await page.keyboard.press('Escape');

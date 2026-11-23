@@ -5,7 +5,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, openApp, newTab, todayRows, expectTidy, MOD } from './fixtures';
 
-const SETTINGS_SECTIONS = ['spaces', 'layout', 'motion', 'tabs', 'links', 'adblock', 'privacy', 'extensions', 'keys', 'data', 'about'];
+const SETTINGS_TABS = ['general', 'appearance', 'links', 'privacy', 'shortcuts', 'advanced'];
 
 async function menuOpen(page: Page) {
   await expect(page.getByTestId('context-menu')).toBeVisible();
@@ -76,7 +76,7 @@ function sweep(name: string, viewport: { width: number; height: number }) {
       await page.keyboard.press(`${MOD}+Comma`);
       await expect(page.getByTestId('settings')).toBeVisible();
       await page.waitForTimeout(350);
-      for (const id of SETTINGS_SECTIONS) {
+      for (const id of SETTINGS_TABS) {
         await page.getByTestId(`settings-${id}`).click();
         await page.waitForTimeout(300);
         await expectTidy(page, '[data-testid=settings]', `Settings › ${id}`);

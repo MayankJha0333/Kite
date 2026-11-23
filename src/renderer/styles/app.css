@@ -2921,37 +2921,94 @@ body.resizing-v * {
 }
 
 .settings {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  height: 100%;
-  min-height: 0;
-  --set-card: color-mix(in srgb, var(--ink) 2.5%, var(--card));
-  --page-col: 760px;
-}
-
-.settings-nav {
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
-  padding: 26px 14px 14px;
-  border-right: 1px solid var(--line);
-  background: color-mix(in srgb, var(--ink) 3%, var(--card));
+  container-type: inline-size;
+  --set-card: color-mix(in srgb, var(--ink) 2.5%, var(--card));
+  --page-col: 680px;
 }
 
-.settings-brand {
-  padding: 0 8px 14px;
+/* Arc's Settings: the window's name, a row of icon tabs in the middle, search on the right. */
+.settings-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 12px 64px 12px 24px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 2%, var(--card));
+}
+
+.settings-title {
+  margin: 0;
   font-family: 'Bricolage Grotesque', var(--font);
-  font-size: calc(21px * var(--scale));
+  font-size: calc(17px * var(--scale));
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.settings-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 76px;
+  padding: 8px 10px 7px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+}
+
+.settings-tab-icon {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  color: var(--ink-3);
+  transition: color var(--t-fast), transform var(--press-dur, 160ms) var(--press-ease, var(--ease-out));
+}
+
+.settings-tab-label {
+  font-size: calc(11.5px * var(--scale));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.settings-tab:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.settings-tab:active .settings-tab-icon {
+  transform: scale(0.92);
+}
+
+.settings-tab[data-on] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+}
+
+.settings-tab[data-on] .settings-tab-icon {
+  color: var(--accent);
 }
 
 .settings-search {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 32px;
-  margin: 0 2px 12px;
+  width: 180px;
+  height: 30px;
   padding: 0 6px 0 10px;
   border-radius: var(--r-md);
   background: var(--card);
@@ -3001,147 +3058,110 @@ body.resizing-v * {
   color: var(--ink-2);
 }
 
-.settings-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.settings-tab {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--ink-2);
-  font-weight: 550;
-  text-align: left;
-  transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
-}
-
-.settings-tab-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
-  background: var(--hover);
-  color: var(--ink-2);
-  transition: background var(--t-fast), color var(--t-fast);
-}
-
-.settings-tab-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settings-tab:hover {
-  background: var(--hover);
-  color: var(--ink);
-}
-
-.settings-tab[data-on] {
-  background: var(--active);
-  color: var(--ink);
-  box-shadow: var(--active-shadow);
-}
-
-.settings-tab[data-on] .settings-tab-icon {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
 .settings-nomatch {
-  margin: 4px 8px;
+  margin: 48px auto;
   color: var(--ink-2);
-  font-size: calc(12px * var(--scale));
-  line-height: 1.45;
-}
-
-.settings-nav-foot {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-  padding: 12px 8px 2px;
-  border-top: 1px solid var(--line);
-  color: var(--ink-3);
-  font-size: calc(11.5px * var(--scale));
-  font-weight: 500;
+  font-size: calc(13px * var(--scale));
+  text-align: center;
 }
 
 .settings-main {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scroll-padding-top: 96px;
+  scroll-padding-top: 20px;
 }
 
-.settings-head {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 26px max(64px, calc((100% - var(--page-col)) / 2)) 18px max(36px, calc((100% - var(--page-col)) / 2));
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  backdrop-filter: blur(14px) saturate(1.3);
-  box-shadow: 0 1px 0 var(--line);
-}
-
-.settings-head-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.settings-head-icon svg {
-  width: 19px;
-  height: 19px;
-}
-
-.settings-head-title {
-  margin: 0;
-  font-family: 'Bricolage Grotesque', var(--font);
-  font-size: calc(22px * var(--scale));
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.settings-head-desc {
-  margin: 2px 0 0;
-  color: var(--ink-2);
-  font-size: calc(12.5px * var(--scale));
-}
-
+/* One centred column; sections 44px apart, groups 20px apart, all on an 8px rhythm. */
 .settings-body {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  min-width: 0;
+  gap: 44px;
   width: 100%;
-  max-width: calc(var(--page-col) + 72px);
+  max-width: calc(var(--page-col) + 64px);
   margin: 0 auto;
-  padding: 24px 36px 56px;
+  padding: 32px 32px 72px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.settings-section-head {
+  padding: 0 4px;
+}
+
+.settings-section-title {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-family: 'Bricolage Grotesque', var(--font);
+  font-size: calc(18px * var(--scale));
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.settings-section-desc {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+  font-size: calc(12.5px * var(--scale));
+  line-height: 1.45;
+}
+
+/* Arc's nudge at the top of General. */
+.settings-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.settings-banner-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: calc(12.5px * var(--scale));
+  color: var(--ink-2);
+}
+
+.settings-banner-text b {
+  color: var(--ink);
+  font-size: calc(13px * var(--scale));
+}
+
+/* Narrower windows: the title goes first, then the search gets smaller, then the tab labels tighten. */
+@container (max-width: 920px) {
+  .settings-title {
+    display: none;
+  }
+  .settings-bar {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding-left: 16px;
+  }
+}
+
+@container (max-width: 760px) {
+  .settings-search {
+    width: 120px;
+  }
+  .settings-tab {
+    min-width: 0;
+    padding-inline: 6px;
+  }
+  .settings-body {
+    padding-inline: 20px;
+  }
 }
 
 .settings-intro {
@@ -3448,22 +3468,17 @@ body.resizing-v * {
   .settings {
     grid-template-columns: 64px minmax(0, 1fr);
   }
-  .settings-brand,
+  
   .settings-search,
-  .settings-tab-label,
-  .settings-nav-foot {
+  .settings-tab-label{
     display: none;
   }
-  .settings-nav {
-    padding: 18px 8px;
-  }
+  
   .settings-tab {
     justify-content: center;
     padding: 0;
   }
-  .settings-head {
-    padding: 20px 60px 16px 20px;
-  }
+  
   .settings-body {
     padding: 20px 20px 40px;
   }
@@ -4102,10 +4117,6 @@ html.pip-frame-doc #root {
   transition: transform calc(var(--dur, 220ms) * 1.1) var(--ease-out), width var(--t-fast) var(--ease-out);
 }
 
-/* Changing Settings section: the page blurs in, its cards follow 40 ms apart. */
-.settings-head {
-  animation: blur-in calc(var(--dur, 220ms) * 0.8) var(--ease-out);
-}
 
 .settings-body > *{
   animation: section-in calc(var(--dur, 220ms) * 0.8) var(--ease-out) backwards;
@@ -4663,11 +4674,6 @@ button.dl-name:not(:disabled):hover {
   font-weight: 600;
 }
 
-/* ==== Privacy settings and Spaces ============================================ */
-
-.settings-sub {
-  padding-left: 46px;
-}
 
 .shields-status {
   display: flex;
@@ -4887,26 +4893,6 @@ button.dl-name:not(:disabled):hover {
   to { filter: hue-rotate(360deg); }
 }
 
-
-/* ==== Settings: grouped navigation and scope ==================================== */
-.settings-navgroup {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.settings-navgroup + .settings-navgroup {
-  margin-top: 14px;
-}
-
-.settings-navgroup-label {
-  padding: 0 10px 4px;
-  color: var(--ink-3);
-  font-size: calc(11px * var(--scale));
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 
 /* Says who a page changes: the whole window, or just this Space. */
 .settings-scope {
@@ -5889,7 +5875,6 @@ button.dl-name:not(:disabled):hover {
 .start-greet,
 .empty-state-title,
 .sheet-title,
-.settings-head-title,
 .load-error h2,
 .app-crash-card h1,
 .about h3 {
@@ -6410,4 +6395,119 @@ li[data-done] .wg-todo-check { background: var(--accent); border-color: var(--ac
   background: rgba(10, 12, 18, 0.45);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 22px -10px rgba(0, 0, 0, 0.5);
   color: rgba(255, 255, 255, 0.86);
+}
+
+/* Hidden from sight, still reachable by keyboard and screen readers. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Upload tile: a dashed slot in the picture grid. */
+.backdrop-upload {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--ink-2);
+}
+.backdrop-upload:hover {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.backdrop-upload:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.backdrop-upload[data-busy] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.backdrop-upload-label {
+  font-size: calc(11px * var(--scale));
+  font-weight: 600;
+}
+
+/* Your own gradient: a preview bar, its colours, and the angle. */
+.grad {
+  display: grid;
+  gap: 12px;
+}
+.grad-preview {
+  height: 44px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.grad-stops {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.grad-stop {
+  position: relative;
+  display: inline-flex;
+}
+.grad-stop input[type='color'] {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--line);
+}
+.grad-stop input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.grad-stop input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+.grad-remove {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--ink-2);
+  box-shadow: 0 0 0 1px var(--line), 0 1px 3px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+.grad-stop:hover .grad-remove,
+.grad-remove:focus-visible {
+  opacity: 1;
+}
+.grad-add {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--hover);
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 16%, transparent);
+  cursor: pointer;
+}
+.grad-add:hover {
+  color: var(--ink);
 }

@@ -48,7 +48,7 @@ test.describe('video pop-out (picture-in-picture)', () => {
   test('the switches in Settings turn it off', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-tabs').click();
+    await page.getByTestId('settings-general').click();
     await page.getByTestId('set-autopip-app').click();
     await page.keyboard.press('Escape');
     await newTab(page, 'video.example');
@@ -61,7 +61,7 @@ test.describe('video pop-out (picture-in-picture)', () => {
     await expect.poll(() => pipped(page, 'video.example')).toBe(true); // tab switch: still on
     await page.locator('[data-title="video.example"]').click();
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-tabs').click();
+    await page.getByTestId('settings-general').click();
     await page.getByTestId('set-autopip').click();
     await page.keyboard.press('Escape');
     await newTab(page, 'third.example');

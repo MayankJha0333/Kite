@@ -18,6 +18,8 @@ import { BACKDROPS, backdropById, backdropPatch } from '@shared/backdrops';
 import { setSpaceTheme } from '@shared/spaces';
 import { activeSpace } from '@shared/tree';
 import { backdropUrl } from '../backdrops';
+import { useImageUrl } from '../images';
+import { gradientLuma, gradientPatch, starterGradient } from '@shared/spaceTheme';
 import { act, setUi, toast, useKite, type ContextMenuItem } from '../store';
 import { navigateTab, openUrl, preconnectSoon, selectItem, undoable } from '../commands';
 import { isMac, now } from '../platform';
@@ -75,7 +77,9 @@ export function StartPage({ tabId }: { tabId?: ID }) {
   const favIds = useKite((st) => st.s.favorites);
   const items = useKite((st) => st.s.items);
   const home = useKite((st) => st.s.home);
-  const backdrop = useKite((st) => activeSpace(st.s).theme.backdrop);
+  const theme = useKite((st) => activeSpace(st.s).theme);
+  const backdrop = theme.backdrop;
+  const plain = !theme.backdrop && !theme.photo && !theme.gradient;
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(-1);
   const [editing, setEditing] = useState<null | { id?: ID; name: string; url: string }>(null);
@@ -183,7 +187,8 @@ export function StartPage({ tabId }: { tabId?: ID }) {
         label: 'Background',
         testId: 'home-background',
         submenu: [
-          { label: 'Space Colours', hint: !backdrop ? '✓' : undefined, testId: 'home-bg-none', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(null))) },
+          { label: 'Space Colours', hint: plain ? '✓' : undefined, testId: 'home-bg-none', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(null))) },
+          { label: 'Gradient', hint: theme.gradient ? '✓' : undefined, testId: 'home-bg-gradient', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, gradientPatch(starterGradient(theme)))) },
           { separator: true, label: '' },
           ...BACKDROPS.map((b) => ({ label: b.name, hint: b.id === backdrop ? '✓' : undefined, testId: `home-bg-${b.id}`, onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(b.id))) })),
           { separator: true, label: '' },
@@ -222,14 +227,22 @@ export function StartPage({ tabId }: { tabId?: ID }) {
   const hasTiles = favorites.length > 0 || frequent.length > 0;
   let tileIndex = 0;
 
-  // The Space's picture, crisp, behind the whole page; text follows its light or dark.
-  const picture = backdropById(backdrop);
-  const tone = picture?.tone;
+  // The Space's background behind the whole page: a built-in picture, your own, or your gradient at full strength.
+  const builtIn = backdropById(backdrop);
+  const photoUrl = useImageUrl(theme.photo?.id);
+  const bg = theme.photo
+    ? photoUrl && { id: 'photo', tone: theme.photo.tone, image: `url("${photoUrl}")` }
+    : builtIn
+      ? { id: builtIn.id, tone: builtIn.tone, image: `url("${backdropUrl(builtIn.id)}")` }
+      : theme.gradient
+        ? { id: 'gradient', tone: gradientLuma(theme.gradient) < 0.42 ? ('dark' as const) : ('light' as const), image: `linear-gradient(${theme.gradient.angle}deg, ${theme.gradient.colors.join(', ')})` }
+        : null;
+  const tone = bg ? bg.tone : undefined;
 
   return (
     <>
-    <div className="start" data-testid={tabId ? 'start-page' : 'empty-state'} data-backdrop={picture?.id} data-tone={tone}>
-      {picture && <div className="start-bg" aria-hidden="true" data-testid="start-bg" style={{ backgroundImage: `url("${backdropUrl(picture.id)}")` }} />}
+    <div className="start" data-testid={tabId ? 'start-page' : 'empty-state'} data-backdrop={bg ? bg.id : undefined} data-tone={tone}>
+      {bg && <div className="start-bg" aria-hidden="true" data-testid="start-bg" style={{ backgroundImage: bg.image }} />}
       <div className="start-inner">
         {home.showGreeting && (
           <header className="start-hello">

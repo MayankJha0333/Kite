@@ -178,7 +178,9 @@ test.describe('home page', () => {
     await openApp(page);
     await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-edit-space').click();
-    await expect(page.locator('[data-testid^="backdrop-"]')).toHaveCount(12);
+    // Colours, Gradient, Upload, and the 11 built-in pictures.
+    await expect(page.locator('[data-testid^="backdrop-"][data-tone]')).toHaveCount(11);
+    for (const id of ['backdrop-none', 'backdrop-gradient', 'backdrop-upload']) await expect(page.getByTestId(id)).toBeVisible();
     await page.getByTestId('backdrop-dunes').click();
     await expect(page.getByTestId('backdrop-dunes')).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('app')).toHaveAttribute('data-backdrop', 'dunes');

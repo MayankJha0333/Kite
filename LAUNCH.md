@@ -54,6 +54,14 @@ Run with the installed design skills (impeccable critique/animate, Emil Kowalski
 - **Guidelines pass.** Scroll containment on every scrolling pane, balanced headings, a quiet neutral rule on note quotes instead of a thick accent bar. The mechanical design detector reports no findings.
 - Tests: `tests/e2e/27-motion-keyboard.spec.ts` covers the glide, the instant actions, reduced motion and keyboard navigation; the drag specs now measure rows at rest.
 
+## Settings like Arc's, own backgrounds, dark default (23 Nov 2026)
+
+- **Settings is laid out like Arc's**: a row of icon tabs across the top (General, Appearance, Links, Privacy, Shortcuts, Advanced), one centred 680px column, sections 44px apart and groups 20px apart on an 8px rhythm. The 11 former sections stack inside those tabs under their own headings; links from elsewhere in Kite (`panelArg` with an old section id) open the right tab and scroll to the section (`resolveSettings` in `Settings.tsx`). Settings opens on General, which starts with Arc's "works best as your default browser" prompt until Kite is the default. Search stays, on the right of the tab bar. The bar drops its title, then shrinks search, as the window narrows (container queries).
+- **Your own picture** (`SpaceTheme.photo`): upload from the theme editor's Background row; it is shrunk to 2880px, stored in IndexedDB on this computer (`src/renderer/images.ts`), measured for brightness and two colours, and the theme takes its light or dark and its accent from it. Unused pictures are deleted at the next start.
+- **Your own gradient** (`SpaceTheme.gradient`): 2–4 colours and an angle, edited inline. It is painted toward the base by Intensity in the frame and sidebar (so text stays readable) and shown in full on the home page.
+- **One background at a time**: your picture, else a built-in one, else your gradient, else plain colours; picking a colour returns to plain colours.
+- **Dark default for everyone**: a dark theme with an indigo-violet-teal gradient at 160°, periwinkle accent. New Spaces get the same design turned to their own hue. Existing Spaces moved to it once (`settings.themeVersion`, `THEME_VERSION = 2` in `spaceTheme.ts`) and can be changed afterwards. Text on the chrome keeps 4.5:1 for the default and every new-Space hue (unit tested).
+
 ## Theme pictures and finishing pass (23 Nov 2026)
 
 - **11 built-in pictures** (`src/shared/backdrops.ts`, files in `src/renderer/assets/backgrounds/`, under 1 MB in all): Dawn, Dunes, Meadow, Forest and Haze (light); Bloom, Aurora, Dusk, Ocean, Ember and Night (dark). They are Kite's own: drawn as SVG from fixed seeds by `scripts/backgrounds/make.mjs` and rendered once by Chromium to JPEG (2560×1600 plus a thumbnail). Rerun the script to change or add one; nothing is downloaded.

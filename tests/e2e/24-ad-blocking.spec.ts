@@ -7,7 +7,7 @@ const SHOTS = process.env.ADBLOCK_SHOTS;
 
 async function openAdblock(page: Page) {
   await page.keyboard.press(`${MOD}+Comma`);
-  await page.getByTestId('settings-adblock').click();
+  await page.getByTestId('settings-privacy').click();
   await expect(page.getByTestId('adblock-page')).toBeVisible();
 }
 

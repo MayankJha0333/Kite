@@ -38,7 +38,7 @@ test.describe('motion', () => {
   test('reduce motion keeps fades and colour feedback but drops movement', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
-    await page.getByTestId('settings-motion').click();
+    await page.getByTestId('settings-general').click();
     await page.getByTestId('set-motion').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-motion', 'reduced');
     await page.keyboard.press('Escape');

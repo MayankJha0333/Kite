@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test';
-import { test, expect, openApp, newTab, todayRows, savedState, settled, MOD } from './fixtures';
+import { test, expect, openApp, newTab, todayRows, savedState, settled, MOD, settingsTab } from './fixtures';
 
 async function openSettings(page: Page, section?: string) {
   await page.keyboard.press(`${MOD}+Comma`);
   await expect(page.getByTestId('settings')).toBeVisible();
-  if (section) await page.getByTestId(`settings-${section}`).click();
+  if (section) await page.getByTestId(`settings-${settingsTab(section)}`).click();
 }
 
 const cssVar = (page: Page, name: string) => page.getByTestId('app').evaluate((el, n) => getComputedStyle(el).getPropertyValue(n).trim(), name);
@@ -44,7 +44,7 @@ test.describe('settings: appearance', () => {
     await page.getByTestId('set-urlbar').click();
     await expect(page.getByTestId('url-pill')).toHaveCount(0);
     await page.getByTestId('set-favcols').fill('6');
-    await page.getByTestId('settings-motion').click();
+    await page.getByTestId('settings-general').click();
     await page.getByTestId('set-motion').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-motion', 'reduced');
     expect((await savedState(page)).settings.favoritesColumns).toBe(6);
@@ -61,20 +61,22 @@ test.describe('settings: appearance', () => {
     expect(await cssVar(page, '--scale')).toBe('1');
   });
 
-  test('Settings opens on Spaces: this Space\'s theme, with nothing app-wide to tune', async ({ page }) => {
+  test('Settings opens on General, like Arc; Appearance holds this Space\'s theme and the layout for every Space', async ({ page }) => {
     await openApp(page);
     await openSettings(page);
-    await expect(page.getByTestId('settings-spaces')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByTestId('settings-scope')).toHaveText('This Space');
+    const tabs = page.locator('.settings-tab');
+    await expect(tabs).toHaveText(['General', 'Appearance', 'Links', 'Privacy', 'Shortcuts', 'Advanced']);
+    await expect(page.getByTestId('settings-general')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('settings-default-browser')).toBeVisible();
+    await page.getByTestId('settings-appearance').click();
+    await expect(page.getByTestId('settings-scope-spaces')).toHaveText('This Space');
+    await expect(page.getByTestId('settings-scope-layout')).toHaveText('All Spaces');
     await expect(page.getByTestId('theme-controls')).toBeVisible();
-    await expect(page.getByTestId('settings-appearance')).toHaveCount(0);
-    // The one theme editor: 27 swatches, a wheel, intensity, grain, light/dark/auto. Nothing else.
     await expect(page.locator('[data-testid^="swatch-"]')).toHaveCount(27);
     await page.getByTestId('swatch-muted-9').click();
     expect(await cssVar(page, '--tint-1')).toBe('#2d4468');
-    await page.getByTestId('settings-layout').click();
-    await expect(page.getByTestId('settings-scope')).toHaveText('All Spaces');
   });
+
 });
 
 test.describe('settings: tabs, search, keyboard, data', () => {
@@ -189,29 +191,29 @@ test.describe('settings layout and search', () => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
     const tabs = page.locator('.settings-tab');
-    await expect(tabs).toHaveCount(11);
+    await expect(tabs).toHaveCount(6);
     await page.getByTestId('settings-search').fill('cookie');
-    // Cookie notices and lifetimes live in Ad blocking; clearing cookies in Privacy & Security.
-    await expect(tabs).toHaveCount(2);
-    await expect(page.getByTestId('settings-adblock')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.settings-head-title')).toHaveText('Ad blocking');
+    // Cookie notices and lifetimes live in Ad blocking; clearing cookies in Privacy & Security: both in the Privacy tab.
+    await expect(tabs).toHaveCount(1);
+    await expect(page.getByTestId('settings-privacy')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[data-section]')).toHaveCount(2);
     await expect(page.locator('[data-hit]')).toContainText('cookies');
     await page.getByTestId('settings-search').fill('nothing like this');
     await expect(page.getByTestId('settings-nomatch')).toBeVisible();
     await page.getByTestId('settings-search').press('Escape');
     await expect(page.getByTestId('settings-search')).toHaveValue('');
-    await expect(tabs).toHaveCount(11);
+    await expect(tabs).toHaveCount(6);
     await expect(page.getByTestId('settings')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('settings')).toHaveCount(0);
   });
 
-  test('a section keeps one size: switching sections does not resize the window', async ({ page }) => {
+  test('a tab keeps one size: switching tabs does not resize the window', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
     await settled(page, 'settings');
     const a = (await page.getByTestId('settings').boundingBox())!;
-    await page.getByTestId('settings-about').click();
+    await page.getByTestId('settings-advanced').click();
     await settled(page, 'settings');
     const b = (await page.getByTestId('settings').boundingBox())!;
     expect([b.width, b.height]).toEqual([a.width, a.height]);

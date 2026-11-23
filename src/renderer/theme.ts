@@ -86,7 +86,7 @@ function rowSurfaces(dark: boolean): Record<string, string> {
  * Everything the window's look needs, as CSS variables: the Space's colours and
  * light/dark mode, and the layout settings.
  */
-export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boolean): Record<string, string> {
+export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boolean, opts: { photoUrl?: string | null } = {}): Record<string, string> {
   const dark = resolveDark(theme, systemDark);
   const tone = dark ? TONE.dark : TONE.light;
   const base = tone.base;
@@ -95,9 +95,12 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
   const k = tone.tint[0] + t * (tone.tint[1] - tone.tint[0]);
   // Every colour is drawn mixed with the base, by the intensity, so text stays readable.
   const paint = (c: string) => mix(base, c, k);
-  const a = paint(theme.colors[0]);
-  const b = paint(theme.colors[1]);
-  const chromeMid = mix(a, b, 0.5);
+  const g = theme.gradient;
+  // A gradient you made is painted like the plain colours: its stops mixed with the base by the intensity.
+  const stops = g ? g.colors.map(paint) : null;
+  const a = stops ? stops[0] : paint(theme.colors[0]);
+  const b = stops ? stops[stops.length - 1] : paint(theme.colors[1]);
+  const chromeMid = stops ? stops.reduce((acc, c, i) => mix(acc, c, 1 / (i + 1))) : mix(a, b, 0.5);
   const ink = tone.ink;
   // The accent is the Space's second colour; it must stay readable on the chrome, so it is
   // pushed toward the ink colour until it is.
@@ -112,14 +115,15 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
     ? `0 0 0 1px rgba(255,255,255,${Math.min(0.2, ringA).toFixed(3)}), 0 1px 2px rgba(0,0,0,${Math.min(0.5, 0.3 * depth).toFixed(3)}), 0 14px 36px -8px rgba(0,0,0,${Math.min(0.8, 0.5 * depth).toFixed(3)})`
     : `0 0 0 1px rgba(60,40,20,${Math.min(0.2, ringA).toFixed(3)}), 0 1px 2px rgba(60,40,20,${Math.min(0.12, 0.05 * depth).toFixed(3)}), 0 14px 36px -8px rgba(60,40,20,${Math.min(0.32, 0.15 * depth).toFixed(3)})`;
   const overlayA = 0.94;
-  const picture = theme.backdrop ? backdropUrl(theme.backdrop) : undefined;
+  const picture = theme.photo ? opts.photoUrl ?? undefined : theme.backdrop ? backdropUrl(theme.backdrop) : undefined;
+  const gradientCss = stops ? `linear-gradient(${g!.angle}deg, ${stops.map((c, i) => `${c} ${Math.round((i / (stops.length - 1)) * 100)}%`).join(', ')})` : null;
   const springy = settings.motionFeel === 'spring';
   return {
     ...scaleVars(dark),
     '--chrome-a': a,
     '--chrome-b': b,
     '--chrome-mid': chromeMid,
-    '--backdrop': picture ? `url("${picture}") center / cover no-repeat, ${chromeMid}` : `linear-gradient(165deg, ${a} 0%, ${chromeMid} 55%, ${b} 100%)`,
+    '--backdrop': picture ? `url("${picture}") center / cover no-repeat, ${chromeMid}` : gradientCss ?? `linear-gradient(165deg, ${a} 0%, ${chromeMid} 55%, ${b} 100%)`,
     // Over a picture the sidebar is frosted glass: the more intensity, the more picture shows.
     '--wash': dark ? `rgba(14,15,20,${(0.62 - t * 0.36).toFixed(3)})` : `rgba(255,255,255,${(0.66 - t * 0.38).toFixed(3)})`,
     '--ink': ink,

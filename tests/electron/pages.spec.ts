@@ -56,7 +56,7 @@ test('the menu bar lists every part of Kite, with shortcuts, and follows shortcu
     expect((await find('File', 'New Tab…'))?.accelerator).toBe('CommandOrControl+T');
     // Change a shortcut in Settings: the menu shows the new keys.
     await win.keyboard.press(`${MOD}+Comma`);
-    await win.getByTestId('settings-keys').click();
+    await win.getByTestId('settings-shortcuts').click();
     await win.getByTestId('key-btn-newNote').click();
     await win.keyboard.press(`${MOD}+Shift+k`);
     await expect.poll(async () => (await find('File', 'New Note'))?.accelerator).toBe('CommandOrControl+Shift+K');
@@ -73,7 +73,7 @@ test('the menu bar lists every part of Kite, with shortcuts, and follows shortcu
 test('About shows the real version and build, and the error log exists on disk', async () => {
   const { app, win, userData } = await launch();
   await win.keyboard.press(`${MOD}+Comma`);
-  await win.getByTestId('settings-about').click();
+  await win.getByTestId('settings-advanced').click();
   const version = await app.evaluate(({ app }) => app.getVersion());
   await expect(win.getByTestId('about-version')).toHaveText(`Version ${version}`);
   await expect(win.getByTestId('about-details')).toContainText('Electron');

@@ -260,7 +260,7 @@ export function SpaceEditor({ id }: { id: ID }) {
         </>
       }
     >
-      <div className="space-preview" data-tone={t.backdrop ? backdropById(t.backdrop)?.tone : undefined} style={{ background: t.backdrop ? `center / cover url("${backdropUrl(t.backdrop)}")` : `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }}>
+      <div className="space-preview" data-tone={t.backdrop ? backdropById(t.backdrop)?.tone : undefined} style={{ background: t.backdrop ? `center / cover url("${backdropUrl(t.backdrop)}")` : t.gradient ? `linear-gradient(${t.gradient.angle}deg, ${t.gradient.colors.join(', ')})` : `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }}>
         <span className="space-preview-icon">{space.icon}</span>
         <span className="space-preview-name">{space.name}</span>
       </div>
