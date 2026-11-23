@@ -22,7 +22,7 @@ await page.keyboard.press('Meta+t'); await page.fill('[data-testid=cb-input]', '
 await page.keyboard.press('Meta+Shift+o'); await shot('05-note'); 
 await page.click('[data-testid=btn-new-tab]'); await shot('06-new-tab-page');
 await page.click('[data-testid=btn-archive]'); await shot('07-archive'); await page.keyboard.press('Escape');
-await page.click('[data-testid=btn-settings]'); await shot('08-settings-appearance');
+await page.click('[data-testid=btn-settings]'); await shot('08-settings-spaces');
 for (const s of ['spaces','layout','motion','tabs','links','adblock','privacy','extensions','keys','data','about']) { await page.click(`[data-testid=settings-${s}]`); await shot(`09-settings-${s}`); }
 await page.keyboard.press('Escape');
 await page.click('[data-testid=space-header]'); await shot('10-space-menu'); await page.keyboard.press('Escape');

@@ -1,11 +1,11 @@
 import type { Page } from '@playwright/test';
 import { test, expect, openApp, newTab, todayRows, pinnedRows, activeRowTitle, savedState, visibleFrame, MOD } from './fixtures';
 
-async function addSpace(page: Page, name: string, preset?: string) {
+async function addSpace(page: Page, name: string, swatch?: string) {
   await page.getByTestId('btn-new-space').click();
   await expect(page.getByTestId('space-editor')).toBeVisible();
   await page.getByTestId('space-name-input').fill(name);
-  if (preset) await page.getByTestId(`preset-${preset}`).click();
+  if (swatch) await page.getByTestId(`swatch-${swatch}`).click();
   await page.getByTestId('space-done').click();
   await expect(page.getByTestId('space-editor')).toHaveCount(0);
 }
@@ -18,7 +18,7 @@ test.describe('spaces', () => {
   test('create a Space, name it, and switch between Spaces', async ({ page }) => {
     await openApp(page);
     await newTab(page, 'home.com');
-    await addSpace(page, 'Work', 'Lagoon');
+    await addSpace(page, 'Work', 'pastel-7');
     await expect(page.getByTestId('space-name')).toHaveText('Work');
     await expect(todayRows(page)).toHaveCount(0);
     await newTab(page, 'work.com');
@@ -30,9 +30,11 @@ test.describe('spaces', () => {
     expect(await activeRowTitle(page)).toBe('work.com');
   });
 
-  test('clicking the Space name opens its menu just below it; double-click renames it in place', async ({ page }) => {
+  test('a plain click on the Space name opens nothing; its menu comes from the … button, right-click or Enter; double-click renames', async ({ page }) => {
     await openApp(page);
     await page.getByTestId('space-name').click();
+    await expect(page.getByTestId('context-menu')).toHaveCount(0);
+    await page.getByTestId('space-menu').click();
     const menu = page.getByTestId('menu-edit-space');
     await expect(menu).toBeVisible();
     const header = (await page.getByTestId('space-header').boundingBox())!;
@@ -64,9 +66,9 @@ test.describe('spaces', () => {
   test('each Space has its own colors on the window', async ({ page }) => {
     await openApp(page);
     const before = await page.getByTestId('app').evaluate((el) => getComputedStyle(el).getPropertyValue('--tint-1'));
-    await addSpace(page, 'Ocean', 'Lagoon');
+    await addSpace(page, 'Ocean', 'muted-9');
     const after = await page.getByTestId('app').evaluate((el) => getComputedStyle(el).getPropertyValue('--tint-1'));
-    expect(after.trim()).toBe('#9fd8d0');
+    expect(after.trim()).toBe('#2d4468');
     expect(after).not.toBe(before);
   });
 
@@ -184,7 +186,7 @@ test.describe('spaces', () => {
 
   test('Spaces survive restart, including which one was open', async ({ page }) => {
     await openApp(page);
-    await addSpace(page, 'Work', 'Moss');
+    await addSpace(page, 'Work', 'muted-7');
     await savedState(page);
     await page.reload();
     await expect(page.getByTestId('space-name')).toHaveText('Work');

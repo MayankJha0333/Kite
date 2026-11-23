@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Palette, Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, ShieldBan, Puzzle, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus, FolderOpen, Copy } from 'lucide-react';
+import { Layers, Keyboard, Route, Database, Info, RotateCcw, Upload, Download, Wand2, AlertTriangle, PanelLeft, PanelRight, ShieldCheck, ShieldBan, Puzzle, Trash2, Search, ChevronRight, X, Shapes, LayoutPanelLeft, AudioLines, Plus, FolderOpen, Copy } from 'lucide-react';
 import { listSources } from '@shared/shields';
 import type { AppInfo, SitePermission } from '@shared/ipc';
 import { AdBlockPage, useShieldsStatus } from './AdBlock';
@@ -13,14 +13,14 @@ import { bridge, isMac } from '../platform';
 import { Page, Segmented, Group, Row, SwitchRow } from './Sheet';
 import { KiteLogo } from './KiteLogo';
 import { EMOJIS } from './Spaces';
-import { BackgroundStudio } from './BackgroundStudio';
+import { ThemeControls } from './ThemeEditor';
+import { backdropUrl } from '../backdrops';
 import { createSpace, deleteSpace, updateSpace } from '@shared/spaces';
-import { LookBar, LookStudio, setLayout, useDiscardPreviewOnLeave, useEffectiveLook } from './LookStudio';
 import { sleepOtherTabs, switchSpaceCmd, undoable } from '../commands';
 import { now } from '../platform';
 import { playSound } from '../sound';
 
-type Section = 'appearance' | 'spaces' | 'layout' | 'motion' | 'tabs' | 'links' | 'adblock' | 'privacy' | 'extensions' | 'keys' | 'data' | 'about';
+type Section = 'spaces' | 'layout' | 'motion' | 'tabs' | 'links' | 'adblock' | 'privacy' | 'extensions' | 'keys' | 'data' | 'about';
 interface SectionDef {
   id: Section;
   label: string;
@@ -44,9 +44,8 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
   {
     label: 'Personalize',
     items: [
-      { id: 'appearance', label: 'Appearance', desc: 'Themes, style, accent and text for the whole window', icon: <Palette size={15} />, words: 'theme style accent surfaces borders shadows glass frosted contrast font text size share code css restyle reset readability' },
-      { id: 'spaces', label: 'Spaces', desc: 'Name, icon, colours, gradient and animation of each Space', icon: <Shapes size={15} />, words: 'space name icon emoji colour color mode dark light gradient stops angle radial conic mesh linear palette animation animate motion drift swirl spin breathe grain strength logins accounts separate isolated archive delete background wallpaper' },
-      { id: 'layout', label: 'Layout', desc: 'Sidebar, spacing, corners and Favorites', icon: <LayoutPanelLeft size={15} />, words: 'sidebar side left right width spacing density compact roomy gap margin corner radius roundness favorites columns address bar url close buttons hover' },
+      { id: 'spaces', label: 'Spaces', desc: 'Name, icon and theme of each Space', icon: <Shapes size={15} />, words: 'space name icon emoji theme colour color swatch wheel hue mode dark light appearance grain intensity strength logins accounts separate isolated archive delete background' },
+      { id: 'layout', label: 'Layout', desc: 'Sidebar, spacing, corners, text size and Favorites', icon: <LayoutPanelLeft size={15} />, words: 'sidebar side left right width spacing density compact roomy gap margin corner radius roundness favorites columns address bar url close buttons hover text size font scale reset' },
       { id: 'motion', label: 'Motion & Sound', desc: 'Animations, their speed, and interface sounds', icon: <AudioLines size={15} />, words: 'reduce motion animation feel smooth snappy bouncy springy spring speed sound sounds volume audio accessibility' },
     ],
   },
@@ -81,7 +80,7 @@ const GROUPS: { label: string; items: SectionDef[] }[] = [
 ];
 const SECTIONS: SectionDef[] = GROUPS.flatMap((g) => g.items);
 /** Old links into Settings still land somewhere sensible. */
-const ALIASES: Record<string, Section> = { shields: 'adblock', search: 'links', routing: 'links', boosts: 'extensions', shortcuts: 'keys', backup: 'data', colours: 'spaces', background: 'spaces' };
+const ALIASES: Record<string, Section> = { shields: 'adblock', search: 'links', routing: 'links', boosts: 'extensions', shortcuts: 'keys', backup: 'data', colours: 'spaces', background: 'spaces', appearance: 'spaces', theme: 'spaces' };
 
 /** Sections whose name, description or contents match what you typed. */
 export function matchSections(query: string): Section[] {
@@ -94,7 +93,7 @@ export function matchSections(query: string): Section[] {
   }).map((x) => x.id);
 }
 
-const toSection = (arg: string | undefined): Section => (SECTIONS.some((x) => x.id === arg) ? (arg as Section) : arg && ALIASES[arg] ? ALIASES[arg] : 'appearance');
+const toSection = (arg: string | undefined): Section => (SECTIONS.some((x) => x.id === arg) ? (arg as Section) : arg && ALIASES[arg] ? ALIASES[arg] : 'spaces');
 
 export function SettingsPanel() {
   // The open section lives in the app state, so other parts of Kite can link to one.
@@ -107,8 +106,6 @@ export function SettingsPanel() {
   const [query, setQuery] = useState('');
   const shown = useMemo(() => matchSections(query), [query]);
   const body = useRef<HTMLDivElement>(null);
-  // A look preview carries across sections; it's only thrown away when Settings closes.
-  useDiscardPreviewOnLeave();
   // Searching jumps to the first section that matches.
   useEffect(() => {
     if (shown.length && !shown.includes(section)) setSection(shown[0]);
@@ -124,8 +121,8 @@ export function SettingsPanel() {
     const t = window.setTimeout(() => {
       const root = body.current;
       if (!root) return;
-      const hit = Array.from(root.querySelectorAll<HTMLElement>('.set-row-title, .set-group-title, .look-h, .key-label, .bg-tile-label')).find((el) => el.textContent?.toLowerCase().includes(q));
-      const row = hit?.closest<HTMLElement>('.set-row, .set-group-head, .look-sec, .key-row, .bg-tile') ?? hit;
+      const hit = Array.from(root.querySelectorAll<HTMLElement>('.set-row-title, .set-group-title, .field-label, .key-label')).find((el) => el.textContent?.toLowerCase().includes(q));
+      const row = hit?.closest<HTMLElement>('.set-row, .set-group-head, .field, .key-row') ?? hit;
       if (!row) return;
       root.querySelectorAll('[data-hit]').forEach((el) => el.removeAttribute('data-hit'));
       row.scrollIntoView({ block: 'center', behavior: useKite.getState().s.settings.reduceMotion ? 'auto' : 'smooth' });
@@ -134,7 +131,7 @@ export function SettingsPanel() {
     return () => window.clearTimeout(t);
   }, [query, section]);
   const def = SECTIONS.find((x) => x.id === section)!;
-  const scope = section === 'spaces' ? 'This Space' : section === 'appearance' || section === 'layout' ? 'All Spaces' : null;
+  const scope = section === 'spaces' ? 'This Space' : section === 'layout' ? 'All Spaces' : null;
   return (
     <Page title="Settings" testId="settings">
       <div className="settings">
@@ -197,7 +194,6 @@ export function SettingsPanel() {
             </div>
           </header>
           <div className="settings-body" key={section} role="tabpanel" aria-label={def.label}>
-            {section === 'appearance' && <Appearance />}
             {section === 'spaces' && <SpacesPage />}
             {section === 'layout' && <LayoutPage />}
             {section === 'motion' && <MotionPage />}
@@ -219,58 +215,14 @@ export function SettingsPanel() {
 const set = (patch: Partial<S>) => act((d) => updateSettings(d, patch));
 
 function Slider({ k, label, unit = 'px', step = 1, testId }: { k: keyof typeof LIMITS; label: string; unit?: string; step?: number; testId: string }) {
-  const { settings } = useEffectiveLook();
-  const v = settings[k] as number;
+  const v = useKite((x) => x.s.settings[k] as number);
   const [lo, hi] = LIMITS[k];
   const shown = k === 'fontScale' ? `${Math.round(v * 100)}%` : `${v}${unit}`;
-  const change = (n: number) => (k === 'radius' || k === 'gap' ? setLayout({ [k]: n }, set) : set({ [k]: n } as Partial<S>));
+  const change = (n: number) => set({ [k]: n } as Partial<S>);
   return (
     <Row title={label} value={shown}>
       <input type="range" className="range" aria-label={label} min={lo} max={hi} step={step} value={v} data-testid={testId} onChange={(e) => change(Number(e.target.value))} />
     </Row>
-  );
-}
-
-function Appearance() {
-  const st = useEffectiveLook().settings;
-  const [css, setCss] = useState(st.chromeCss);
-  useEffect(() => {
-    const t = setTimeout(() => css !== getS().settings.chromeCss && set({ chromeCss: css }), 250);
-    return () => clearTimeout(t);
-  }, [css]);
-  return (
-    <>
-      <LookBar />
-      <LookStudio />
-      <Group title="Text" desc="Kite's own text. Web pages keep their fonts.">
-        <Row title="Font" stack>
-          <Segmented
-            testId="set-font"
-            value={st.font}
-            onChange={(v) => setLayout({ font: v }, set)}
-            options={[
-              { value: 'figtree', label: <span style={{ fontFamily: 'Figtree' }}>Figtree</span> },
-              { value: 'bricolage', label: <span style={{ fontFamily: "'Bricolage Grotesque'" }}>Bricolage</span> },
-              { value: 'inter', label: <span style={{ fontFamily: 'Inter' }}>Inter</span> },
-              { value: 'system', label: <span style={{ fontFamily: 'system-ui' }}>System</span> },
-              { value: 'rounded', label: <span style={{ fontFamily: 'ui-rounded, system-ui' }}>Rounded</span> },
-              { value: 'mono', label: <span style={{ fontFamily: 'ui-monospace, monospace' }}>Mono</span> },
-            ]}
-          />
-        </Row>
-        <Slider k="fontScale" label="Text size" step={0.05} testId="set-scale" />
-      </Group>
-      <Group title="Advanced" desc="Your own CSS for Kite's window. It applies on top of everything above.">
-        <Row title="Restyle Kite itself" stack>
-          <textarea className="input" aria-label="Custom CSS for Kite" spellCheck={false} placeholder={'.sidebar { backdrop-filter: blur(20px); }\n.row[data-active] { border-radius: 4px; }'} value={css} data-testid="set-chrome-css" onChange={(e) => setCss(e.target.value)} />
-        </Row>
-        <Row title="Reset appearance" desc="Back to the default theme, layout, type and motion">
-          <button className="btn small" data-testid="set-reset-appearance" onClick={() => { setUi({ lookDraft: null }); act(resetAppearance); setCss(''); toast('Appearance reset'); }}>
-            <RotateCcw size={13} /> Reset
-          </button>
-        </Row>
-      </Group>
-    </>
   );
 }
 
@@ -283,34 +235,31 @@ function SpacesPage() {
     return sp ? sp.pinned.length + sp.today.length : 0;
   });
   const choose = (id: ID) => {
-    if (id === space.id) return;
-    // A background preview belongs to the Space it was made on.
-    if (useKite.getState().ui.lookDraft) {
-      setUi({ lookDraft: null });
-      toast('Background preview discarded (it was for another Space)');
-    }
-    switchSpaceCmd(id);
+    if (id !== space.id) switchSpaceCmd(id);
   };
   return (
     <>
       <div className="space-picker" role="tablist" aria-label="Choose a Space to edit" data-testid="space-picker">
         {spaces.map((sp) => (
           <button key={sp.id} role="tab" aria-selected={sp.id === space.id} className="space-pick" data-on={sp.id === space.id || undefined} data-testid={`set-space-${sp.id}`} onClick={() => choose(sp.id)}>
-            <span className="space-pick-sw" style={{ background: `linear-gradient(135deg, ${sp.theme.colors[0]}, ${sp.theme.colors[1]})` }}>{sp.icon}</span>
+            <span className="space-pick-sw" style={{ background: sp.theme.backdrop ? `center / cover url("${backdropUrl(sp.theme.backdrop, true)}")` : `linear-gradient(135deg, ${sp.theme.colors[0]}, ${sp.theme.colors[1]})` }}>{sp.icon}</span>
             <span className="space-pick-text">
               <span className="space-pick-name">{sp.name}</span>
               <span className="space-pick-meta">{tabs(sp.id)} tab{tabs(sp.id) === 1 ? '' : 's'}</span>
             </span>
           </button>
         ))}
-        <button className="space-pick add" data-testid="set-space-new" onClick={() => { if (useKite.getState().ui.lookDraft) setUi({ lookDraft: null }); const id = act((d) => createSpace(d, {})); switchSpaceCmd(id); }}>
+        <button className="space-pick add" data-testid="set-space-new" onClick={() => { const id = act((d) => createSpace(d, {})); switchSpaceCmd(id); }}>
           <span className="space-pick-sw"><Plus size={16} /></span>
           <span className="space-pick-text"><span className="space-pick-name">New Space</span></span>
         </button>
       </div>
 
-      <LookBar />
-      <BackgroundStudio />
+      <Group title="Theme" desc={`How “${space.name}” paints the window. Changes apply as you make them.`}>
+        <div className="set-theme">
+          <ThemeControls key={space.id} spaceId={space.id} />
+        </div>
+      </Group>
 
       <Group title="Name & icon">
         <Row title="Name">
@@ -368,10 +317,9 @@ function SpacesPage() {
 }
 
 function LayoutPage() {
-  const st = useEffectiveLook().settings;
+  const st = useKite((x) => x.s.settings);
   return (
     <>
-      <LookBar />
       <Group title="Sidebar">
         <Row title="Side">
           <Segmented testId="set-side" value={st.sidebarSide} onChange={(v) => set({ sidebarSide: v })} options={[{ value: 'left', label: <><PanelLeft size={13} /> Left</> }, { value: 'right', label: <><PanelRight size={13} /> Right</> }]} />
@@ -380,15 +328,25 @@ function LayoutPage() {
         <SwitchRow title="Address bar in the sidebar" checked={st.showUrlBar} onChange={(v) => set({ showUrlBar: v })} testId="set-urlbar" />
         <SwitchRow title="Close buttons on hover" desc="Otherwise only the selected tab shows one" checked={st.showTabCloseOnHover} onChange={(v) => set({ showTabCloseOnHover: v })} testId="set-closehover" />
       </Group>
-      <Group title="Spacing & shape" desc="Each style sets these; change them to taste.">
+      <Group title="Spacing & shape">
         <Row title="Row height" desc="How tall tabs and rows are">
-          <Segmented testId="set-density" value={st.density} onChange={(v) => setLayout({ density: v }, set)} options={[{ value: 'compact', label: 'Compact' }, { value: 'comfortable', label: 'Comfortable' }, { value: 'roomy', label: 'Roomy' }]} />
+          <Segmented testId="set-density" value={st.density} onChange={(v) => set({ density: v })} options={[{ value: 'compact', label: 'Compact' }, { value: 'comfortable', label: 'Comfortable' }, { value: 'roomy', label: 'Roomy' }]} />
         </Row>
         <Slider k="gap" label="Space around the page" testId="set-gap" />
         <Slider k="radius" label="Corner roundness" testId="set-radius" />
       </Group>
       <Group title="Favorites">
         <Slider k="favoritesColumns" label="Favorites per row" unit="" testId="set-favcols" />
+      </Group>
+      <Group title="Text" desc="Kite's own text. Web pages keep their size.">
+        <Slider k="fontScale" label="Text size" step={0.05} testId="set-scale" />
+      </Group>
+      <Group>
+        <Row title="Reset layout" desc="Sidebar, spacing, text size, motion and sound back to their defaults">
+          <button className="btn small" data-testid="set-reset-appearance" onClick={() => { act(resetAppearance); toast('Layout reset'); }}>
+            <RotateCcw size={13} /> Reset
+          </button>
+        </Row>
       </Group>
     </>
   );

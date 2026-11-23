@@ -6,11 +6,10 @@ const area = { w: 1000, h: 600 };
 
 describe('home page state', () => {
   it('starts empty on the Space colours, and saved files are checked on load', () => {
-    expect(defaultHome()).toEqual({ widgets: [], scene: 'space', showGreeting: true, showFrequent: false, showHints: true });
+    expect(defaultHome()).toEqual({ widgets: [], showGreeting: true, showFrequent: false, showHints: true });
     expect(loadState(null).home).toEqual(defaultHome());
     const h = sanitizeHome({ widgets: [{ id: 'a', kind: 'clock', x: 20.4, y: -1, size: 'huge', data: { h24: true } }, { id: 'b', kind: 'nope' }, 'junk'], scene: 'mars', showFrequent: true });
     expect(h.widgets).toEqual([{ id: 'a', kind: 'clock', x: 20, y: 0, size: 'small', data: { h24: true } }]);
-    expect(h.scene).toBe('space');
     expect(h.showFrequent).toBe(true);
   });
 

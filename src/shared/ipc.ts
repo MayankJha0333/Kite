@@ -151,6 +151,10 @@ export interface KiteBridge {
   printPage(webContentsId: number): void;
   /** Save a page as a complete web page (asks where). Resolves to a problem, or null. */
   savePage(webContentsId: number): Promise<string | null>;
+  /** Arc's Capture: a PNG of the page (what you see, or the whole page), saved to Downloads and put on the clipboard. */
+  capturePage(webContentsId: number, full: boolean): Promise<Result<{ path: string }>>;
+  /** Show a capture from this session in the system file manager. */
+  revealCapture(path: string): void;
   /** The HTML of a web page as the server sent it, fetched with this Space's cookies. */
   pageSource(url: string, partition: string): Promise<Result<{ text: string; status: number; contentType: string; truncated: boolean }>>;
 

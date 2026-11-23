@@ -12,9 +12,9 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 
 | | Count |
 |---|---|
-| ✅ Kite has it | 23 |
-| 🟡 Partly | 6 |
-| ❌ Missing, buildable offline | 21 |
+| ✅ Kite has it | 29 |
+| 🟡 Partly | 7 |
+| ❌ Missing, buildable offline | 14 |
 | ☁️ Needs a server, account or AI | 12 |
 
 ## Sidebar, tabs and organising
@@ -25,14 +25,14 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Favorites (icon grid, shared across Spaces) | "Drag to add Favorites" | ✅ |
 | Pinned tabs, reset to original URL | Menu: Reset Tab to Original URL | ✅ |
 | Folders: nested, collapse/expand all | Menu: Collapse/Expand All Folders | ✅ |
-| Collapse the whole Pinned section | Menu: Collapse/Expand Pinned Section | ❌ |
+| Collapse the whole Pinned section | Menu: Collapse/Expand Pinned Section | ✅ Space menu, Tabs menu, divider chevron; the open pinned tab stays in view |
 | Today tabs, Clear Unpinned Tabs | Menu: Clear Unpinned Tabs | ✅ |
-| Reset all tabs in a Space (back to pinned pages) | Menu: Reset all tabs in this Space | ❌ |
+| Reset all tabs in a Space (back to pinned pages) | Menu: Reset all tabs in this Space | ✅ |
 | Auto-archive + Archive (search, restore, clear) | Menu: Archive Tab, View Archive, Clear Archive | ✅ |
 | Spaces: name, icon, colours, theme, switch by keys/swipe | Menu: New/Rename/Manage Spaces, Next/Previous Space | ✅ |
 | Sidebar hide / slide out / lock / anchor | "lock the sidebar", "anchor the sidebar" | 🟡 hide + slide out; no lock/anchor modes |
 | Hover preview of a tab | "Show Hover Preview" | ❌ |
-| Mute / unmute tab, **mute all tabs** | "mute all tabs", "unmute all tabs" | 🟡 per-tab only |
+| Mute / unmute tab, **mute all tabs** | "mute all tabs", "unmute all tabs" | ✅ |
 | Sidebar media controls / mini player for whatever is playing | "Close Mini Player", "Has media player open" | 🟡 mini player for popped-out videos only |
 | Profiles (separate logins/cookies, per Space) | Menu: New Profile, Change Profile | ✅ “Separate logins” per Space |
 | Incognito / private window, blank window | Menu: New Incognito Window, Blank Window | ❌ |
@@ -49,9 +49,9 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Link routing rules ("Air Traffic Control") | "Air Traffic Control", routes | ✅ |
 | Find in page | Menu: Find in Page | ✅ |
 | Copy URL | Menu: Copy URL | ✅ |
-| Copy URL **as Markdown / as quote** | Menu: Copy URL as Markdown, Copy URL as Quote | ❌ |
+| Copy URL **as Markdown / as quote** | Menu: Copy URL as Markdown, Copy URL as Quote | 🟡 as Markdown (tab and folder); no “as quote” |
 | Zoom in / out / reset | Menu: Zoom In, Zoom Out, Reset Zoom | ✅ with the level shown in the address bar |
-| Clear cookies / cache **and refresh** this site | Menu: Clear Cookies and Refresh, Clear Cache and Refresh | ❌ |
+| Clear cookies / cache **and refresh** this site | Menu: Clear Cookies and Refresh, Clear Cache and Refresh | ✅ View menu and command bar |
 | Site Control Center (per-site permissions, cookies, zoom, developer mode) | `ARC_SiteControlCenter`, "site settings view" | ✅ address-bar popover: connection, Shields, permissions, erase site data |
 | Built-in ad blocking and cookie-banner blocking | `ARC_AdBlocking`, "Block Cookie Banners" | ✅ Shields (EasyList/EasyPrivacy, per-site exceptions) |
 | Downloads list | Menu: Downloads, View Downloads | ✅ (plus image conversion and video/HLS saving) |
@@ -71,12 +71,12 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Notes in the sidebar, export | Menu: New Note, Export Arc Notes | ✅ |
 | Boosts: per-site CSS, fonts, zap, scripts | Menu: New/Edit Boost | ✅ |
 | Boost Gallery (share and install others' Boosts) | Menu: Boost Gallery, "Delete and unshare this Boost?" | ☁️ |
-| Capture: screenshot area / full page, edit, copy | `ARC_Capture`, Menu: Capture Full Page | ❌ |
+| Capture: screenshot area / full page, edit, copy | `ARC_Capture`, Menu: Capture Full Page | 🟡 Capture (⌘⇧2) and Capture Full Page (⌘⇧1): PNG to Downloads and the clipboard; no area selection, portrait mode or editing |
 | Easels / mood boards (canvas of captures and notes) | `ARC_EaselUI`, Menu: New Easel, Mood Board | ❌ (left out at first) |
 | Library (Downloads, Media/screenshots, Easels, Archive in one place) | Menu: View Library, View Media | ❌ |
-| Themes per Space, light/dark/auto | Menu: Edit Theme, Switch to Dark Mode | ✅ |
+| Themes per Space, light/dark/auto | Menu: Edit Theme, Switch to Dark Mode | ✅ plus 11 built-in pictures (Kite's own) |
 | Custom keyboard shortcuts | "Custom Shortcuts" | ✅ |
-| Sound effects | "Play Arc sound effects" | ❌ |
+| Sound effects | "Play Arc sound effects" | ✅ Settings › Motion & Sound |
 | Alternative app icons | "App icon could not be set" | ❌ |
 | Welcome / onboarding steps | `ARC_WelcomeToArcFeature` | 🟡 empty state only |
 
@@ -112,7 +112,6 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 4. **Site controls**: per-site permissions, zoom, clear cookies and refresh
 5. **Built-in ad and cookie-banner blocking** (offline filter lists)
 6. **Profiles** and **private windows**
-7. **Small wins**: Copy URL as Markdown, mute all tabs, reset all tabs in a Space,
-   collapse Pinned section, Print / Save Page As / View Source, tab hover preview
+7. **Small wins left**: Copy URL as Quote, tab hover preview, several windows, private window
 8. **Import from Chrome / Safari** (bookmarks and open tabs)
 9. **Easels** (canvas of captures and notes)

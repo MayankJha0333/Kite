@@ -1,6 +1,6 @@
-import { DEFAULT_THEME_ID, defaultLook, PALETTES, THEMES } from './look';
+import { defaultTheme } from './spaceTheme';
 import { defaultShields } from './shields';
-import type { AppState, Settings, Space, SpaceTheme } from './types';
+import type { AppState, Settings, Space } from './types';
 import { newId } from './ids';
 import { defaultHome } from './home';
 
@@ -56,6 +56,12 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   stopLoading: '',
   renameCurrent: '',
   resetToHome: '',
+  resetSpaceTabs: '',
+  togglePinnedSection: '',
+  clearCookiesRefresh: '',
+  clearCacheRefresh: '',
+  capture: 'mod+shift+2',
+  captureFull: 'mod+shift+1',
 };
 
 export const SHORTCUT_LABELS: Record<string, string> = {
@@ -93,6 +99,12 @@ export const SHORTCUT_LABELS: Record<string, string> = {
   stopLoading: 'Stop loading',
   renameCurrent: 'Rename current item',
   resetToHome: 'Reset tab to its pinned page',
+  resetSpaceTabs: 'Reset all tabs in this Space',
+  togglePinnedSection: 'Collapse / expand Pinned section',
+  clearCookiesRefresh: 'Clear cookies and refresh',
+  clearCacheRefresh: 'Clear cache and refresh',
+  capture: 'Capture the page',
+  captureFull: 'Capture the full page',
 };
 
 export const SEARCH_ENGINES: { label: string; template: string }[] = [
@@ -105,12 +117,10 @@ export const SEARCH_ENGINES: { label: string; template: string }[] = [
 
 export function defaultSettings(): Settings {
   return {
-    look: defaultLook('calm'),
     sidebarSide: 'left',
     sidebarWidth: 264,
     sidebarCollapsed: false,
     density: 'comfortable',
-    font: 'figtree',
     fontScale: 1,
     radius: 12,
     gap: 8,
@@ -129,7 +139,6 @@ export function defaultSettings(): Settings {
     autoPip: true,
     autoPipOnAppSwitch: true,
     shortcuts: { ...DEFAULT_SHORTCUTS },
-    chromeCss: '',
     reduceMotion: false,
     tidyTitles: true,
     sounds: true,
@@ -143,13 +152,7 @@ export function defaultSettings(): Settings {
   };
 }
 
-/** Ready-made colour pairs for Spaces: the one curated set (see look.ts), everywhere. */
-export const THEME_PRESETS: { name: string; colors: [string, string] }[] = PALETTES.map((p) => ({ name: p.name, colors: [...p.colors] as [string, string] }));
-
-export function defaultTheme(index = 0): SpaceTheme {
-  const preset = THEME_PRESETS[index % THEME_PRESETS.length];
-  return { colors: [...preset.colors] as [string, string], mode: 'system', intensity: 0.55, grain: true };
-}
+export { defaultTheme };
 
 export function makeSpace(name: string, icon: string, themeIndex = 0): Space {
   return { id: newId('space'), name, icon, theme: defaultTheme(themeIndex), pinned: [], today: [], archiveAfterMs: undefined };
@@ -157,9 +160,6 @@ export function makeSpace(name: string, icon: string, themeIndex = 0): Space {
 
 export function createInitialState(): AppState {
   const home = makeSpace('Home', '🪁', 0);
-  // New copies of Kite start on the default theme (existing data keeps its own colours).
-  const start = THEMES.find((t) => t.id === DEFAULT_THEME_ID);
-  if (start) home.theme = { colors: [...start.colors] as [string, string], mode: 'system', intensity: start.intensity, grain: start.grain };
   return {
     version: STATE_VERSION,
     items: {},

@@ -1,9 +1,8 @@
 // Turns a Space theme + settings into CSS variables for the whole window.
 
 import type { Settings, SpaceTheme } from '@shared/types';
-import { defaultLook, styleById, type Look, type StyleDef } from '@shared/look';
-import { gradientCss, motionSeconds } from '@shared/background';
 import { scaleVars, SPRINGS, springDuration, springEasing } from '@shared/designTokens';
+import { backdropUrl } from './backdrops';
 
 type RGB = [number, number, number];
 
@@ -42,17 +41,10 @@ export function resolveDark(theme: SpaceTheme, systemDark: boolean): boolean {
   return theme.mode === 'dark' || (theme.mode === 'system' && systemDark);
 }
 
-const FONTS: Record<Settings['font'], string> = {
-  figtree: "'Figtree', ui-sans-serif, system-ui, sans-serif",
-  bricolage: "'Bricolage Grotesque', 'Figtree', ui-sans-serif, sans-serif",
-  inter: "'Inter', ui-sans-serif, system-ui, sans-serif",
-  system: "ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif",
-  // SF Pro Rounded on macOS; a soft, friendly face for the whole window.
-  rounded: "ui-rounded, 'SF Pro Rounded', -apple-system, system-ui, sans-serif",
-  mono: "ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace",
-};
+/** Kite's own text: one face everywhere (web pages keep their fonts). */
+const FONT = "'Figtree', ui-sans-serif, system-ui, sans-serif";
 
-/** Animation feels you can pick instead of the style's own. */
+/** Animation feels you can pick instead of the default. */
 export const FEEL: Partial<Record<Settings['motionFeel'], { ease: string; ms: number }>> = {
   smooth: { ease: 'cubic-bezier(0.32, 0.72, 0, 1)', ms: 300 },
   snappy: { ease: 'cubic-bezier(0.2, 0, 0, 1)', ms: 130 },
@@ -71,126 +63,76 @@ const rgba = (hex: string, a: number) => {
   return `rgba(${r},${g},${b},${Math.round(Math.max(0, Math.min(1, a)) * 1000) / 1000})`;
 };
 
-/** How the selected tab and hovered rows look, per style. */
-function rowSurfaces(style: StyleDef, dark: boolean, accent: string, translucent: number): Record<string, string> {
-  switch (style.activeRow) {
-    case 'glass':
-      return {
-        '--hover': dark ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.36)',
-        '--active': dark ? `rgba(255,255,255,${0.1 + translucent * 0.06})` : `rgba(255,255,255,${0.78 - translucent * 0.3})`,
-        '--active-shadow': dark ? 'inset 0 0 0 1px rgba(255,255,255,.12), 0 8px 24px rgba(0,0,0,.3)' : 'inset 0 0 0 1px rgba(255,255,255,.75), 0 6px 20px rgba(30,40,80,.10)',
-      };
-    case 'bar':
-      return {
-        '--hover': dark ? 'rgba(255,255,255,.05)' : 'rgba(40,30,20,.045)',
-        '--active': dark ? 'rgba(255,255,255,.07)' : 'rgba(40,30,20,.06)',
-        '--active-shadow': `inset 3px 0 0 ${accent}`,
-      };
-    case 'soft':
-      return {
-        '--hover': dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)',
-        '--active': dark ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.07)',
-        '--active-shadow': 'none',
-      };
-    case 'glow':
-      return {
-        '--hover': dark ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.4)',
-        '--active': dark ? 'rgba(255,255,255,.09)' : 'rgba(255,255,255,.8)',
-        '--active-shadow': `inset 0 0 0 1px ${rgba(accent, dark ? 0.55 : 0.45)}, 0 0 22px ${rgba(accent, dark ? 0.32 : 0.22)}`,
-      };
-    case 'pill':
-      // A crisp, nearly opaque pill with a hairline and a tight contact shadow.
-      return {
-        '--hover': dark ? 'rgba(255,255,255,.077)' : 'rgba(255,255,255,.3)',
-        '--active': dark ? `rgba(255,255,255,${0.13 + translucent * 0.04})` : `rgba(255,255,255,${0.92 - translucent * 0.25})`,
-        '--active-shadow': dark
-          ? 'inset 0 0 0 0.5px rgba(255,255,255,.1), 0 1px 2px rgba(0,0,0,.3)'
-          : '0 0 0 0.5px rgba(0,0,0,.05), 0 1px 1px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.05)',
-      };
-    default:
-      return {
-        '--hover': dark ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.42)',
-        '--active': dark ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.78)',
-        '--active-shadow': dark ? '0 1px 0 rgba(255,255,255,.06) inset, 0 2px 10px rgba(0,0,0,.25)' : '0 1px 2px rgba(60,40,20,.08), 0 2px 10px rgba(60,40,20,.06)',
-      };
-  }
-}
+// The look: soft tinted chrome, the page floating on a card. One set of values, tuned once.
+const TONE = {
+  light: { base: '#f4f1ec', card: '#ffffff', ink: '#1e1c1a', tint: [0.18, 0.62] as const },
+  dark: { base: '#16171c', card: '#1f2027', ink: '#f1efea', tint: [0.12, 0.38] as const },
+};
+const BORDER = 0.35;
+const SHADOW = 0.5;
+const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
+const DUR = 220;
 
-/** The window's background, per backdrop choice. */
-function backdropCss(kind: Look['backdrop'], base: string, a: string, b: string, colors: [string, string], dark: boolean): string {
-  const mid = mix(a, b, 0.5);
-  switch (kind) {
-    case 'solid':
-      return mix(base, mid, 0.35);
-    case 'tint':
-      return mid;
-    case 'mesh':
-      return [
-        `radial-gradient(120% 90% at 0% 0%, ${rgba(colors[0], dark ? 0.32 : 0.55)} 0%, transparent 55%)`,
-        `radial-gradient(110% 90% at 100% 15%, ${rgba(colors[1], dark ? 0.3 : 0.42)} 0%, transparent 60%)`,
-        `radial-gradient(120% 80% at 40% 100%, ${rgba(mix(colors[0], colors[1], 0.5), dark ? 0.22 : 0.35)} 0%, transparent 60%)`,
-        base,
-      ].join(', ');
-    default:
-      return `linear-gradient(165deg, ${a} 0%, ${mid} 55%, ${b} 100%)`;
-  }
+/** How the selected tab and hovered rows look: a lifted card. */
+function rowSurfaces(dark: boolean): Record<string, string> {
+  return {
+    '--hover': dark ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.42)',
+    '--active': dark ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.78)',
+    '--active-shadow': dark ? '0 1px 0 rgba(255,255,255,.06) inset, 0 2px 10px rgba(0,0,0,.25)' : '0 1px 2px rgba(60,40,20,.08), 0 2px 10px rgba(60,40,20,.06)',
+  };
 }
 
 /**
- * Everything the window's look needs, as CSS variables: the style (look), the
- * Space's colours and light/dark mode, and the layout settings.
+ * Everything the window's look needs, as CSS variables: the Space's colours and
+ * light/dark mode, and the layout settings.
  */
 export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boolean): Record<string, string> {
-  const look = settings.look ?? defaultLook('calm');
-  const style = styleById(look.style);
   const dark = resolveDark(theme, systemDark);
-  const tone = dark ? style.dark : style.light;
+  const tone = dark ? TONE.dark : TONE.light;
   const base = tone.base;
   const t = Math.max(0, Math.min(1, theme.intensity));
   // In dark mode the tint is held back so colours glow instead of shout.
   const k = tone.tint[0] + t * (tone.tint[1] - tone.tint[0]);
-  // Every colour is drawn mixed with the style's base, by the colour strength, so text stays readable.
+  // Every colour is drawn mixed with the base, by the intensity, so text stays readable.
   const paint = (c: string) => mix(base, c, k);
-  const g = theme.gradient;
-  const a = paint(g ? g.stops[0].color : theme.colors[0]);
-  const b = paint(g ? g.stops[g.stops.length - 1].color : theme.colors[1]);
-  // The colour text actually sits on: the average of every stop of a custom gradient.
-  const chromeMid = g ? g.stops.map((s) => paint(s.color)).reduce((acc, c, i) => mix(acc, c, 1 / (i + 1))) : mix(a, b, 0.5);
+  const a = paint(theme.colors[0]);
+  const b = paint(theme.colors[1]);
+  const chromeMid = mix(a, b, 0.5);
   const ink = tone.ink;
-  const high = look.contrast === 'high';
-  const accentRaw = look.accent ?? theme.colors[1];
-  // The accent must stay readable on the chrome; push it toward the ink colour until it is.
-  let accent = accentRaw;
+  // The accent is the Space's second colour; it must stay readable on the chrome, so it is
+  // pushed toward the ink colour until it is.
+  let accent = theme.colors[1];
   for (let i = 0; i < 8 && contrast(accent, chromeMid) < 3; i++) accent = mix(accent, ink, 0.18);
-  const lineA = (dark ? 0.02 + look.border * 0.2 : 0.02 + look.border * 0.2286) + (high ? 0.08 : 0);
+  const lineA = dark ? 0.02 + BORDER * 0.2 : 0.02 + BORDER * 0.2286;
   const lineRgb = dark ? '255,255,255' : '40,30,20';
-  const ringA = (dark ? 0.06 : 0.06) * (look.border / 0.35);
-  const depth = look.shadow / 0.5;
+  const ringA = 0.06 * (BORDER / 0.35);
+  const depth = SHADOW / 0.5;
   // A hairline ring, a tight contact shadow and a soft ambient one: depth without a grey halo.
   const shadow = dark
-    ? `0 0 0 1px rgba(255,255,255,${Math.min(0.2, ringA).toFixed(3)})${look.shadow > 0 ? `, 0 1px 2px rgba(0,0,0,${Math.min(0.5, 0.3 * depth).toFixed(3)}), 0 14px 36px -8px rgba(0,0,0,${Math.min(0.8, 0.5 * depth).toFixed(3)})` : ''}`
-    : `0 0 0 1px rgba(60,40,20,${Math.min(0.2, ringA).toFixed(3)})${look.shadow > 0 ? `, 0 1px 2px rgba(60,40,20,${Math.min(0.12, 0.05 * depth).toFixed(3)}), 0 14px 36px -8px rgba(60,40,20,${Math.min(0.32, 0.15 * depth).toFixed(3)})` : ''}`;
-  const glassy = look.translucency;
-  const overlayA = 0.94 - glassy * 0.22;
-  const springy = settings.motionFeel === 'spring' || (settings.motionFeel === 'style' && style.id === 'halo');
+    ? `0 0 0 1px rgba(255,255,255,${Math.min(0.2, ringA).toFixed(3)}), 0 1px 2px rgba(0,0,0,${Math.min(0.5, 0.3 * depth).toFixed(3)}), 0 14px 36px -8px rgba(0,0,0,${Math.min(0.8, 0.5 * depth).toFixed(3)})`
+    : `0 0 0 1px rgba(60,40,20,${Math.min(0.2, ringA).toFixed(3)}), 0 1px 2px rgba(60,40,20,${Math.min(0.12, 0.05 * depth).toFixed(3)}), 0 14px 36px -8px rgba(60,40,20,${Math.min(0.32, 0.15 * depth).toFixed(3)})`;
+  const overlayA = 0.94;
+  const picture = theme.backdrop ? backdropUrl(theme.backdrop) : undefined;
+  const springy = settings.motionFeel === 'spring';
   return {
     ...scaleVars(dark),
     '--chrome-a': a,
     '--chrome-b': b,
     '--chrome-mid': chromeMid,
-    '--backdrop': g ? gradientCss(g, paint, rgba, base) : backdropCss(look.backdrop, base, a, b, theme.colors, dark),
-    '--bg-motion-dur': theme.motion ? `${motionSeconds(theme.motion)}s` : '0s',
+    '--backdrop': picture ? `url("${picture}") center / cover no-repeat, ${chromeMid}` : `linear-gradient(165deg, ${a} 0%, ${chromeMid} 55%, ${b} 100%)`,
+    // Over a picture the sidebar is frosted glass: the more intensity, the more picture shows.
+    '--wash': dark ? `rgba(14,15,20,${(0.62 - t * 0.36).toFixed(3)})` : `rgba(255,255,255,${(0.66 - t * 0.38).toFixed(3)})`,
     '--ink': ink,
     // Readable greys: --ink-2 and --ink-3 both reach 4.5:1 (WCAG AA for text) on the
     // card and on the sidebar. --ink-4 is fainter and only for decoration (chevrons, arrows).
-    '--ink-2': rgba(ink, high ? 0.88 : dark ? 0.78 : 0.72),
-    '--ink-3': rgba(ink, high ? 0.76 : dark ? 0.6 : 0.62),
+    '--ink-2': rgba(ink, dark ? 0.78 : 0.72),
+    '--ink-3': rgba(ink, dark ? 0.6 : 0.62),
     '--ink-4': rgba(ink, dark ? 0.42 : 0.4),
-    ...rowSurfaces(style, dark, accent, glassy),
+    ...rowSurfaces(dark),
     '--line': `rgba(${lineRgb},${lineA.toFixed(3)})`,
     '--card': tone.card,
     '--overlay': dark ? rgba(mix(tone.card, '#000000', 0.15), overlayA - 0.02) : rgba(mix(tone.card, base, 0.3), overlayA),
-    '--blur': `${Math.round(8 + glassy * 26)}px`,
+    '--blur': '8px',
     '--scrim': dark ? 'rgba(0,0,0,.45)' : 'rgba(40,30,20,.22)',
     '--accent': accent,
     '--accent-ink': luminance(accent) > 0.45 ? '#1e1c1a' : '#ffffff',
@@ -199,14 +141,14 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
     '--tint-2': theme.colors[1],
     '--shadow': shadow,
     '--grain-opacity': theme.grain ? (dark ? '.10' : '.16') : '0',
-    '--font': FONTS[settings.font] ?? FONTS.figtree,
+    '--font': FONT,
     '--scale': String(settings.fontScale),
     '--radius': `${settings.radius}px`,
     '--gap': `${settings.gap}px`,
     '--sidebar-w': `${settings.sidebarWidth}px`,
     '--row-h': `${ROW[settings.density]}px`,
-    '--ease': FEEL[settings.motionFeel]?.ease ?? style.motion.ease,
-    '--dur': `${Math.round((FEEL[settings.motionFeel]?.ms ?? style.motion.ms) / (settings.motionSpeed || 1))}ms`,
+    '--ease': FEEL[settings.motionFeel]?.ease ?? EASE,
+    '--dur': `${Math.round((FEEL[settings.motionFeel]?.ms ?? DUR) / (settings.motionSpeed || 1))}ms`,
     '--speed': String(1 / (settings.motionSpeed || 1)),
     '--press-ease': springy ? PRESS.ease : 'cubic-bezier(0.16, 1, 0.3, 1)',
     '--press-dur': `${Math.round((springy ? PRESS.ms : 160) / (settings.motionSpeed || 1))}ms`,

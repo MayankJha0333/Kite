@@ -54,6 +54,34 @@ Run with the installed design skills (impeccable critique/animate, Emil Kowalski
 - **Guidelines pass.** Scroll containment on every scrolling pane, balanced headings, a quiet neutral rule on note quotes instead of a thick accent bar. The mechanical design detector reports no findings.
 - Tests: `tests/e2e/27-motion-keyboard.spec.ts` covers the glide, the instant actions, reduced motion and keyboard navigation; the drag specs now measure rows at rest.
 
+## Theme pictures and finishing pass (23 Nov 2026)
+
+- **11 built-in pictures** (`src/shared/backdrops.ts`, files in `src/renderer/assets/backgrounds/`, under 1 MB in all): Dawn, Dunes, Meadow, Forest and Haze (light); Bloom, Aurora, Dusk, Ocean, Ember and Night (dark). They are Kite's own: drawn as SVG from fixed seeds by `scripts/backgrounds/make.mjs` and rendered once by Chromium to JPEG (2560×1600 plus a thumbnail). Rerun the script to change or add one; nothing is downloaded.
+- **A picture is part of the Space theme** (`SpaceTheme.backdrop`). Picking one sets the theme's two colours and light or dark from the picture, so accent and chrome agree with it; picking a colour goes back to plain colours. The window frame shows the picture, the sidebar frosts it (blur plus a wash whose strength follows Intensity), and the home page shows it crisp with text in the picture's tone. Chosen from the theme editor's Background row or the home page's + › Background.
+- **Home scenes became pictures.** The CSS-drawn home scenes are gone; a scene saved by an earlier version becomes the active Space's picture on load.
+- **Finishing fixes**: the shortcut hints on the home page sit on a frosted pill over pictures (they were unreadable on the forest's tree line); the Pinned chevron no longer pushes the sidebar divider inward; an identical toast replaces the one on screen instead of stacking copies; download rows, extension rows and the page-error card now get the rise-in they always referenced (`fade-up` was never defined).
+- **Stylesheet repair**: an earlier cleanup left an unclosed comment that silently disabled the colour wheel's styles and the rules after it; fixed, and `tests/unit/stylesheet.test.ts` now fails on unclosed comments or blocks and on animations that name undefined keyframes. Leftover styles of the removed gradient designer and picture uploader were deleted.
+
+## Arc commands added (22 Nov 2026)
+
+From the Arc menu inventory (`research-evidence/arc-inventory/menu.txt`), the offline commands Kite lacked, now in the same places Arc puts them (Tabs and View menus, the Space menu, the command bar, re-recordable shortcuts):
+
+- **Collapse / Expand Pinned Section** (`Space.pinnedCollapsed`): the Pinned list folds away behind a divider that shows the count; the pinned tab you are on, or the folder it sits in, stays in view like Arc's closed folders do.
+- **Reset All Tabs in This Space**: every pinned tab, in folders too, back to its pinned page; pages you cannot see unload.
+- **Clear Cookies and Refresh / Clear Cache and Refresh** for the site you are on, through the existing per-site clearing.
+- **Capture (⌘⇧2) / Capture Full Page (⌘⇧1)**: a PNG in Downloads and on the clipboard, with a "Show" on the toast. The full page is taken through the page's own debugger (`Page.captureScreenshot` beyond the viewport, capped at 16k pixels), so nothing scrolls. No area selection, portrait mode or editing.
+- **Two behaviour fixes**: a plain click on the Space name no longer pops its menu (the … button, right-click and Enter do; double-click renames); closing a pinned tab that sits inside a closed folder now moves on to a neighbour instead of leaving an empty window.
+- Not built, on purpose: hover previews, several windows, private windows, Easels, Library, passwords, import from other browsers, Cast. `FEATURES.md` has the full ledger.
+
+## Theme controls, cut down to Arc's (22 Nov 2026)
+
+Arc's shipped binary (1.171) has one theme surface, the per-Space editor in the `SpaceStyleEditor` module: a colour pad with 27 swatches (pastel, muted, grey; `ColorPicker{Pastel,Drab,Greyscale}1…9` in its asset catalogue), an intensity dial, grain (`noiseFactor`, "Cycle noise texture"), and light/dark/automatic. Its Settings have no appearance section at all. Kite had grown to about 25 appearance controls across two pages; almost none would be used. They are gone, not hidden:
+
+- **Kept, in one editor** (`src/renderer/components/ThemeEditor.tsx`, in the Space editor and Settings › Spaces): colour (the same three rows of nine, measured from Arc, plus a hue wheel and two colour inputs), Intensity, Grain, Light / Dark / Auto. Changes apply live and are saved on the Space.
+- **Removed**: the six chrome styles, 15 ready-made themes, accent picker, surfaces, contrast, border/shadow/glass sliders, theme codes, six fonts, custom CSS for Kite, the gradient designer, background animations, background pictures, "use for every Space", and the preview/apply/undo flow. Text size moved to Layout, which also has the one Reset.
+- **Model**: a Space theme is `{ colors, mode, intensity, grain }` (`src/shared/spaceTheme.ts`); saved files from earlier versions load, with the extra fields dropped on load. Settings no longer carry `look`, `font` or `chromeCss`. The window is painted by one tuned look (the former Calm style) in `src/renderer/theme.ts`.
+- **Size**: about 1,000 lines of CSS and 1,200 lines of TypeScript and tests removed; `tests/unit/spaceTheme.test.ts` checks every swatch keeps text at 4.5:1 in both modes, and `tests/e2e/20-layout-themes-sound.spec.ts` does the same in the running app.
+
 ## Layout sweep (finds overlap and clipping without anyone looking)
 
 `tests/e2e/29-layout-sweep.spec.ts` opens every menu and submenu, the home page and its widgets, the command bar, every Settings section, History and the Archive, at a normal and a small window, and runs `layoutProblems()` (`tests/e2e/fixtures.ts`) on each: any text drawn over other text, text spilling past its box, or text outside the window fails the test with a plain sentence ("“Now and the next days…” overlaps “A sticky note…” by 603px²"). Text scrolled out of a pane is ignored; toasts are ignored. It runs with the rest of the web suite in `npm run test:report`, so CI catches these on every push. On its first run it found the three bugs fixed here: widget-menu hints wrapping into the next row, a submenu sliding over its parent menu at the window edge, and the Motion "Feel" control pushed over its label in a small window. Add any new surface to the sweep when you add it to the app.

@@ -3,7 +3,6 @@
 import { DEFAULT_SHORTCUTS, defaultSettings } from './defaults';
 import type { AppState, MotionFeel, Settings } from './types';
 import { sanitizeShields } from './shields';
-import { defaultLook, sanitizeLook, styleById, type StyleId } from './look';
 import { loadState, serialize } from './persistence';
 
 export const MOTION_FEELS: MotionFeel[] = ['style', 'smooth', 'snappy', 'bouncy', 'spring'];
@@ -28,7 +27,6 @@ export function updateSettings(s: AppState, patch: Partial<Settings>): void {
     const v = Number(next[key]);
     (next as Record<string, unknown>)[key] = Number.isFinite(v) ? clamp(key === 'fontScale' || key === 'motionSpeed' || key === 'soundVolume' ? v : Math.round(v), lo, hi) : defaultSettings()[key];
   }
-  next.look = sanitizeLook(next.look);
   next.shields = sanitizeShields(next.shields);
   if (!MOTION_FEELS.includes(next.motionFeel)) next.motionFeel = 'style';
   for (const k of ['httpsOnly', 'sendGpc', 'askWhereToSave', 'sounds'] as const) next[k] = !!next[k];
@@ -36,10 +34,10 @@ export function updateSettings(s: AppState, patch: Partial<Settings>): void {
   s.settings = next;
 }
 
-/** Appearance back to defaults (keeps shortcuts, archive and search choices). */
+/** Layout, text size, motion and sound back to defaults (keeps shortcuts, archive and search choices). */
 export function resetAppearance(s: AppState): void {
   const d = defaultSettings();
-  const keys: (keyof Settings)[] = ['sidebarSide', 'sidebarWidth', 'density', 'font', 'fontScale', 'radius', 'gap', 'showUrlBar', 'showTabCloseOnHover', 'favoritesColumns', 'reduceMotion', 'motionSpeed', 'motionFeel', 'sounds', 'soundVolume', 'chromeCss', 'look'];
+  const keys: (keyof Settings)[] = ['sidebarSide', 'sidebarWidth', 'density', 'fontScale', 'radius', 'gap', 'showUrlBar', 'showTabCloseOnHover', 'favoritesColumns', 'reduceMotion', 'motionSpeed', 'motionFeel', 'sounds', 'soundVolume'];
   for (const k of keys) (s.settings as unknown as Record<string, unknown>)[k] = d[k];
 }
 
@@ -126,13 +124,4 @@ export function readBackup(text: string): BackupInfo {
     boosts: state.boosts.length,
     scriptsRemoved,
   };
-}
-
-/**
- * Pick a visual style: its look and its recommended shape and type come with it
- * (radius, spacing, density, font). Everything can be fine-tuned afterwards.
- */
-export function applyStyle(s: AppState, style: StyleId): void {
-  const d = styleById(style).defaults;
-  updateSettings(s, { look: { ...defaultLook(style), accent: s.settings.look.accent }, radius: d.radius, gap: d.gap, density: d.density, font: d.font });
 }

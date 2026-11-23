@@ -1,6 +1,7 @@
 // Spaces: separate sets of pinned + today tabs, each with its own look.
 
-import { defaultTheme, makeSpace } from './defaults';
+import { makeSpace } from './defaults';
+import { defaultTheme, sanitizeTheme } from './spaceTheme';
 import type { AppState, ID, SpaceTheme } from './types';
 import { archiveItem } from './archive';
 
@@ -45,8 +46,7 @@ export function updateSpace(s: AppState, id: ID, patch: { name?: string; icon?: 
 export function setSpaceTheme(s: AppState, id: ID, patch: Partial<SpaceTheme>): void {
   const sp = s.spaces.find((x) => x.id === id);
   if (!sp) return;
-  sp.theme = { ...sp.theme, ...patch };
-  sp.theme.intensity = Math.max(0, Math.min(1, sp.theme.intensity));
+  sp.theme = sanitizeTheme({ ...sp.theme, ...patch }, sp.theme);
 }
 
 export function switchSpace(s: AppState, id: ID): boolean {

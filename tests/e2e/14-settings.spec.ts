@@ -19,19 +19,15 @@ test.describe('settings: appearance', () => {
     expect(sb.x).toBeGreaterThan(800);
   });
 
-  test('spacing, font, text size, corners, page margin and sidebar width all apply', async ({ page }) => {
+  test('spacing, text size, corners, page margin and sidebar width all apply', async ({ page }) => {
     await openApp(page);
     await newTab(page, 'a.com');
     await openSettings(page, 'layout');
     await page.getByTestId('set-density-compact').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-density', 'compact');
     expect(await cssVar(page, '--row-h')).toBe('30px');
-    await page.getByTestId('settings-appearance').click();
-    await page.getByTestId('set-font-mono').click();
-    expect(await cssVar(page, '--font')).toContain('monospace');
     await page.getByTestId('set-scale').fill('1.15');
     expect(await cssVar(page, '--scale')).toBe('1.15');
-    await page.getByTestId('settings-layout').click();
     await page.getByTestId('set-radius').fill('20');
     await expect(page.getByTestId('page-card')).toHaveCSS('border-radius', '20px');
     await page.getByTestId('set-gap').fill('0');
@@ -39,7 +35,7 @@ test.describe('settings: appearance', () => {
     await page.getByTestId('set-width').fill('360');
     await expect.poll(() => page.getByTestId('sidebar').evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(360);
     const s = await savedState(page);
-    expect(s.settings).toMatchObject({ density: 'compact', font: 'mono', fontScale: 1.15, radius: 20, gap: 0, sidebarWidth: 360 });
+    expect(s.settings).toMatchObject({ density: 'compact', fontScale: 1.15, radius: 20, gap: 0, sidebarWidth: 360 });
   });
 
   test('hide the address bar; reduce motion; favorites per row', async ({ page }) => {
@@ -54,27 +50,30 @@ test.describe('settings: appearance', () => {
     expect((await savedState(page)).settings.favoritesColumns).toBe(6);
   });
 
-  test('custom CSS restyles Kite itself; reset appearance undoes everything', async ({ page }) => {
+  test('reset layout puts the sidebar, spacing and text size back', async ({ page }) => {
     await openApp(page);
-    await openSettings(page);
-    await page.getByTestId('set-chrome-css').fill('.space-name { color: rgb(200, 0, 0) !important; }');
-    await expect(page.getByTestId('space-name')).toHaveCSS('color', 'rgb(200, 0, 0)');
-    await page.getByTestId('settings-layout').click();
+    await openSettings(page, 'layout');
     await page.getByTestId('set-side-right').click();
-    await page.getByTestId('settings-appearance').click();
+    await page.getByTestId('set-scale').fill('1.2');
+    await expect(page.getByTestId('app')).toHaveAttribute('data-side', 'right');
     await page.getByTestId('set-reset-appearance').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-side', 'left');
-    await expect(page.getByTestId('space-name')).not.toHaveCSS('color', 'rgb(200, 0, 0)');
+    expect(await cssVar(page, '--scale')).toBe('1');
   });
 
-  test('Appearance points to this Space\'s background, which lives on the Spaces page', async ({ page }) => {
+  test('Settings opens on Spaces: this Space\'s theme, with nothing app-wide to tune', async ({ page }) => {
     await openApp(page);
     await openSettings(page);
-    await expect(page.getByTestId('settings-scope')).toHaveText('All Spaces');
-    await page.getByTestId('settings-open-background').click();
     await expect(page.getByTestId('settings-spaces')).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('settings-scope')).toHaveText('This Space');
-    await expect(page.getByTestId('bg-kind')).toBeVisible();
+    await expect(page.getByTestId('theme-controls')).toBeVisible();
+    await expect(page.getByTestId('settings-appearance')).toHaveCount(0);
+    // The one theme editor: 27 swatches, a wheel, intensity, grain, light/dark/auto. Nothing else.
+    await expect(page.locator('[data-testid^="swatch-"]')).toHaveCount(27);
+    await page.getByTestId('swatch-muted-9').click();
+    expect(await cssVar(page, '--tint-1')).toBe('#2d4468');
+    await page.getByTestId('settings-layout').click();
+    await expect(page.getByTestId('settings-scope')).toHaveText('All Spaces');
   });
 });
 
@@ -190,7 +189,7 @@ test.describe('settings layout and search', () => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
     const tabs = page.locator('.settings-tab');
-    await expect(tabs).toHaveCount(12);
+    await expect(tabs).toHaveCount(11);
     await page.getByTestId('settings-search').fill('cookie');
     // Cookie notices and lifetimes live in Ad blocking; clearing cookies in Privacy & Security.
     await expect(tabs).toHaveCount(2);
@@ -201,7 +200,7 @@ test.describe('settings layout and search', () => {
     await expect(page.getByTestId('settings-nomatch')).toBeVisible();
     await page.getByTestId('settings-search').press('Escape');
     await expect(page.getByTestId('settings-search')).toHaveValue('');
-    await expect(tabs).toHaveCount(12);
+    await expect(tabs).toHaveCount(11);
     await expect(page.getByTestId('settings')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('settings')).toHaveCount(0);

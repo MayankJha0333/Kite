@@ -144,22 +144,49 @@ test.describe('home page', () => {
     await expect(page.getByTestId('url-pill')).toContainText('kagi.com');
   });
 
-  test('scenes change the background; a new tab shows the same home page', async ({ page }) => {
+  test('a picture from the + menu becomes the Space theme: home page, window frame and new tabs all show it', async ({ page }) => {
     await openApp(page);
     await customize(page);
-    await page.getByTestId('home-scene').hover();
-    await page.getByTestId('home-scene-aurora').click();
-    await expect(page.getByTestId('empty-state')).toHaveAttribute('data-scene', 'aurora');
+    await page.getByTestId('home-background').hover();
+    await page.getByTestId('home-bg-aurora').click();
+    await expect(page.getByTestId('empty-state')).toHaveAttribute('data-backdrop', 'aurora');
     await expect(page.getByTestId('empty-state')).toHaveAttribute('data-tone', 'dark');
+    await expect(page.getByTestId('start-bg')).toHaveCSS('background-image', /aurora.*\.jpg/);
+    await expect(page.getByTestId('app')).toHaveAttribute('data-backdrop', 'aurora');
+    await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'dark');
+    const s = await savedState(page);
+    expect(s.spaces[0].theme).toMatchObject({ backdrop: 'aurora', mode: 'dark', colors: ['#1b3646', '#3cf2b4'] });
     await addWidget(page, 'clock');
     await newTab(page, 'a.com');
     await page.getByTestId('btn-new-tab').click();
-    await expect(page.getByTestId('start-page')).toHaveAttribute('data-scene', 'aurora');
+    await expect(page.getByTestId('start-page')).toHaveAttribute('data-backdrop', 'aurora');
     await expect(widgets(page)).toHaveCount(1);
     await customize(page);
     await page.getByTestId('home-toggle-frequent').click();
     expect((await savedState(page)).home.showFrequent).toBe(true);
+    // Back to plain colours.
+    await customize(page);
+    await page.getByTestId('home-background').hover();
+    await page.getByTestId('home-bg-none').click();
+    await expect(page.getByTestId('start-page')).not.toHaveAttribute('data-backdrop', /.+/);
+    await expect(page.getByTestId('app')).not.toHaveAttribute('data-backdrop', /.+/);
     await page.keyboard.press(`${MOD}+Comma`); // no crash with Settings over it
     await expect(page.getByTestId('settings')).toBeVisible();
   });
+
+  test('the theme editor lists the pictures; picking a colour goes back to plain colours', async ({ page }) => {
+    await openApp(page);
+    await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-edit-space').click();
+    await expect(page.locator('[data-testid^="backdrop-"]')).toHaveCount(12);
+    await page.getByTestId('backdrop-dunes').click();
+    await expect(page.getByTestId('backdrop-dunes')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('app')).toHaveAttribute('data-backdrop', 'dunes');
+    await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'light');
+    await page.getByTestId('swatch-muted-9').click();
+    await expect(page.getByTestId('backdrop-none')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('app')).not.toHaveAttribute('data-backdrop', /.+/);
+    expect((await savedState(page)).spaces[0].theme.backdrop).toBeUndefined();
+  });
+
 });

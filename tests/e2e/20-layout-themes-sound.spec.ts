@@ -125,48 +125,56 @@ test.describe('layout: no wasted space around the page', () => {
 });
 
 test.describe('themes', () => {
-  test('a new Kite starts on the default theme', async ({ page }) => {
+  test('a new Kite starts on the default colours, and the editor has only the Arc controls', async ({ page }) => {
     await openDesktop(page);
-    await page.keyboard.press(`${MOD}+Comma`);
-    await expect(page.getByTestId('look-theme-harbor')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('look-themes').locator('.look-theme')).toHaveCount(15);
+    expect(await cssVar(page, '--tint-2')).toBe('#4a7fe0');
+    await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-edit-space').click();
+    await expect(page.getByTestId('theme-controls')).toBeVisible();
+    for (const id of ['space-hue', 'space-vivid', 'space-intensity', 'space-grain', 'space-mode-light', 'space-mode-dark', 'space-mode-system', 'color-a', 'color-b']) await expect(page.getByTestId(id)).toBeVisible();
+    await expect(page.locator('[data-testid^="swatch-"]')).toHaveCount(27);
   });
 
-  test('every theme previews live, can be applied, and keeps text readable in light and dark', async ({ page }) => {
-    // 12 themes × 2 modes, moving between two Settings pages each time.
-    test.setTimeout(60_000);
+  test('every swatch paints the window, in light and dark, and the app stays readable', async ({ page }) => {
     await openDesktop(page);
     await newTab(page, 'https://a.com');
-    await page.keyboard.press(`${MOD}+Comma`);
-    for (const id of ['daybreak', 'harbor', 'aurora', 'lagoon', 'ink', 'graphite', 'nebula', 'ember', 'sakura', 'moss', 'tahoe', 'dusk']) {
-      await page.getByTestId('settings-appearance').click();
-      await page.getByTestId(`look-theme-${id}`).click();
-      await expect(page.getByTestId(`look-theme-${id}`)).toHaveAttribute('aria-checked', 'true');
-      // Light or dark is chosen per Space, on the Spaces page; the preview carries over.
-      await page.getByTestId('settings-spaces').click();
-      for (const mode of ['light', 'dark']) {
-        await page.getByTestId(`look-mode-${mode}`).click();
-        await expect(page.getByTestId('app')).toHaveAttribute('data-theme', mode);
-        await expect(page.getByTestId('look-readability'), `${id} ${mode}`).toHaveAttribute('data-ok', 'true');
-        // The app still works under every look.
-        await expect(page.locator('.row[data-active]')).toBeVisible();
+    await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-edit-space').click();
+    const contrast = () =>
+      page.getByTestId('app').evaluate((el) => {
+        const cs = getComputedStyle(el);
+        const rgb = (s: string) => {
+          const m = s.match(/\d+(\.\d+)?/g)!.map(Number);
+          return m.length >= 3 ? m.slice(0, 3) : [0, 0, 0];
+        };
+        const lum = ([r, g, b]: number[]) => {
+          const f = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const sb = getComputedStyle(document.querySelector('[data-testid=sidebar]')!);
+        const ink = cs.getPropertyValue('--ink').trim();
+        const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+        const a = lum(hex(ink));
+        const b = lum(rgb(sb.backgroundColor === 'rgba(0, 0, 0, 0)' ? cs.getPropertyValue('--chrome-mid').trim().startsWith('#') ? `rgb(${hex(cs.getPropertyValue('--chrome-mid').trim()).join(',')})` : sb.backgroundColor : sb.backgroundColor));
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      });
+    for (const row of ['pastel', 'muted', 'grey']) {
+      for (let i = 1; i <= 9; i++) {
+        await page.getByTestId(`swatch-${row}-${i}`).click();
+        await expect(page.getByTestId(`swatch-${row}-${i}`)).toHaveAttribute('aria-checked', 'true');
+        for (const mode of ['light', 'dark']) {
+          await page.getByTestId(`space-mode-${mode}`).click();
+          await expect(page.getByTestId('app')).toHaveAttribute('data-theme', mode);
+          expect(await contrast(), `${row} ${i} ${mode}`).toBeGreaterThanOrEqual(4.5);
+          await expect(page.locator('.row[data-active]')).toBeVisible();
+        }
       }
     }
-    await page.getByTestId('settings-appearance').click();
-    await page.getByTestId('look-theme-nebula').click();
-    await page.getByTestId('look-apply').click();
-    await expect(page.getByTestId('app')).toHaveAttribute('data-style', 'studio');
+    // The wheel paints from one hue, and everything is saved on the Space.
+    await page.getByTestId('space-hue').fill('120');
     const s = await savedState(page);
-    expect(s.settings.look.style).toBe('studio');
-    expect(s.spaces[0].theme.colors).toEqual(['#e5b8e8', '#8a4fc8']);
-    // Changing one thing means it is no longer that ready-made theme.
-    await page.getByTestId('look-shadow').fill('0.1');
-    await expect(page.getByTestId('look-theme-nebula')).toHaveAttribute('aria-checked', 'false');
-    // Undo brings the old look back whole.
-    await page.getByTestId('look-discard').click();
-    await page.getByText('Undo').click();
-    await expect(page.getByTestId('app')).toHaveAttribute('data-style', 'calm');
-    expect(await cssVar(page, '--tint-2')).toBe('#4a7fe0');
+    expect(s.spaces[0].theme.colors[1]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(s.spaces[0].theme).not.toHaveProperty('gradient');
   });
 });
 

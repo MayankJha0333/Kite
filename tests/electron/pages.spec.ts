@@ -80,3 +80,24 @@ test('About shows the real version and build, and the error log exists on disk',
   await expect(win.getByTestId('about-details')).toContainText(userData);
   await app.close();
 });
+
+test('Capture and Capture Full Page write PNGs to Downloads and copy them', async () => {
+  const { mkdtempSync, readdirSync, statSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'kite-captures-'));
+  const { app, win } = await launch(undefined, [], { KITE_DOWNLOADS: dir });
+  await open(win, site.url('/'));
+  await expect(win.locator('[data-title="Kite Test Home"]')).toHaveCount(1, { timeout: 15000 });
+  await win.waitForTimeout(800);
+  const send = (a: string) => app.evaluate(({ BrowserWindow }, action) => BrowserWindow.getAllWindows()[0].webContents.send('shortcut', action), a);
+  await send('capture');
+  await expect(win.getByTestId('toast')).toContainText('Captured', { timeout: 15000 });
+  await send('captureFull');
+  await expect(win.getByTestId('toast').filter({ hasText: 'Full page captured' })).toBeVisible({ timeout: 15000 });
+  await expect.poll(() => readdirSync(dir).filter((f) => f.startsWith('Capture ') && f.endsWith('.png')).length, { timeout: 10000 }).toBe(2);
+  for (const f of readdirSync(dir)) expect(statSync(join(dir, f)).size).toBeGreaterThan(1000);
+  const clip = await app.evaluate(({ clipboard }) => clipboard.readImage().getSize());
+  expect(clip.width).toBeGreaterThan(100);
+  await app.close();
+});

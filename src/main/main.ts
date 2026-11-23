@@ -16,6 +16,7 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type WebContents,
+  nativeImage,
 } from 'electron';
 import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -576,6 +577,61 @@ async function savePage(wc: WebContents): Promise<string | null> {
   }
 }
 
+/** Files Capture wrote this session: the only ones the renderer may ask to reveal. */
+const captures = new Set<string>();
+
+/**
+ * Arc's Capture: a PNG of what you see, or of the whole page (taken through the page's
+ * debugger so nothing has to scroll), saved to Downloads and put on the clipboard.
+ */
+async function capturePage(wc: WebContents, full: boolean): Promise<{ value: { path: string } } | { error: string }> {
+  if (wc.isDestroyed()) return { error: 'That page is gone.' };
+  if (!isWebUrl(wc.getURL())) return { error: 'Only web pages can be captured.' };
+  let img: Electron.NativeImage;
+  try {
+    if (!full) img = await wc.capturePage();
+    else {
+      const dbg = wc.debugger;
+      const attached = !dbg.isAttached();
+      if (attached) dbg.attach('1.3');
+      try {
+        const m = (await dbg.sendCommand('Page.getLayoutMetrics')) as { cssContentSize?: { width: number; height: number }; contentSize?: { width: number; height: number } };
+        const size = m.cssContentSize ?? m.contentSize ?? { width: 1280, height: 800 };
+        // Very long pages are cut at 16k pixels: more than that and the PNG is unwieldy anyway.
+        const clip = { x: 0, y: 0, width: Math.max(1, Math.ceil(size.width)), height: Math.max(1, Math.min(16384, Math.ceil(size.height))), scale: 1 };
+        const r = (await dbg.sendCommand('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip })) as { data: string };
+        img = nativeImage.createFromBuffer(Buffer.from(r.data, 'base64'));
+      } finally {
+        if (attached) {
+          try {
+            dbg.detach();
+          } catch {
+            /* already gone */
+          }
+        }
+      }
+    }
+  } catch (err) {
+    errorLog(`capture failed: ${(err as Error).message}`);
+    return { error: `Couldn’t capture the page: ${(err as Error).message}` };
+  }
+  if (img.isEmpty()) return { error: 'Nothing to capture yet. Let the page finish loading.' };
+  const title = (wc.getTitle() || 'page').replace(/[/\\:*?"<>|]+/g, '-').trim().slice(0, 80) || 'page';
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} at ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`;
+  let path = join(app.getPath('downloads'), `Capture ${title} ${stamp}.png`);
+  for (let n = 2; existsSync(path); n++) path = join(app.getPath('downloads'), `Capture ${title} ${stamp} (${n}).png`);
+  try {
+    writeFileSync(path, img.toPNG());
+  } catch (err) {
+    return { error: `Couldn’t save the capture: ${(err as Error).message}` };
+  }
+  clipboard.writeImage(img);
+  captures.add(path);
+  return { value: { path } };
+}
+
 /** Links to other apps (mailto:, zoommtg: …): safe ones open, anything else asks first. */
 const SAFE_SCHEMES = /^(mailto|tel|sms|facetime|facetime-audio|webcal|maps|zoommtg|zoomus|msteams|slack|spotify|tg|whatsapp):/i;
 async function openOutside(url: string, from: WebContents) {
@@ -1096,6 +1152,13 @@ function setupIpc() {
     const wc = pageOf(e, id);
     return wc ? savePage(wc) : 'That page is gone.';
   });
+  handle('page:capture', (e, id: number, full: boolean) => {
+    const wc = pageOf(e, id);
+    return wc ? capturePage(wc, !!full) : { error: 'That page is gone.' };
+  });
+  on('capture:reveal', (_e, path: string) => {
+    if (typeof path === 'string' && captures.has(path)) shell.showItemInFolder(path);
+  });
   // The user picks where the file goes in a Save dialog; the name is only a suggestion.
   handle('file:export', async (e, name: string, text: string) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
@@ -1194,6 +1257,10 @@ function buildAppMenu() {
         item('Reload Page', 'reload'),
         item('Force Refresh the Page', 'hardReload'),
         item('Stop Loading', 'stopLoading'),
+        item('Clear Cookies and Refresh', 'clearCookiesRefresh'),
+        item('Clear Cache and Refresh', 'clearCacheRefresh'),
+        sep(),
+        { label: 'Capture', submenu: [item('Capture', 'capture'), item('Capture Full Page', 'captureFull')] },
         sep(),
         item('Zoom In', 'zoomIn'),
         item('Zoom Out', 'zoomOut'),
@@ -1232,7 +1299,9 @@ function buildAppMenu() {
         item('Add to Favorites', 'addFavorite'),
         item('Rename Current Item', 'renameCurrent'),
         item('Reset Tab to Original URL', 'resetToHome'),
+        item('Reset All Tabs in This Space', 'resetSpaceTabs'),
         item('Clear Unpinned Tabs', 'clearToday'),
+        item('Collapse / Expand Pinned Section', 'togglePinnedSection'),
         sep(),
         item('Next Tab', 'nextTab'),
         item('Previous Tab', 'prevTab'),

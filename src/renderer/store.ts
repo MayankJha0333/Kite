@@ -63,8 +63,6 @@ export interface UiState {
   muted: Record<ID, boolean>;
   /** Tabs whose video Kite popped out automatically. */
   pipped: ID[];
-  /** A look being previewed in Settings → Appearance (not saved until Apply). */
-  lookDraft: import('@shared/look').LookDraft | null;
   downloads: import('@shared/downloads').DownloadEntry[];
   /** Ads and trackers blocked on each tab's current page. */
   blocked: Record<ID, number>;
@@ -111,7 +109,6 @@ export const useKite = create<Store>((set, get) => ({
     playing: {},
     muted: {},
     pipped: [],
-    lookDraft: null,
     downloads: [],
     blocked: {},
     loadError: {},
@@ -147,7 +144,8 @@ export const getUi = () => useKite.getState().ui;
 let toastSeq = 1;
 export function toast(text: string, actionLabel?: string, action?: () => void, ms = 4200) {
   const id = toastSeq++;
-  setUi((u) => ({ toasts: [...u.toasts.slice(-3), { id, text, actionLabel, action }] }));
+  // The same message again replaces the one on screen instead of stacking a copy of it.
+  setUi((u) => ({ toasts: [...u.toasts.filter((t) => t.text !== text).slice(-3), { id, text, actionLabel, action }] }));
   // Leave cleanly: mark it leaving (it eases out), then remove it once the exit has played.
   const exitMs = Math.round(130 / Math.max(0.25, getS()?.settings?.motionSpeed ?? 1));
   setTimeout(() => setUi((u) => ({ toasts: u.toasts.map((t) => (t.id === id ? { ...t, leaving: true } : t)) })), Math.max(0, ms - exitMs));

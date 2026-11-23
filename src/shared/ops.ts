@@ -3,7 +3,7 @@
 
 import { newId } from './ids';
 import type { AppState, ID, Item, ListName, TabItem } from './types';
-import { attach, detach, flatVisible, listAt, locate, ownerSplit, purge } from './tree';
+import { attach, detach, flatAll, flatVisible, listAt, locate, ownerSplit, purge } from './tree';
 import { hostOf, tidyTitle } from './url';
 
 const MAX_CLOSED = 30;
@@ -164,10 +164,12 @@ export function displayTitle(it: Item): string {
 
 /** Pick what to select after an item disappears: next sibling, else previous, else nothing. */
 function neighborAfterRemoval(s: AppState, spaceId: ID, removedId: ID): ID | null {
-  const order = flatVisible(s, spaceId, false);
-  const i = order.indexOf(removedId);
-  if (i < 0) return null;
-  return order[i + 1] ?? order[i - 1] ?? null;
+  // What you can see first; if the closed tab sat inside a closed folder, its neighbours there.
+  for (const order of [flatVisible(s, spaceId, false), flatAll(s, spaceId)]) {
+    const i = order.indexOf(removedId);
+    if (i >= 0) return order[i + 1] ?? order[i - 1] ?? null;
+  }
+  return null;
 }
 
 /**
@@ -235,6 +237,46 @@ export function reopenClosed(s: AppState, now: number): ID | null {
 export function resetToHome(s: AppState, id: ID): void {
   const t = s.items[id];
   if (t?.kind === 'tab' && t.homeUrl) t.url = t.homeUrl;
+}
+
+/** Arc's "Reset all tabs in this Space": every pinned tab (in folders too) back to its pinned page. Returns the tabs that moved. */
+export function resetSpaceTabs(s: AppState, spaceId: ID): ID[] {
+  const sp = s.spaces.find((x) => x.id === spaceId);
+  if (!sp) return [];
+  const moved: ID[] = [];
+  const walk = (ids: ID[]) => {
+    for (const id of ids) {
+      const it = s.items[id];
+      if (!it) continue;
+      if (it.kind === 'folder') walk(it.children);
+      else if (it.kind === 'tab' && it.homeUrl && it.url !== it.homeUrl) {
+        it.url = it.homeUrl;
+        moved.push(id);
+      }
+    }
+  };
+  walk(sp.pinned);
+  return moved;
+}
+
+/** Arc's "Collapse / Expand Pinned Section". */
+export function togglePinnedSection(s: AppState, spaceId: ID, collapsed?: boolean): void {
+  const sp = s.spaces.find((x) => x.id === spaceId);
+  if (sp) sp.pinnedCollapsed = (collapsed ?? !sp.pinnedCollapsed) || undefined;
+}
+
+/** The top-level pinned entry that holds an item (the item itself, or the folder it sits in). */
+export function pinnedRootOf(s: AppState, spaceId: ID, id: ID): ID | null {
+  const sp = s.spaces.find((x) => x.id === spaceId);
+  if (!sp) return null;
+  const holds = (root: ID): boolean => {
+    if (root === id) return true;
+    const it = s.items[root];
+    if (it?.kind === 'split') return it.panes.includes(id);
+    if (it?.kind === 'folder') return it.children.some(holds);
+    return false;
+  };
+  return sp.pinned.find(holds) ?? null;
 }
 
 /** Duplicate a tab into Today. */

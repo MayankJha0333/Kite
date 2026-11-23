@@ -1,4 +1,5 @@
-import { sanitizeLook, sanitizeTheme } from './look';
+import { sanitizeTheme } from './spaceTheme';
+import { backdropPatch, isBackdrop } from './backdrops';
 import { sanitizeShields } from './shields';
 import { sanitizeHome } from './home';
 // Loading saved state safely: fill in anything missing, drop anything broken.
@@ -36,7 +37,6 @@ export function loadState(raw: unknown): AppState {
   // Google is the default search. Data saved by earlier versions carried the old default
   // (DuckDuckGo) whether or not anyone chose it; an engine picked by hand is kept as is.
   if (state.settings.searchEngine === 'https://duckduckgo.com/?q=%s' && !(isObj(s.settings) && (s.settings as { searchEngineChosen?: boolean }).searchEngineChosen)) state.settings.searchEngine = defaultSettings().searchEngine;
-  state.settings.look = sanitizeLook(state.settings.look);
   state.settings.shields = sanitizeShields(state.settings.shields);
   if (!(state.settings.soundVolume >= 0 && state.settings.soundVolume <= 1)) state.settings.soundVolume = 0.4;
   state.settings.sounds = state.settings.sounds !== false;
@@ -46,12 +46,17 @@ export function loadState(raw: unknown): AppState {
     ...sp,
     name: sp.name || `Space ${i + 1}`,
     icon: sp.icon || '•',
-    // Saved files are checked like anything else: bad colours or a broken gradient fall back.
+    // Saved files are checked like anything else: bad colours fall back; extras from older versions are dropped.
     theme: sanitizeTheme(sp.theme, defaultTheme(i)),
     pinned: Array.isArray(sp.pinned) ? sp.pinned : [],
     today: Array.isArray(sp.today) ? sp.today : [],
     isolated: sp.isolated === true ? true : undefined,
+    pinnedCollapsed: sp.pinnedCollapsed === true ? true : undefined,
   }));
+  // Earlier versions had home page "scenes"; the same pictures are now Space themes.
+  const oldScene = isObj(s.home) ? (s.home as { scene?: unknown }).scene : undefined;
+  const sp = state.spaces.find((x) => x.id === state.activeSpaceId) ?? state.spaces[0];
+  if (isBackdrop(oldScene) && sp && !sp.theme.backdrop) sp.theme = sanitizeTheme({ ...sp.theme, ...backdropPatch(oldScene) }, sp.theme);
   repair(state);
   return state;
 }

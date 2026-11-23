@@ -306,7 +306,7 @@ test.describe('folder and Space menus like Arc', () => {
 
   test('“Rename Space” edits the name in the header', async ({ page }) => {
     await openApp(page);
-    await page.getByTestId('space-name').click();
+    await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-rename-space').click();
     await expect(page.getByTestId('space-rename-input')).toBeFocused();
     await page.getByTestId('space-rename-input').fill('Life');

@@ -269,7 +269,7 @@ test.describe('Spaces with separate logins, and animation settings', () => {
     const sheetAnim = await page.getByTestId('settings').evaluate((el) => getComputedStyle(el).animationDuration);
     expect(parseFloat(sheetAnim)).toBeCloseTo(0.176, 2);
     expect((await savedState(page)).settings).toMatchObject({ motionSpeed: 2, motionFeel: 'bouncy' });
-    await page.getByTestId('settings-appearance').click();
+    await page.getByTestId('settings-layout').click();
     await page.getByTestId('set-reset-appearance').click();
     expect(await cssVar(page, '--dur')).toBe('220ms');
     await page.getByTestId('settings-motion').click();

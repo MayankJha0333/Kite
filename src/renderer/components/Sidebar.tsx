@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, ArrowRight, RotateCw, PanelLeft, Plus, Search, ShieldCheck, Settings2, SlidersHorizontal, Archive, Wand2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, RotateCw, PanelLeft, Plus, Search, ShieldCheck, Settings2, SlidersHorizontal, Archive, Wand2 } from 'lucide-react';
 import { boostsFor } from '@shared/boosts';
 import * as ops from '@shared/ops';
 import { displayUrl, hostOf, isNewTabUrl } from '@shared/url';
@@ -29,6 +29,13 @@ export function Sidebar() {
   const needsLightsGap = desktopChrome && isMac && !fullscreen;
   const onWheel = useSpaceSwipe();
   const spaceIndex = useKite((st) => st.s.spaces.findIndex((x) => x.id === st.s.activeSpaceId));
+  // Arc: a collapsed Pinned section still shows the pinned tab you are on (the folder it sits in, if any).
+  const pinnedPeek = useKite((st) => {
+    const sp = activeSpace(st.s);
+    if (!sp.pinnedCollapsed) return null;
+    const a = st.s.activeBySpace[sp.id];
+    return a ? ops.pinnedRootOf(st.s, sp.id, a) : null;
+  });
   // Rows glide to their new place when the tree changes (see flip.ts): render on every
   // change to items or Favorites, so the measurement runs after each commit.
   useKite((st) => st.s.items);
@@ -58,16 +65,33 @@ export function Sidebar() {
         <div className="space-pane" key={space.id} data-dir={dir}>
         <SpaceHeader space={space} />
 
-        <section className="sb-section" aria-label="Pinned" data-testid="pinned-list" role="tree">
-          {space.pinned.map((id) => (
-            <ItemRow key={id} id={id} list="pinned" depth={0} />
-          ))}
-          <DropZone zone={{ type: 'end', list: 'pinned', spaceId: space.id }} className="list-end" testId="pinned-end">
-            {space.pinned.length === 0 && <span className="hint drop-hint">Drop here to pin</span>}
-          </DropZone>
+        <section className="sb-section" aria-label="Pinned" data-testid="pinned-list" role="tree" data-collapsed={space.pinnedCollapsed || undefined}>
+          {!space.pinnedCollapsed && space.pinned.map((id) => <ItemRow key={id} id={id} list="pinned" depth={0} />)}
+          {space.pinnedCollapsed && pinnedPeek && (
+            <div className="folder-peek" data-testid="pinned-peek">
+              <ItemRow id={pinnedPeek} list="pinned" depth={0} last />
+            </div>
+          )}
+          {!space.pinnedCollapsed && (
+            <DropZone zone={{ type: 'end', list: 'pinned', spaceId: space.id }} className="list-end" testId="pinned-end">
+              {space.pinned.length === 0 && <span className="hint drop-hint">Drop here to pin</span>}
+            </DropZone>
+          )}
         </section>
 
-        <div className="sb-divider">
+        <div className="sb-divider" data-collapsed={space.pinnedCollapsed || undefined}>
+          {space.pinned.length > 0 && (
+            <button
+              className="sb-pin-toggle"
+              data-testid="pinned-toggle"
+              aria-expanded={!space.pinnedCollapsed}
+              title={space.pinnedCollapsed ? 'Expand Pinned Section' : 'Collapse Pinned Section'}
+              onClick={() => actions.togglePinnedSection?.()}
+            >
+              {space.pinnedCollapsed ? <ChevronDown size={12} strokeWidth={2.4} /> : <ChevronUp size={12} strokeWidth={2.4} />}
+              {space.pinnedCollapsed && <span>{space.pinned.length} pinned</span>}
+            </button>
+          )}
           <span className="sb-divider-line" />
           {space.today.length > 0 && (
             <button className="sb-clear" data-testid="btn-clear-today" onClick={() => actions.clearToday?.()} title="Archive all unpinned tabs">

@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronRight, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import type { ID, Space } from '@shared/types';
-import { ARCHIVE_CHOICES, THEME_PRESETS } from '@shared/defaults';
-import { createSpace, deleteSpace, setSpaceTheme, updateSpace, moveSpace } from '@shared/spaces';
+import { ARCHIVE_CHOICES } from '@shared/defaults';
+import { createSpace, deleteSpace, updateSpace, moveSpace } from '@shared/spaces';
 import { spaceToFolder } from '@shared/folders';
 import { act, getS, setUi, toast, useKite, type ContextMenuItem } from '../store';
-import { actions, undoable, switchSpaceCmd } from '../commands';
+import { actions, resetSpaceTabsCmd, undoable, switchSpaceCmd } from '../commands';
+import { togglePinnedSection } from '@shared/ops';
 import { openMenu } from './ContextMenu';
 import { DropZone } from '../dnd';
-import { Sheet, Field, Segmented, Toggle } from './Sheet';
+import { Sheet, Field, Toggle } from './Sheet';
+import { ThemeControls } from './ThemeEditor';
+import { backdropById } from '@shared/backdrops';
+import { backdropUrl } from '../backdrops';
 import { now } from '../platform';
 
 export function SpaceHeader({ space }: { space: Space }) {
@@ -22,13 +26,7 @@ export function SpaceHeader({ space }: { space: Space }) {
       tabIndex={0}
       aria-haspopup="menu"
       aria-label={`${space.name} Space options`}
-      title="Click for Space options · double-click to rename"
-      // Arc: the Space's name is a button — click it for the Space's menu, just under the name.
-      onClick={(e) => {
-        // The second click of a double-click renames the Space instead.
-        if (renaming || e.detail > 1 || (e.target as HTMLElement).closest('.space-more, .space-badge, input')) return;
-        openSpaceMenuBelow(e.currentTarget, space.id);
-      }}
+      title="Double-click to rename · right-click for options"
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
         e.preventDefault();
@@ -120,6 +118,8 @@ export function spaceMenu(id: ID): ContextMenuItem[] {
     { label: 'New Folder', testId: 'menu-new-folder', onSelect: actions.newFolder },
     { label: 'Collapse All Folders', testId: 'menu-collapse-all', onSelect: actions.collapseFolders },
     { label: 'Expand All Folders', testId: 'menu-expand-all', onSelect: actions.expandFolders },
+    { label: sp?.pinnedCollapsed ? 'Expand Pinned Section' : 'Collapse Pinned Section', testId: 'menu-pinned-toggle', onSelect: () => act((d) => togglePinnedSection(d, id)) },
+    { label: 'Reset All Tabs in This Space', testId: 'menu-reset-space', onSelect: () => { if (getS().activeSpaceId !== id) switchSpaceCmd(id); resetSpaceTabsCmd(); } },
     { separator: true, label: '' },
     {
       label: 'Turn into Folder',
@@ -242,7 +242,6 @@ export function SpaceEditor({ id }: { id: ID }) {
   const count = useKite((st) => st.s.spaces.length);
   if (!space) return null;
   const t = space.theme;
-  const set = (patch: Partial<Space['theme']>) => act((d) => setSpaceTheme(d, id, patch));
   return (
     <Sheet
       title="Edit Space"
@@ -261,7 +260,7 @@ export function SpaceEditor({ id }: { id: ID }) {
         </>
       }
     >
-      <div className="space-preview" style={{ background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }}>
+      <div className="space-preview" data-tone={t.backdrop ? backdropById(t.backdrop)?.tone : undefined} style={{ background: t.backdrop ? `center / cover url("${backdropUrl(t.backdrop)}")` : `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }}>
         <span className="space-preview-icon">{space.icon}</span>
         <span className="space-preview-name">{space.name}</span>
       </div>
@@ -288,55 +287,7 @@ export function SpaceEditor({ id }: { id: ID }) {
         </div>
       </Field>
 
-      <Field label="Colors">
-        <div className="swatches" data-testid="theme-presets">
-          {THEME_PRESETS.map((p) => (
-            <button
-              key={p.name}
-              className="swatch"
-              title={p.name}
-              data-testid={`preset-${p.name}`}
-              data-on={(t.colors[0] === p.colors[0] && t.colors[1] === p.colors[1]) || undefined}
-              style={{ background: `linear-gradient(135deg, ${p.colors[0]}, ${p.colors[1]})` }}
-              onClick={(e) => { e.preventDefault(); set({ colors: [...p.colors] as [string, string] }); }}
-            />
-          ))}
-          <span className="swatch-custom">
-            <input type="color" aria-label="First color" data-testid="color-a" value={t.colors[0]} onChange={(e) => set({ colors: [e.target.value, t.colors[1]] })} />
-            <input type="color" aria-label="Second color" data-testid="color-b" value={t.colors[1]} onChange={(e) => set({ colors: [t.colors[0], e.target.value] })} />
-          </span>
-        </div>
-      </Field>
-
-      <button className="set-link space-more-look" data-testid="space-more-background" onClick={() => setUi({ panel: 'settings', panelArg: 'spaces' })}>
-        <span className="set-row-text">
-          <span className="set-row-title">Gradient & animation</span>
-          <span className="set-row-desc">Design this Space's background in Settings</span>
-        </span>
-        <ChevronRight size={15} className="set-link-chevron" />
-      </button>
-
-      <div className="field-row">
-        <Field label="Appearance">
-          <Segmented
-            testId="space-mode"
-            value={t.mode}
-            onChange={(mode) => set({ mode })}
-            options={[
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
-              { value: 'system', label: 'Auto' },
-            ]}
-          />
-        </Field>
-        <Field label="Grain" inline>
-          <Toggle checked={t.grain} onChange={(grain) => set({ grain })} testId="space-grain" label="Grain texture" />
-        </Field>
-      </div>
-
-      <Field label="Color strength" hint={`${Math.round(t.intensity * 100)}%`}>
-        <input type="range" className="range" min={0} max={1} step={0.05} value={t.intensity} data-testid="space-intensity" onChange={(e) => set({ intensity: Number(e.target.value) })} />
-      </Field>
+      <ThemeControls spaceId={id} />
 
       <label className="field-inline space-isolated">
         <Toggle

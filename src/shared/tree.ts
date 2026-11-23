@@ -135,6 +135,23 @@ export function flatVisible(s: AppState, spaceId: ID, includeFavorites: boolean)
   return out;
 }
 
+/** Every tab, note and split in a Space in sidebar order, folders open or not. */
+export function flatAll(s: AppState, spaceId: ID): ID[] {
+  const sp = getSpace(s, spaceId);
+  const out: ID[] = [];
+  const walk = (ids: ID[]) => {
+    for (const id of ids) {
+      const it = s.items[id];
+      if (!it) continue;
+      if (it.kind === 'folder') walk(it.children);
+      else out.push(id);
+    }
+  };
+  walk(sp.pinned);
+  walk(sp.today);
+  return out;
+}
+
 export function folderOf(s: AppState, id: ID): FolderItem | null {
   const loc = locate(s, id);
   if (!loc?.parentId) return null;

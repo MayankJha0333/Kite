@@ -23,9 +23,9 @@ describe('settings', () => {
 
   it('reset appearance keeps other choices', () => {
     let s = fresh();
-    [s] = run(s, (d) => updateSettings(d, { sidebarSide: 'right', radius: 2, archiveAfterMs: null, chromeCss: 'x{}' }));
+    [s] = run(s, (d) => updateSettings(d, { sidebarSide: 'right', radius: 2, archiveAfterMs: null }));
     [s] = run(s, (d) => resetAppearance(d));
-    expect(s.settings).toMatchObject({ sidebarSide: 'left', radius: 12, chromeCss: '', archiveAfterMs: null });
+    expect(s.settings).toMatchObject({ sidebarSide: 'left', radius: 12, archiveAfterMs: null });
   });
 });
 

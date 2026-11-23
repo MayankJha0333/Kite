@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, openApp, newTab, todayRows, savedState, MOD } from './fixtures';
+import { test, expect, openApp, newTab, todayRows, savedState, MOD, settledRows } from './fixtures';
 
 async function splitWith(page: Page, url: string) {
   await page.keyboard.press(`${MOD}+Shift+Equal`);
@@ -68,6 +68,7 @@ test.describe('split view', () => {
     await openApp(page);
     await newTab(page, 'one.com');
     await newTab(page, 'two.com');
+    await settledRows(page); // rows glide into place after a new tab (flip.ts); measure them at rest
     const src = (await todayRows(page).nth(1).boundingBox())!;
     const card = (await page.getByTestId('page-card').boundingBox())!;
     await page.mouse.move(src.x + 40, src.y + src.height / 2);

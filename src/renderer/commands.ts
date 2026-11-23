@@ -233,6 +233,40 @@ export async function copyActiveMarkdown(id?: ID) {
   toast('Copied as Markdown link');
 }
 
+/** Arc's "Reset all tabs in this Space": every pinned tab back to its pinned page; pages you can't see unload. */
+export function resetSpaceTabsCmd() {
+  const spaceId = getS().activeSpaceId;
+  const moved = act((d) => ops.resetSpaceTabs(d, spaceId));
+  if (!moved.length) return toast('Every pinned tab is already on its pinned page');
+  const seen = new Set(visibleTabs());
+  for (const id of moved) {
+    const t = getS().items[id];
+    if (seen.has(id) && t?.kind === 'tab') surface(id)?.load(t.url);
+    else unload(id);
+  }
+  toast(`${moved.length} tab${moved.length === 1 ? '' : 's'} back on ${moved.length === 1 ? 'its' : 'their'} pinned page`);
+}
+
+/** Arc's "Clear Cookies and Refresh" / "Clear Cache and Refresh" for the site you are on. */
+export async function clearSiteAndRefresh(what: 'cookies' | 'cache') {
+  const t = ops.activeTab(getS());
+  const host = t ? hostOf(t.url) : '';
+  if (!t || !host) return toast('Open a website first');
+  await bridge.clearData(what === 'cookies' ? { cookies: true, storage: true, cache: false } : { cookies: false, storage: false, cache: true }, host);
+  if (what === 'cache') surface(t.id)?.hardReload();
+  else surface(t.id)?.reload();
+  toast(what === 'cookies' ? `Cookies and site data for ${host} cleared` : 'Cache cleared');
+}
+
+/** Arc's Capture: the page as a picture, on the clipboard and in Downloads. */
+export async function captureCmd(full: boolean) {
+  const t = ops.activeTab(getS());
+  if (!t || !/^https?:/i.test(t.url)) return toast('Open a website first');
+  const r = await bridge.capturePage(surface(t.id)?.webContentsId() ?? -1, full);
+  if (r.error !== undefined) return toast(r.error);
+  toast(full ? 'Full page captured · copied, saved to Downloads' : 'Captured · copied, saved to Downloads', 'Show', () => bridge.revealCapture(r.value.path), 7000);
+}
+
 /** Tabs you can see right now (the active tab, or every page of a split). */
 function visibleTabs(): ID[] {
   const id = activeId();
@@ -325,6 +359,12 @@ export const actions: Record<string, () => void> = {
     if (!t?.homeUrl) return toast('This tab has no pinned page to go back to');
     navigateTab(t.id, t.homeUrl);
   },
+  resetSpaceTabs: () => resetSpaceTabsCmd(),
+  togglePinnedSection: () => act((d) => ops.togglePinnedSection(d, d.activeSpaceId)),
+  clearCookiesRefresh: () => void clearSiteAndRefresh('cookies'),
+  clearCacheRefresh: () => void clearSiteAndRefresh('cache'),
+  capture: () => void captureCmd(false),
+  captureFull: () => void captureCmd(true),
   setDefaultBrowser: () => {
     void bridge.setDefaultBrowser().then((ok) => toast(ok ? 'Kite is now your default browser' : 'Your system didn’t let Kite become the default browser. You can set it in System Settings.'));
   },

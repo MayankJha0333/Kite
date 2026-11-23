@@ -5,7 +5,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, openApp, newTab, todayRows, expectTidy, MOD } from './fixtures';
 
-const SETTINGS_SECTIONS = ['appearance', 'spaces', 'layout', 'motion', 'tabs', 'links', 'adblock', 'privacy', 'extensions', 'keys', 'data', 'about'];
+const SETTINGS_SECTIONS = ['spaces', 'layout', 'motion', 'tabs', 'links', 'adblock', 'privacy', 'extensions', 'keys', 'data', 'about'];
 
 async function menuOpen(page: Page) {
   await expect(page.getByTestId('context-menu')).toBeVisible();
@@ -32,7 +32,7 @@ function sweep(name: string, viewport: { width: number; height: number }) {
       await menuOpen(page);
       await expectTidy(page, '[data-testid=context-menu]', 'home + menu');
       await submenu(page, 'home-add-widget');
-      await submenu(page, 'home-scene');
+      await submenu(page, 'home-background');
       await page.keyboard.press('Escape');
       for (const k of ['clock', 'weather', 'todo', 'calendar', 'note', 'timer']) {
         await page.getByTestId('home-customize').click();

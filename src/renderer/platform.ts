@@ -200,6 +200,11 @@ function makeWebBridge(): KiteBridge {
     appInfo: async () => ({ version: __KITE_VERSION__, electron: '', chromium: navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? '', node: '', platform: platformName, arch: '', dataDir: '(browser test mode)', packaged: false }),
     revealData: () => void hooks.calls.push('revealData'),
     printPage: () => void hooks.calls.push('print'),
+    capturePage: async (_id, full) => {
+      hooks.calls.push(full ? 'captureFull' : 'capture');
+      return { value: { path: `/tmp/Capture ${full ? 'full' : 'visible'}.png` } };
+    },
+    revealCapture: (path) => void hooks.calls.push(`reveal:${path}`),
     savePage: async () => {
       hooks.calls.push('savePage');
       return null;

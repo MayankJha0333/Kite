@@ -13,16 +13,15 @@ import * as ops from '@shared/ops';
 import { displayUrl, hostOf, isNewTabUrl, normalizeInput } from '@shared/url';
 import { SEARCH_ENGINES } from '@shared/defaults';
 import { updateSettings } from '@shared/settings';
-import { SCENES, WIDGET_KINDS, addWidget, type SceneId } from '@shared/home';
+import { WIDGET_KINDS, addWidget } from '@shared/home';
+import { BACKDROPS, backdropById, backdropPatch } from '@shared/backdrops';
+import { setSpaceTheme } from '@shared/spaces';
+import { activeSpace } from '@shared/tree';
+import { backdropUrl } from '../backdrops';
 import { act, setUi, toast, useKite, type ContextMenuItem } from '../store';
 import { navigateTab, openUrl, preconnectSoon, selectItem, undoable } from '../commands';
 import { isMac, now } from '../platform';
 import { KiteLogo } from './KiteLogo';
-import { activeSpace } from '@shared/tree';
-import { imageIsDark } from '@shared/background';
-import { resolveDark } from '../theme';
-import { useSystemDark } from '../systemDark';
-import { useImageUrl } from '../images';
 import { SiteIcon } from './SiteIcon';
 import { openMenu } from './ContextMenu';
 import { WidgetLayer, measureArea } from './home/WidgetLayer';
@@ -76,6 +75,7 @@ export function StartPage({ tabId }: { tabId?: ID }) {
   const favIds = useKite((st) => st.s.favorites);
   const items = useKite((st) => st.s.items);
   const home = useKite((st) => st.s.home);
+  const backdrop = useKite((st) => activeSpace(st.s).theme.backdrop);
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(-1);
   const [editing, setEditing] = useState<null | { id?: ID; name: string; url: string }>(null);
@@ -180,19 +180,21 @@ export function StartPage({ tabId }: { tabId?: ID }) {
       { label: 'Add Shortcut…', testId: 'home-add-shortcut', onSelect: () => setEditing({ name: '', url: '' }) },
       { separator: true, label: '' },
       {
-        label: 'Scene',
-        testId: 'home-scene',
+        label: 'Background',
+        testId: 'home-background',
         submenu: [
-          ...SCENES.map((s) => ({ label: s.name, hint: s.id === home.scene ? '✓' : s.note, testId: `home-scene-${s.id}`, onSelect: () => act((d) => void (d.home.scene = s.id)) })),
+          { label: 'Space Colours', hint: !backdrop ? '✓' : undefined, testId: 'home-bg-none', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(null))) },
           { separator: true, label: '' },
-          { label: 'Your own picture…', onSelect: () => setUi({ panel: 'settings', panelArg: 'spaces' }) },
+          ...BACKDROPS.map((b) => ({ label: b.name, hint: b.id === backdrop ? '✓' : undefined, testId: `home-bg-${b.id}`, onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(b.id))) })),
+          { separator: true, label: '' },
+          { label: 'Edit Theme…', onSelect: () => setUi({ panel: 'settings', panelArg: 'spaces' }) },
         ],
       },
       { label: home.showGreeting ? 'Hide Greeting' : 'Show Greeting', onSelect: () => act((d) => void (d.home.showGreeting = !d.home.showGreeting)) },
       { label: home.showFrequent ? 'Hide Frequently Visited' : 'Show Frequently Visited', testId: 'home-toggle-frequent', onSelect: () => act((d) => void (d.home.showFrequent = !d.home.showFrequent)) },
       { label: home.showHints ? 'Hide Shortcut Hints' : 'Show Shortcut Hints', onSelect: () => act((d) => void (d.home.showHints = !d.home.showHints)) },
       { separator: true, label: '' },
-      { label: 'Reset Home Page', danger: true, disabled: !home.widgets.length && home.scene === 'space', onSelect: () => undoable('Home page reset', (d) => void Object.assign(d.home, { widgets: [], scene: 'space' as SceneId })) },
+      { label: 'Remove All Widgets', danger: true, disabled: !home.widgets.length, onSelect: () => undoable('Widgets removed', (d) => void (d.home.widgets = [])) },
     ];
     openMenu({ clientX: r.right - 240, clientY: r.top - 8 }, items);
   };
@@ -220,34 +222,14 @@ export function StartPage({ tabId }: { tabId?: ID }) {
   const hasTiles = favorites.length > 0 || frequent.length > 0;
   let tileIndex = 0;
 
-  // Your background picture (either place shows it here), previewed live from Settings.
-  const savedImage = useKite((st) => activeSpace(st.s).theme.image);
-  const savedMode = useKite((st) => activeSpace(st.s).theme.mode);
-  const draftTheme = useKite((st) => st.ui.lookDraft?.theme);
-  const image = draftTheme && 'image' in draftTheme ? draftTheme.image : savedImage;
-  const systemDark = useSystemDark();
-  const imageSrc = useImageUrl(image?.id);
-  const dark = resolveDark({ mode: draftTheme?.mode ?? savedMode } as Parameters<typeof resolveDark>[0], systemDark);
-  // Text goes white when the picture (after dimming toward the page colour) is dark, or the scene is.
-  const scene = image && imageSrc ? 'space' : home.scene;
-  const sceneDark = SCENES.find((s) => s.id === scene)?.dark ?? false;
-  const onDark = image && imageSrc ? imageIsDark(image, dark ? 0.12 : 0.98) : sceneDark;
-  const tone = image && imageSrc ? (onDark ? 'dark' : 'light') : scene !== 'space' ? 'dark' : undefined;
+  // The Space's picture, crisp, behind the whole page; text follows its light or dark.
+  const picture = backdropById(backdrop);
+  const tone = picture?.tone;
 
   return (
     <>
-    {image && imageSrc && (
-      <div
-        className="start-bg"
-          data-blurred={image.blur > 0 || undefined}
-        aria-hidden="true"
-        data-testid="start-bg"
-        data-place={image.place}
-        style={{ '--img': `url("${imageSrc}")`, '--img-dim': `${Math.round(image.dim * 100)}%`, '--img-blur': `${image.blur}px` } as React.CSSProperties}
-      />
-    )}
-    <div className="start" data-testid={tabId ? 'start-page' : 'empty-state'} data-image={image && imageSrc ? true : undefined} data-scene={scene !== 'space' ? scene : undefined} data-tone={tone}>
-      {scene !== 'space' && !imageSrc && <div className="start-scene" aria-hidden="true" data-testid="start-scene" />}
+    <div className="start" data-testid={tabId ? 'start-page' : 'empty-state'} data-backdrop={picture?.id} data-tone={tone}>
+      {picture && <div className="start-bg" aria-hidden="true" data-testid="start-bg" style={{ backgroundImage: `url("${backdropUrl(picture.id)}")` }} />}
       <div className="start-inner">
         {home.showGreeting && (
           <header className="start-hello">
@@ -370,7 +352,7 @@ export function StartPage({ tabId }: { tabId?: ID }) {
         </footer>
       )}
 
-      <button className="home-fab" aria-label="Customize home page" title="Add a widget or shortcut, change the scene" data-testid="home-customize" onClick={customize}>
+      <button className="home-fab" aria-label="Customize home page" title="Add a widget or shortcut, change the background" data-testid="home-customize" onClick={customize}>
         <Plus size={20} />
       </button>
     </div>

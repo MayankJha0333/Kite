@@ -67,7 +67,6 @@ export function Stage() {
     <main className="stage" data-testid="stage">
       <DropZone zone={{ type: 'stage' }} className="card" testId="page-card" data-split={active?.kind === 'split' || undefined}>
         <div className="load-bar" data-on={loading || undefined} />
-        <div className="load-glow" data-on={loading || undefined} aria-hidden="true" />
         {mounted.map((id) => (
           <SurfaceSlot key={id} id={id} rect={rects[id]} inSplit={active?.kind === 'split' && active.panes.includes(id)} focusedInSplit={active?.kind === 'split' && active.panes[active.focused] === id} />
         ))}

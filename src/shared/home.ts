@@ -1,4 +1,5 @@
-// The home page (new tab): widgets you place on it, its scene, and what it shows.
+// The home page (new tab): widgets you place on it, and what it shows. Its background is
+// the Space's theme (colours, or one of Kite's pictures).
 //
 // Everything is plain JSON in AppState.home and checked on load (sanitizeHome), so a
 // damaged file never breaks the page. Widgets keep their place in pixels from the top
@@ -9,7 +10,6 @@ import { newId } from './ids';
 
 export type WidgetKind = 'clock' | 'weather' | 'note' | 'todo' | 'calendar' | 'timer';
 export type WidgetSize = 'small' | 'wide' | 'tall' | 'large';
-export type SceneId = 'space' | 'aurora' | 'dusk' | 'ocean' | 'forest' | 'ember' | 'night';
 
 export interface Widget {
   id: string;
@@ -24,8 +24,6 @@ export interface Widget {
 
 export interface HomeState {
   widgets: Widget[];
-  /** The background behind the page: the Space's own colours, or a built-in scene. */
-  scene: SceneId;
   showGreeting: boolean;
   showFrequent: boolean;
   showHints: boolean;
@@ -40,15 +38,6 @@ export const WIDGET_KINDS: { id: WidgetKind; name: string; blurb: string; size: 
   { id: 'timer', name: 'Focus timer', blurb: 'A countdown for focus', size: 'small' },
 ];
 
-export const SCENES: { id: SceneId; name: string; note: string; dark: boolean }[] = [
-  { id: 'space', name: 'Space colours', note: 'The colours this Space is painted in', dark: false },
-  { id: 'aurora', name: 'Aurora', note: 'Teal and green light over a dark sky', dark: true },
-  { id: 'dusk', name: 'Dusk', note: 'Violet into ember at the horizon', dark: true },
-  { id: 'ocean', name: 'Ocean', note: 'Deep blue with a bright surface', dark: true },
-  { id: 'forest', name: 'Forest', note: 'Dark greens and morning mist', dark: true },
-  { id: 'ember', name: 'Ember', note: 'Warm coals in the dark', dark: true },
-  { id: 'night', name: 'Night', note: 'Near black, a cool glow', dark: true },
-];
 
 /** Widget sizes in pixels (width × height); the area lays out on a 20px grid. */
 export const WIDGET_PX: Record<WidgetSize, [number, number]> = { small: [230, 150], wide: [470, 150], tall: [230, 320], large: [470, 320] };
@@ -57,7 +46,7 @@ export const MAX_WIDGETS = 12;
 
 export function defaultHome(): HomeState {
   // Frequently visited starts hidden: it is a list of where you have been, shown only when you ask.
-  return { widgets: [], scene: 'space', showGreeting: true, showFrequent: false, showHints: true };
+  return { widgets: [], showGreeting: true, showFrequent: false, showHints: true };
 }
 
 const MAX_PX = 8000;
@@ -76,7 +65,6 @@ export function sanitizeHome(raw: unknown): HomeState {
     : [];
   return {
     widgets,
-    scene: SCENES.some((s) => s.id === o.scene) ? (o.scene as SceneId) : d.scene,
     showGreeting: typeof o.showGreeting === 'boolean' ? o.showGreeting : d.showGreeting,
     showFrequent: typeof o.showFrequent === 'boolean' ? o.showFrequent : d.showFrequent,
     showHints: typeof o.showHints === 'boolean' ? o.showHints : d.showHints,

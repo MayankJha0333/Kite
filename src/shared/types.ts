@@ -1,4 +1,3 @@
-import type { SpaceGradient, SpaceImage, SpaceMotion } from './background';
 // Kite's whole saved state. Everything here is plain JSON so it can be
 // written to disk as-is and checked by tests without a browser.
 
@@ -66,12 +65,8 @@ export interface SpaceTheme {
   /** 0–1, how strongly the colors tint the chrome. */
   intensity: number;
   grain: boolean;
-  /** A gradient you designed; without it the background comes from `colors` and the style. */
-  gradient?: SpaceGradient;
-  /** Slow movement of the background (never with Reduce Motion). */
-  motion?: SpaceMotion;
-  /** A picture you added, behind the New Tab page or the whole browser. */
-  image?: SpaceImage;
+  /** One of Kite's built-in pictures, painted behind the window and the home page (see backdrops.ts). */
+  backdrop?: import('./backdrops').BackdropId;
 }
 
 export interface Space {
@@ -87,6 +82,8 @@ export interface Space {
   isolated?: boolean;
   /** Overrides the global auto-archive time for this Space. */
   archiveAfterMs?: number | null;
+  /** The Pinned section folded away (Arc: Collapse Pinned Section); the open pinned tab still shows. */
+  pinnedCollapsed?: boolean;
 }
 
 export interface ArchiveEntry {
@@ -144,14 +141,12 @@ export interface RouteRule {
 export type SidebarSide = 'left' | 'right';
 export type Density = 'compact' | 'comfortable' | 'roomy';
 export type MotionFeel = 'style' | 'smooth' | 'snappy' | 'bouncy' | 'spring';
-export type FontChoice = 'figtree' | 'bricolage' | 'inter' | 'system' | 'rounded' | 'mono';
 
 export interface Settings {
   sidebarSide: SidebarSide;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
   density: Density;
-  font: FontChoice;
   fontScale: number; // 0.85 – 1.25
   radius: number; // px corner radius of the page card
   gap: number; // px space around the page card
@@ -176,8 +171,6 @@ export interface Settings {
   /** …and when you switch to another app. */
   autoPipOnAppSwitch: boolean;
   shortcuts: Record<string, string>;
-  /** Extra CSS the user writes to restyle Kite itself. */
-  chromeCss: string;
   reduceMotion: boolean;
   tidyTitles: boolean;
   /** Soft interface sounds (tabs, Spaces, downloads). */
@@ -196,8 +189,6 @@ export interface Settings {
   sendGpc: boolean;
   /** Ask where to save each download. */
   askWhereToSave: boolean;
-  /** Visual style and its fine-tuning (see shared/look.ts). */
-  look: import('./look').Look;
 }
 
 export interface AppState {
