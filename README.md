@@ -1,11 +1,52 @@
-# Kite
+<p align="center">
+  <img src="build/icon.png" width="112" alt="Kite icon" />
+</p>
 
-A calm, sidebar-first web browser for macOS — built from the behaviour notes in
-[RESEARCH.md](RESEARCH.md). Everything works offline: no account, no server, nothing
-leaves your computer.
+<h1 align="center">Kite</h1>
 
-Electron + React + TypeScript. Written from scratch — no code, name, logo or icons
+<p align="center">
+  A calm, sidebar-first web browser for macOS.<br />
+  No account, no server, nothing leaves your computer.
+</p>
+
+<p align="center">
+  <a href="https://kite-browser.vercel.app"><b>Website</b></a> ·
+  <a href="https://github.com/MayankJha0333/M-Arc/releases/latest"><b>Download</b></a> ·
+  <a href="#whats-in-it">Features</a> ·
+  <a href="#run-it">Build from source</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/kite-film.gif" width="820" alt="A short tour of Kite: sidebar tabs, the command bar, Split View and the Space editor" />
+</p>
+
+Kite is built with Electron, React and TypeScript from the behaviour notes in
+[RESEARCH.md](RESEARCH.md). It is written from scratch: no code, name, logo or icons
 from Arc.
+
+## Download
+
+| Mac | File |
+|---|---|
+| Apple Silicon (M1 and later) | [Kite-mac-arm64.dmg](https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-arm64.dmg) |
+| Intel | [Kite-mac-x64.dmg](https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-x64.dmg) |
+
+Open the `.dmg` and drag Kite into Applications. The build is not signed with an Apple
+Developer ID, so the first time you open it: right-click **Kite.app → Open → Open**.
+Kite has no automatic updates; new versions appear on the
+[releases page](https://github.com/MayankJha0333/M-Arc/releases).
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Sidebar tabs with a page open](docs/images/browsing.jpg) **Sidebar tabs.** Tabs, Favorites and folders in a list you can read. | ![The command bar listing open tabs](docs/images/command-bar.jpg) **Command bar.** ⌘T searches tabs, notes, history and actions. |
+| ![Two pages side by side](docs/images/split-view.jpg) **Split View.** Two to four pages side by side or stacked. | ![The Space editor](docs/images/space-editor.jpg) **Spaces.** Each Space has its own tabs, icon and look. |
+
+<p align="center">
+  <img src="docs/images/home-favorites.jpg" width="820" alt="Kite's home page with a search box and Favorites" /><br />
+  <b>Home page.</b> Search, Favorites and widgets on every new tab.
+</p>
 
 ---
 
@@ -21,9 +62,6 @@ npm run dist       # make Kite.dmg + Kite.zip in release/ (Apple Silicon and Int
 npm run dist:linux # AppImage + .deb (x64 and arm64)
 npm run dist:win   # Windows installer (x64 and arm64); best built on Windows
 ```
-
-The `.dmg` is not signed with an Apple Developer ID, so the first time you open it:
-right-click **Kite.app → Open → Open**.
 
 **Make Kite your default browser:** Settings → Links & Boosts → Link Routing →
 “Make Kite the default browser”.
@@ -163,6 +201,8 @@ src/
 tests/
   unit/  e2e/  electron/  fixtures/   (sample Arc files)
 scripts/    build, dev, icon, screenshot helpers
+site/       the landing page (static HTML, deployed to https://kite-browser.vercel.app)
+docs/images README screenshots
 ```
 
 State is one plain JSON object. Every change is a small function in `src/shared/`
