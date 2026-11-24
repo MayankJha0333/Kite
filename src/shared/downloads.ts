@@ -41,6 +41,37 @@ export interface DownloadEntry {
   referrer?: string;
 }
 
+/** The Downloads list can be narrowed to one of these. */
+export type DownloadFilter = 'all' | 'active' | 'done' | 'failed';
+export const DOWNLOAD_FILTERS: readonly { id: DownloadFilter; name: string }[] = [
+  { id: 'all', name: 'All' },
+  { id: 'active', name: 'In progress' },
+  { id: 'done', name: 'Done' },
+  { id: 'failed', name: 'Failed' },
+];
+
+const FILTER_STATES: Record<Exclude<DownloadFilter, 'all'>, readonly DownloadState[]> = {
+  active: ['progressing', 'paused'],
+  done: ['completed'],
+  // A cancelled download is listed with the failed ones: both can be tried again.
+  failed: ['failed', 'cancelled'],
+};
+
+export function filterDownloads<T extends Pick<DownloadEntry, 'state'>>(list: readonly T[], filter: DownloadFilter): T[] {
+  return filter === 'all' ? [...list] : list.filter((d) => FILTER_STATES[filter].includes(d.state));
+}
+
+/** How many downloads each filter would show. */
+export function downloadCounts(list: readonly Pick<DownloadEntry, 'state'>[]): Record<DownloadFilter, number> {
+  return { all: list.length, active: filterDownloads(list, 'active').length, done: filterDownloads(list, 'done').length, failed: filterDownloads(list, 'failed').length };
+}
+
+/** Cancelling throws away what was saved, so Kite asks first once that is 1 MB or more. */
+export const CANCEL_CONFIRM_BYTES = 1024 * 1024;
+export function needsCancelConfirm(d: Pick<DownloadEntry, 'state' | 'received'>): boolean {
+  return (d.state === 'progressing' || d.state === 'paused') && d.received >= CANCEL_CONFIRM_BYTES;
+}
+
 /** A video, sound or stream found on the current page. */
 export interface MediaItem {
   url: string;

@@ -8,7 +8,7 @@ import type { AppState, ID } from '@shared/types';
 import { bridge } from './platform';
 import { keepAwake } from '@shared/sleep';
 
-export type Panel = 'settings' | 'archive' | 'history' | 'boosts' | 'boost' | 'routing' | 'import' | 'space' | 'shortcuts' | 'downloads' | 'extensions' | null;
+export type Panel = 'settings' | 'archive' | 'history' | 'boosts' | 'boost' | 'routing' | 'import' | 'space' | 'shortcuts' | 'downloads' | 'extensions' | 'welcome' | null;
 
 export interface Toast {
   id: number;

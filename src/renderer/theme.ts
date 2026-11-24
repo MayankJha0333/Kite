@@ -3,6 +3,7 @@
 import type { Settings, SpaceTheme } from '@shared/types';
 import { scaleVars, SPRINGS, springDuration, springEasing } from '@shared/designTokens';
 import { backdropUrl } from './backdrops';
+import { DEFAULT_PATTERN_STRENGTH, type PatternId } from '@shared/spaceTheme';
 
 type RGB = [number, number, number];
 
@@ -73,6 +74,28 @@ const SHADOW = 0.5;
 const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 const DUR = 220;
 
+/**
+ * A Space's pattern as CSS background layers: light marks on dark themes, dark marks on
+ * light ones. `size` has one entry per layer, so it can be joined with other layers.
+ */
+export function patternCss(pattern: PatternId | undefined, dark: boolean, strength = DEFAULT_PATTERN_STRENGTH): { image: string; size: string } {
+  if (!pattern) return { image: 'none', size: 'auto' };
+  const k = Math.max(0, Math.min(1, strength)) * 2;
+  const c = (a: number) => `rgba(${dark ? '255,255,255' : '40,30,20'},${Math.round(Math.min(0.6, a * k) * 1000) / 1000})`;
+  switch (pattern) {
+    case 'glow':
+      return { image: `radial-gradient(60% 50% at 16% 0%, ${c(0.11)}, transparent 70%), radial-gradient(50% 45% at 100% 100%, ${c(0.08)}, transparent 70%)`, size: 'auto, auto' };
+    case 'dots':
+      return { image: `radial-gradient(${c(0.16)} 1px, transparent 1.5px)`, size: '18px 18px' };
+    case 'grid':
+      return { image: `linear-gradient(${c(0.07)} 1px, transparent 1px), linear-gradient(90deg, ${c(0.07)} 1px, transparent 1px)`, size: '28px 28px, 28px 28px' };
+    case 'lines':
+      return { image: `repeating-linear-gradient(135deg, ${c(0.06)} 0 1px, transparent 1px 12px)`, size: 'auto' };
+    case 'rings':
+      return { image: `repeating-radial-gradient(circle at 18% 0%, ${c(0.07)} 0 1px, transparent 1px 34px)`, size: 'auto' };
+  }
+}
+
 /** How the selected tab and hovered rows look: a lifted card. */
 function rowSurfaces(dark: boolean): Record<string, string> {
   return {
@@ -118,6 +141,7 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
   const picture = theme.photo ? opts.photoUrl ?? undefined : theme.backdrop ? backdropUrl(theme.backdrop) : undefined;
   const gradientCss = stops ? `linear-gradient(${g!.angle}deg, ${stops.map((c, i) => `${c} ${Math.round((i / (stops.length - 1)) * 100)}%`).join(', ')})` : null;
   const springy = settings.motionFeel === 'spring';
+  const pat = patternCss(theme.pattern, dark, theme.patternStrength);
   return {
     ...scaleVars(dark),
     '--chrome-a': a,
@@ -145,6 +169,8 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
     '--tint-2': theme.colors[1],
     '--shadow': shadow,
     '--grain-opacity': theme.grain ? (dark ? '.10' : '.16') : '0',
+    '--pattern': pat.image,
+    '--pattern-size': pat.size,
     '--font': FONT,
     '--scale': String(settings.fontScale),
     '--radius': `${settings.radius}px`,

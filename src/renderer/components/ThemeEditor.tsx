@@ -6,15 +6,74 @@
 import { useState } from 'react';
 import { ImagePlus, Plus, X } from 'lucide-react';
 import { hexToHsl } from '@shared/designTokens';
-import { PLAIN, SWATCH_ROWS, gradientPatch, pairFromColor, pairFromHue, photoPatch, starterGradient, swatchOf } from '@shared/spaceTheme';
+import { DEFAULT_PATTERN_STRENGTH, PATTERNS, PLAIN, SWATCH_ROWS, THEME_PRESETS, gradientPatch, pairFromColor, pairFromHue, photoPatch, presetOf, presetPatch, starterGradient, swatchOf } from '@shared/spaceTheme';
 import { BACKDROPS, backdropPatch } from '@shared/backdrops';
 import { backdropUrl } from '../backdrops';
 import { setSpaceTheme } from '@shared/spaces';
 import type { ID, SpaceTheme } from '@shared/types';
 import { act, toast, useKite } from '../store';
 import { addImage, ImageError, useImageUrl } from '../images';
-import { mix } from '../theme';
+import { mix, patternCss, resolveDark } from '../theme';
+import { useSystemDark } from '../systemDark';
 import { Field, Segmented, Toggle } from './Sheet';
+
+/** Ready-made looks and patterns for a Space: one click each. Used by the theme editor and the Welcome tour. */
+export function PresetPicker({ spaceId }: { spaceId: ID }) {
+  const t = useKite((st) => st.s.spaces.find((x) => x.id === spaceId)?.theme);
+  const systemDark = useSystemDark();
+  if (!t) return null;
+  const set = (patch: Partial<SpaceTheme>) => act((d) => setSpaceTheme(d, spaceId, patch));
+  const css = (x: { colors: string[]; angle: number }) => `linear-gradient(${x.angle}deg, ${x.colors.join(', ')})`;
+  const preset = presetOf(t);
+  const dark = resolveDark(t, systemDark);
+  const strength = t.patternStrength ?? DEFAULT_PATTERN_STRENGTH;
+  // A pattern tile: the pattern at full strength over the Space's own colours.
+  const patternTile = (id: (typeof PATTERNS)[number]['id'] | undefined) => {
+    const p = patternCss(id, dark, 1);
+    const base = `linear-gradient(135deg, ${mix(dark ? '#16171c' : '#f4f1ec', t.colors[0], 0.45)}, ${mix(dark ? '#16171c' : '#f4f1ec', t.colors[1], 0.45)})`;
+    return id ? { backgroundImage: `${p.image}, ${base}`, backgroundSize: `${p.size}, auto` } : { backgroundImage: base };
+  };
+  return (
+    <>
+      <Field label="Presets">
+        <div className="backdrop-grid" role="radiogroup" aria-label="Theme presets" data-testid="theme-presets">
+          {THEME_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              className="backdrop-tile"
+              aria-checked={preset === p.id}
+              aria-label={p.name}
+              title={p.name}
+              data-on={preset === p.id || undefined}
+              data-tone={p.mode}
+              data-testid={`preset-${p.id}`}
+              style={{ background: css(p.gradient) }}
+              onClick={() => set(presetPatch(p.id))}
+            >
+              <span className="backdrop-name">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Pattern" hint={t.pattern ? `${Math.round(strength * 100)}%` : undefined}>
+        <div className="backdrop-grid" role="radiogroup" aria-label="Pattern" data-testid="theme-patterns">
+          <button type="button" role="radio" className="backdrop-tile" aria-checked={!t.pattern} data-on={!t.pattern || undefined} data-tone={dark ? 'dark' : 'light'} data-testid="pattern-none" title="No pattern" style={patternTile(undefined)} onClick={() => set({ pattern: undefined, patternStrength: undefined })}>
+            <span className="backdrop-name">None</span>
+          </button>
+          {PATTERNS.map((p) => (
+            <button key={p.id} type="button" role="radio" className="backdrop-tile" aria-checked={t.pattern === p.id} aria-label={p.name} title={p.name} data-on={t.pattern === p.id || undefined} data-tone={dark ? 'dark' : 'light'} data-testid={`pattern-${p.id}`} style={patternTile(p.id)} onClick={() => set({ pattern: p.id })}>
+              <span className="backdrop-name">{p.name}</span>
+            </button>
+          ))}
+        </div>
+        {t.pattern && <input type="range" className="range" aria-label="Pattern strength" min={0.1} max={1} step={0.05} value={strength} data-testid="pattern-strength" onChange={(e) => set({ patternStrength: Number(e.target.value) })} />}
+      </Field>
+    </>
+  );
+}
 
 export function ThemeControls({ spaceId }: { spaceId: ID }) {
   const t = useKite((st) => st.s.spaces.find((x) => x.id === spaceId)?.theme);
@@ -50,6 +109,8 @@ export function ThemeControls({ spaceId }: { spaceId: ID }) {
   };
   return (
     <div className="theme-controls" data-testid="theme-controls">
+      <PresetPicker spaceId={spaceId} />
+
       <Field label="Background">
         <div className="backdrop-grid" role="radiogroup" aria-label="Background picture" data-testid="theme-backdrops">
           <button

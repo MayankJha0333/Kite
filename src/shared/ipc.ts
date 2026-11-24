@@ -85,7 +85,7 @@ export interface AppInfo {
 /** An answer that may be a readable error instead. */
 export type Result<T> = { value: T; error?: undefined } | { error: string; value?: undefined };
 
-export type DownloadAction = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear' | 'retry';
+export type DownloadAction = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear' | 'retry' | 'trash';
 export interface ClearWhat {
   cookies: boolean;
   cache: boolean;

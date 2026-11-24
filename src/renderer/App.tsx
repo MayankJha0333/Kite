@@ -79,6 +79,7 @@ function Shell() {
       data-page={onSettings ? 'settings' : undefined}
       data-backdrop={theme.photo && photoUrl ? 'photo' : theme.backdrop}
     >
+      <div className="pattern" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
       <Sidebar />
       {collapsed && <EdgeHotzone side={settings.sidebarSide} />}

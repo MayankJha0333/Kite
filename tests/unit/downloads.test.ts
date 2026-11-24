@@ -114,3 +114,34 @@ javascript:alert(1)
     expect(hlsIv(null, 0).every((b) => b === 0)).toBe(true);
   });
 });
+
+describe('downloads list: filters and cancel confirmation', () => {
+  const list = [
+    { state: 'progressing', received: 5 * 1024 * 1024 },
+    { state: 'paused', received: 10 },
+    { state: 'completed', received: 100 },
+    { state: 'completed', received: 100 },
+    { state: 'failed', received: 0 },
+    { state: 'cancelled', received: 0 },
+  ] as const;
+
+  it('narrows the list and counts each filter', async () => {
+    const { DOWNLOAD_FILTERS, downloadCounts, filterDownloads } = await import('../../src/shared/downloads');
+    expect(DOWNLOAD_FILTERS.map((f) => f.id)).toEqual(['all', 'active', 'done', 'failed']);
+    expect(downloadCounts(list)).toEqual({ all: 6, active: 2, done: 2, failed: 2 });
+    expect(filterDownloads(list, 'active').map((d) => d.state)).toEqual(['progressing', 'paused']);
+    expect(filterDownloads(list, 'failed').map((d) => d.state)).toEqual(['failed', 'cancelled']);
+    expect(filterDownloads(list, 'all')).toEqual([...list]);
+    expect(filterDownloads(list, 'all')).not.toBe(list);
+    expect(downloadCounts([])).toEqual({ all: 0, active: 0, done: 0, failed: 0 });
+  });
+
+  it('asks before cancelling only when real progress would be lost', async () => {
+    const { CANCEL_CONFIRM_BYTES, needsCancelConfirm } = await import('../../src/shared/downloads');
+    expect(needsCancelConfirm({ state: 'progressing', received: CANCEL_CONFIRM_BYTES })).toBe(true);
+    expect(needsCancelConfirm({ state: 'paused', received: CANCEL_CONFIRM_BYTES * 3 })).toBe(true);
+    expect(needsCancelConfirm({ state: 'progressing', received: CANCEL_CONFIRM_BYTES - 1 })).toBe(false);
+    expect(needsCancelConfirm({ state: 'completed', received: CANCEL_CONFIRM_BYTES * 9 })).toBe(false);
+    expect(needsCancelConfirm({ state: 'failed', received: CANCEL_CONFIRM_BYTES * 9 })).toBe(false);
+  });
+});

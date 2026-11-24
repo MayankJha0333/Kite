@@ -8,6 +8,7 @@ import { RoutingPanel } from './Routing';
 import { ImportArc } from './ImportArc';
 import { DownloadsPanel } from './Downloads';
 import { ExtensionsPanel } from './Extensions';
+import { Welcome } from './Welcome';
 
 /** Side sheets (Settings, Archive, Boosts, Space editor…). A panel that breaks closes
  *  itself with a message instead of taking the whole window (and your pages) down. */
@@ -49,5 +50,6 @@ function PanelSwitch() {
   // Settings is a page inside the page area (see Stage), not a sheet.
   if (panel === 'downloads') return <DownloadsPanel />;
   if (panel === 'extensions') return <ExtensionsPanel />;
+  if (panel === 'welcome') return <Welcome />;
   return null;
 }

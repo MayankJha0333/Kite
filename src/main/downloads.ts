@@ -396,7 +396,7 @@ export function createDownloads(deps: DownloadDeps) {
     }
   }
 
-  type Action = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear' | 'retry';
+  type Action = 'pause' | 'resume' | 'cancel' | 'open' | 'reveal' | 'remove' | 'clear' | 'retry' | 'trash';
   async function act(action: Action, id?: string): Promise<string | null> {
     if (action === 'clear') {
       list = list.filter((d) => d.state === 'progressing' || d.state === 'paused');
@@ -426,6 +426,18 @@ export function createDownloads(deps: DownloadDeps) {
       item?.cancel();
       job?.cancel();
       aborts.get(entry.id)?.abort();
+    } else if (action === 'trash') {
+      // Only a finished file goes to the Trash (where it can be put back); it also leaves the list.
+      if (entry.state !== 'completed' || !entry.path) return 'Only finished downloads can be moved to the Trash.';
+      if (existsSync(entry.path)) {
+        try {
+          await shell.trashItem(entry.path);
+        } catch {
+          return 'Kite couldn’t move that file to the Trash.';
+        }
+      }
+      list = list.filter((d) => d !== entry);
+      changed(true);
     } else if (action === 'remove') {
       item?.cancel();
       job?.cancel();

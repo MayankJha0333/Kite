@@ -341,6 +341,30 @@ export function shieldsActive(sh: Shields, pageUrl: string): boolean {
   return sh.enabled && !isAllowedSite(sh, pageUrl);
 }
 
+/** One line of the per-site panel: a protection and whether it applies to this page. */
+export interface SiteProtection {
+  id: 'ads' | 'cosmetic' | 'fingerprinting' | 'cookies' | 'links' | 'webrtc';
+  label: string;
+  on: boolean;
+}
+
+/**
+ * What protects you on this page, the way the network code applies it: ad blocking and
+ * hiding leftovers stop when the site is allowed; fingerprint protection and link cleaning
+ * follow their own switches; cookie and WebRTC protection also need Shields switched on.
+ */
+export function siteProtections(sh: Shields, pageUrl: string): SiteProtection[] {
+  const active = shieldsActive(sh, pageUrl);
+  return [
+    { id: 'ads', label: 'Ads and trackers blocked', on: active },
+    { id: 'cosmetic', label: 'Gaps left by ads hidden', on: active && sh.cosmetic },
+    { id: 'fingerprinting', label: 'Fingerprinting protection', on: sh.fingerprinting },
+    { id: 'cookies', label: 'Cookies kept from other sites', on: sh.enabled && sh.crossSiteCookies },
+    { id: 'links', label: 'Tracking parts removed from links', on: sh.stripParams || sh.debounce || sh.deAmp },
+    { id: 'webrtc', label: 'Real IP address hidden from calls', on: sh.enabled && sh.blockWebRTC },
+  ];
+}
+
 /** Turn blocking off (allow = true) or back on for one site. Works with an inverted list too. */
 export function setSiteAllowed(sh: Shields, urlOrHost: string, allow: boolean): Shields {
   const h = siteKey(urlOrHost);

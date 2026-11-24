@@ -262,7 +262,7 @@ function makeWebBridge(): KiteBridge {
     downloadAction: async (action, id) => {
       hooks.calls.push(`download:${action}:${id ?? ''}`);
       if (action === 'clear') dl = dl.filter((d) => d.state === 'progressing' || d.state === 'paused');
-      else if (action === 'remove') dl = dl.filter((d) => d.id !== id);
+      else if (action === 'remove' || action === 'trash') dl = dl.filter((d) => d.id !== id);
       else dl = dl.map((d) => (d.id !== id ? d : action === 'pause' ? { ...d, state: 'paused' as const } : action === 'resume' ? { ...d, state: 'progressing' as const } : action === 'cancel' ? { ...d, state: 'cancelled' as const } : d));
       downloadsState.emit(dl);
       return null;

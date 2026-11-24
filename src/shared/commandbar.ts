@@ -50,6 +50,7 @@ export const ACTION_CATALOG: ActionDef[] = [
   { id: 'toggleShields', title: 'Turn Shields On / Off', keywords: 'ad blocker ads trackers adblock' },
   { id: 'siteInfo', title: 'About This Site', keywords: 'security lock certificate permissions cookies' },
   { id: 'importArc', title: 'Import from Arc', keywords: 'migrate spaces tabs' },
+  { id: 'welcome', title: 'Welcome to Kite', keywords: 'tour setup start onboarding theme preset first' },
   { id: 'toggleTheme', title: 'Toggle Light / Dark', keywords: 'theme appearance night' },
   { id: 'findInPage', title: 'Find in Page', keywords: 'search' },
   { id: 'reload', title: 'Reload Page', keywords: 'refresh' },

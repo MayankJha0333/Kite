@@ -103,6 +103,7 @@ export function LittleApp() {
 
   return (
     <div className="app little-app" style={vars as React.CSSProperties} data-theme={dark ? 'dark' : 'light'} data-testid="little" data-electron={isElectron || undefined} data-mac={isMac || undefined}>
+      <div className="pattern" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
       <header className="little-bar drag">
         <div className="little-bar-inner no-drag">

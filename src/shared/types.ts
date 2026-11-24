@@ -71,6 +71,10 @@ export interface SpaceTheme {
   photo?: { id: string; tone: 'light' | 'dark' };
   /** A gradient you made: 2–4 colours along an angle. */
   gradient?: { colors: string[]; angle: number };
+  /** A light pattern drawn over the window's colours (see spaceTheme.ts). */
+  pattern?: import('./spaceTheme').PatternId;
+  /** 0–1, how strongly the pattern shows (0.5 when not set). */
+  patternStrength?: number;
 }
 
 export interface Space {

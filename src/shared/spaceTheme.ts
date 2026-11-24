@@ -24,10 +24,56 @@ export const MODES: ThemeMode[] = ['light', 'dark', 'system'];
  * behind the sidebar and in full on the home page, with a periwinkle accent.
  */
 export const DEFAULT_GRADIENT = { colors: ['#3b39a6', '#6b3fc4', '#16627c'], angle: 160 };
-export const DEFAULT_THEME: SpaceTheme = { colors: ['#3b39a6', '#8f8cff'], mode: 'dark', intensity: 0.65, grain: true, gradient: { colors: [...DEFAULT_GRADIENT.colors], angle: DEFAULT_GRADIENT.angle } };
+export const DEFAULT_THEME: SpaceTheme = { colors: ['#3b39a6', '#8f8cff'], mode: 'dark', intensity: 0.65, grain: true, gradient: { colors: [...DEFAULT_GRADIENT.colors], angle: DEFAULT_GRADIENT.angle }, pattern: 'glow' };
 
 /** Bumped when the default theme changes for everyone (see persistence.ts). */
 export const THEME_VERSION = 2;
+
+/** Patterns drawn softly over the window's colours. Kite's own; made with CSS gradients, so they cost nothing to draw. */
+export type PatternId = 'glow' | 'dots' | 'grid' | 'lines' | 'rings';
+export const PATTERNS: readonly { id: PatternId; name: string }[] = [
+  { id: 'glow', name: 'Glow' },
+  { id: 'dots', name: 'Dots' },
+  { id: 'grid', name: 'Grid' },
+  { id: 'lines', name: 'Lines' },
+  { id: 'rings', name: 'Rings' },
+];
+export const isPattern = (v: unknown): v is PatternId => typeof v === 'string' && PATTERNS.some((p) => p.id === v);
+export const DEFAULT_PATTERN_STRENGTH = 0.5;
+
+/** A ready-made look: a gradient, an accent, light or dark, and a pattern. One click sets them all. */
+export interface ThemePreset {
+  id: string;
+  name: string;
+  mode: 'light' | 'dark';
+  gradient: { colors: string[]; angle: number };
+  accent: string;
+  pattern: PatternId;
+}
+
+export const THEME_PRESETS: readonly ThemePreset[] = [
+  { id: 'tide', name: 'Indigo Tide', mode: 'dark', gradient: { colors: [...DEFAULT_GRADIENT.colors], angle: DEFAULT_GRADIENT.angle }, accent: '#8f8cff', pattern: 'glow' },
+  { id: 'ember', name: 'Ember', mode: 'dark', gradient: { colors: ['#6a2b7a', '#b0456a', '#c8642f'], angle: 160 }, accent: '#ffb38a', pattern: 'glow' },
+  { id: 'forest', name: 'Forest', mode: 'dark', gradient: { colors: ['#1f6b5c', '#2f8a5a', '#5a9a3a'], angle: 160 }, accent: '#8fe0a8', pattern: 'glow' },
+  { id: 'rosewood', name: 'Rosewood', mode: 'dark', gradient: { colors: ['#6a2a7a', '#a83a8a', '#c8446f'], angle: 160 }, accent: '#ff9ec4', pattern: 'glow' },
+  { id: 'graphite', name: 'Graphite', mode: 'dark', gradient: { colors: ['#4a4d57', '#5c606b', '#73788a'], angle: 160 }, accent: '#d5d8e0', pattern: 'dots' },
+  { id: 'dawn', name: 'Dawn', mode: 'light', gradient: { colors: ['#f6c9b0', '#e3c4ea', '#b9d4f5'], angle: 160 }, accent: '#4b3fd6', pattern: 'glow' },
+];
+
+/** What picking a preset changes on a Space theme. Intensity and grain are left as they are. */
+export function presetPatch(id: string): Partial<SpaceTheme> {
+  const p = THEME_PRESETS.find((x) => x.id === id);
+  if (!p) return {};
+  return { backdrop: undefined, photo: undefined, gradient: { colors: [...p.gradient.colors], angle: p.gradient.angle }, colors: [p.gradient.colors[0], p.accent], mode: p.mode, pattern: p.pattern };
+}
+
+/** The preset a theme is showing, if its gradient and accent still match one. */
+export function presetOf(theme: Pick<SpaceTheme, 'colors' | 'gradient'>): string | null {
+  const g = theme.gradient;
+  if (!g) return null;
+  const same = (a: string[], b: string[]) => a.length === b.length && a.every((c, i) => c.toLowerCase() === b[i].toLowerCase());
+  return THEME_PRESETS.find((p) => same(p.gradient.colors, g.colors) && p.accent.toLowerCase() === theme.colors[1].toLowerCase())?.id ?? null;
+}
 
 const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
 const clamp01 = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : fallback);
@@ -88,6 +134,8 @@ export function sanitizeTheme(t: Partial<SpaceTheme> | undefined, fallback: Spac
     ...(photo ? { photo } : {}),
     ...(backdrop ? { backdrop } : {}),
     ...(gradient ? { gradient } : {}),
+    ...(isPattern(t?.pattern) ? { pattern: t!.pattern } : {}),
+    ...(isPattern(t?.pattern) && typeof t?.patternStrength === 'number' && Number.isFinite(t.patternStrength) ? { patternStrength: clamp01(t.patternStrength, DEFAULT_PATTERN_STRENGTH) } : {}),
   };
 }
 

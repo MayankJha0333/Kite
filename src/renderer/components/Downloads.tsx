@@ -2,15 +2,16 @@
 // finished, and the videos and sounds on the current page that can be saved.
 
 import { useEffect, useState } from 'react';
-import { Download, FileDown, Film, FolderOpen, Image, Link2, Music, Pause, Play, RotateCw, Trash2, X, AlertTriangle, Radio, Zap } from 'lucide-react';
+import { Download, FileDown, Film, FolderOpen, Image, Link2, MoreHorizontal, Music, Pause, Play, RotateCw, Trash2, X, AlertTriangle, Radio, Zap } from 'lucide-react';
 import * as ops from '@shared/ops';
-import { formatBytes, progressOf, timeLeft, type DownloadEntry, type HlsVariant, type MediaItem } from '@shared/downloads';
+import { DOWNLOAD_FILTERS, downloadCounts, filterDownloads, formatBytes, needsCancelConfirm, progressOf, timeLeft, type DownloadEntry, type DownloadFilter, type HlsVariant, type MediaItem } from '@shared/downloads';
 import { bridge } from '../platform';
-import { toast, useKite } from '../store';
+import { toast, useKite, type ContextMenuItem } from '../store';
+import { openMenu } from './ContextMenu';
 import { surface } from '../surfaces';
 import { activeSpace } from '@shared/tree';
 import { partitionForSpace } from '@shared/profiles';
-import { Sheet } from './Sheet';
+import { Segmented, Sheet } from './Sheet';
 
 const ICON = { file: FileDown, image: Image, video: Film, audio: Music } as const;
 
@@ -29,12 +30,62 @@ async function run(action: Parameters<typeof bridge.downloadAction>[0], id?: str
   if (problem) toast(problem);
 }
 
+/** What you can do with one download, for the “More” button and right-click. */
+function fileMenu(d: DownloadEntry): ContextMenuItem[] {
+  const live = d.state === 'progressing' || d.state === 'paused';
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(d.url);
+      toast('Download link copied');
+    } catch {
+      toast('Kite couldn’t copy the link.');
+    }
+  };
+  const again = async () => {
+    const problem = d.partition ? await bridge.downloadLink(d.url, d.partition) : await bridge.downloadAction('retry', d.id);
+    toast(problem ?? 'Download started');
+  };
+  const items: ContextMenuItem[] = [];
+  if (d.state === 'completed') {
+    items.push({ label: 'Open', onSelect: () => void run('open', d.id) });
+    items.push({ label: 'Show in Folder', onSelect: () => void run('reveal', d.id) });
+  }
+  if (/^https?:/i.test(d.url)) items.push({ label: 'Copy Download Link', onSelect: () => void copy() });
+  if (!live && /^https?:/i.test(d.url)) items.push({ label: 'Download Again', onSelect: () => void again() });
+  if (!live) items.push({ label: '', separator: true }, { label: 'Remove from List', onSelect: () => void run('remove', d.id) });
+  if (d.state === 'completed') items.push({ label: 'Move to Trash', danger: true, onSelect: () => void run('trash', d.id) });
+  return items;
+}
+
 function Row({ d }: { d: DownloadEntry }) {
   const Icon = ICON[d.kind] ?? FileDown;
   const p = progressOf(d);
   const live = d.state === 'progressing' || d.state === 'paused';
+  // Cancelling deletes what was saved so far, so it is asked once in the row itself.
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    if (!live) setAsking(false);
+  }, [live]);
+  const cancel = () => (needsCancelConfirm(d) ? setAsking(true) : void run('cancel', d.id));
+  const menu = fileMenu(d);
+  if (asking && live) {
+    return (
+      <div className="dl-row dl-confirm" data-state={d.state} data-testid={`download-${d.id}`} role="alertdialog" aria-label={`Cancel ${d.name}?`}>
+        <span className="dl-icon"><AlertTriangle size={17} /></span>
+        <div className="dl-main">
+          <span className="dl-name">Cancel this download?</span>
+          <span className="dl-status" data-testid="download-cancel-ask">The {formatBytes(d.received)} already saved of {d.name} will be deleted.</span>
+        </div>
+        <div className="dl-actions">
+          <button className="btn small ghost" autoFocus data-testid="download-cancel-keep" onClick={() => setAsking(false)}>Keep downloading</button>
+          {d.state === 'progressing' && d.resumable && <button className="btn small ghost" data-testid="download-cancel-pause" onClick={() => { setAsking(false); void run('pause', d.id); }}>Pause instead</button>}
+          <button className="btn small" data-testid="download-cancel-yes" onClick={() => { setAsking(false); void run('cancel', d.id); }}>Cancel download</button>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="dl-row" data-state={d.state} data-testid={`download-${d.id}`}>
+    <div className="dl-row" data-state={d.state} data-testid={`download-${d.id}`} onContextMenu={(e) => menu.length > 0 && openMenu(e, menu)}>
       <span className="dl-icon">
         <Icon size={17} />
         {d.accelerated && <Zap size={10} className="dl-fast" aria-label="Accelerated" />}
@@ -60,10 +111,11 @@ function Row({ d }: { d: DownloadEntry }) {
       <div className="dl-actions">
         {d.state === 'progressing' && d.resumable && <button className="icon-btn" aria-label="Pause" title="Pause" data-testid="download-pause" onClick={() => void run('pause', d.id)}><Pause size={14} /></button>}
         {d.state === 'paused' && d.resumable && <button className="icon-btn" aria-label="Resume" title="Resume" data-testid="download-resume" onClick={() => void run('resume', d.id)}><Play size={14} /></button>}
-        {live && <button className="icon-btn" aria-label="Cancel" title="Cancel" data-testid="download-cancel" onClick={() => void run('cancel', d.id)}><X size={14} /></button>}
+        {live && <button className="icon-btn" aria-label="Cancel" title="Cancel" data-testid="download-cancel" onClick={cancel}><X size={14} /></button>}
         {(d.state === 'failed' || d.state === 'cancelled') && <button className="icon-btn" aria-label="Try again" title={d.accelerated && d.state === 'failed' ? 'Try again, from where it stopped' : 'Download again'} data-testid="download-retry" onClick={() => void run('retry', d.id)}><RotateCw size={14} /></button>}
         {d.state === 'completed' && <button className="icon-btn" aria-label="Show in folder" title="Show in folder" data-testid="download-reveal" onClick={() => void run('reveal', d.id)}><FolderOpen size={14} /></button>}
         {!live && <button className="icon-btn" aria-label="Remove from list" title="Remove from list (keeps the file)" data-testid="download-remove" onClick={() => void run('remove', d.id)}><Trash2 size={14} /></button>}
+        {menu.length > 0 && <button className="icon-btn" aria-label={`More actions for ${d.name}`} title="More" aria-haspopup="menu" data-testid="download-more" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openMenu({ clientX: r.left, clientY: r.bottom + 4, preventDefault: () => e.preventDefault(), stopPropagation: () => e.stopPropagation() }, menu); }}><MoreHorizontal size={14} /></button>}
       </div>
     </div>
   );
@@ -156,6 +208,9 @@ export function DownloadsPanel() {
   const list = useKite((st) => st.ui.downloads);
   const hasPage = useKite((st) => !!ops.activeTab(st.s));
   const done = list.some((d) => d.state !== 'progressing' && d.state !== 'paused');
+  const [filter, setFilter] = useState<DownloadFilter>('all');
+  const counts = downloadCounts(list);
+  const shown = filterDownloads(list, filter);
   return (
     <Sheet title="Downloads" subtitle="Files are saved to your Downloads folder" testId="downloads">
       <AddLink />
@@ -167,7 +222,16 @@ export function DownloadsPanel() {
         </header>
       )}
       {list.length === 0 && <p className="muted dl-empty" data-testid="downloads-empty">Nothing downloaded yet.</p>}
-      <div className="dl-list">{list.map((d) => <Row key={d.id} d={d} />)}</div>
+      {list.length > 1 && (
+        <Segmented
+          testId="downloads-filter"
+          value={filter}
+          onChange={setFilter}
+          options={DOWNLOAD_FILTERS.map((f) => ({ value: f.id, label: <>{f.name}<span className="dl-count">{counts[f.id]}</span></> }))}
+        />
+      )}
+      {list.length > 0 && shown.length === 0 && <p className="muted dl-empty" data-testid="downloads-filter-empty">No downloads here. <button className="link" onClick={() => setFilter('all')}>Show all</button></p>}
+      <div className="dl-list">{shown.map((d) => <Row key={d.id} d={d} />)}</div>
     </Sheet>
   );
 }

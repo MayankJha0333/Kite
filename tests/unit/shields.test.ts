@@ -247,3 +247,23 @@ describe('filter engine build (the worker)', () => {
     expect(listTitle('[Adblock Plus 2.0]\n! Title: AdGuard Base filter + EasyList\n')).toBe('AdGuard Base filter + EasyList');
   });
 });
+
+describe('per-site protections summary', () => {
+  it('follows how each protection is applied', async () => {
+    const { defaultShields, setSiteAllowed, siteProtections } = await import('@shared/shields');
+    const on = (sh: ReturnType<typeof defaultShields>, url: string) => Object.fromEntries(siteProtections(sh, url).map((p) => [p.id, p.on]));
+    const sh = defaultShields();
+    const url = 'https://news.example.com/story';
+    expect(siteProtections(sh, url).map((p) => p.id)).toEqual(['ads', 'cosmetic', 'fingerprinting', 'cookies', 'links', 'webrtc']);
+    expect(on(sh, url)).toMatchObject({ ads: true, cosmetic: sh.cosmetic, fingerprinting: true, cookies: true });
+    // Allowing a site stops ad blocking there, but not the protections that are not per-site.
+    const allowed = setSiteAllowed(sh, url, true);
+    expect(on(allowed, url)).toMatchObject({ ads: false, cosmetic: false, fingerprinting: true, cookies: true });
+    expect(on(allowed, 'https://other.example.org/')).toMatchObject({ ads: true });
+    // The master switch turns off everything that depends on it.
+    const off = { ...sh, enabled: false };
+    expect(on(off, url)).toMatchObject({ ads: false, cosmetic: false, cookies: false, webrtc: false, fingerprinting: sh.fingerprinting });
+    expect(on({ ...sh, stripParams: false, debounce: false, deAmp: false }, url).links).toBe(false);
+    expect(on({ ...sh, stripParams: false, debounce: true, deAmp: false }, url).links).toBe(true);
+  });
+});

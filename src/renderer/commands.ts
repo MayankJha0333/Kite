@@ -479,6 +479,7 @@ export const actions: Record<string, () => void> = {
   boostsPanel: () => setUi({ panel: 'boosts' }),
   routingPanel: () => setUi({ panel: 'routing' }),
   importArc: () => setUi({ panel: 'import' }),
+  welcome: () => setUi({ panel: 'welcome' }),
   downloadsPanel: () => setUi({ panel: 'downloads' }),
   extensionsPanel: () => setUi({ panel: 'extensions' }),
   privacyPanel: () => setUi({ panel: 'settings', panelArg: 'privacy' }),

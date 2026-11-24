@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Lock, LockOpen, ShieldAlert, ShieldCheck, ShieldOff, Globe, Trash2, Laptop, ChevronRight } from 'lucide-react';
 import * as ops from '@shared/ops';
-import { SECURITY_TEXT, isAllowedSite, securityLevel, shieldsActive, siteKey, type SecurityLevel } from '@shared/shields';
+import { SECURITY_TEXT, isAllowedSite, securityLevel, shieldsActive, siteKey, siteProtections, type SecurityLevel } from '@shared/shields';
 import type { PageLog, SitePermission } from '@shared/ipc';
 import { bridge } from '../platform';
 import { setUi, toast, useKite } from '../store';
@@ -102,6 +102,17 @@ export function SiteInfo() {
               </ul>
             )}
           </div>
+        )}
+
+        {web && (
+          <ul className="site-info-prot" aria-label="Protections on this site" data-testid="site-info-protections">
+            {siteProtections(shields, url).map((p) => (
+              <li key={p.id} data-on={p.on || undefined} data-testid={`site-prot-${p.id}`}>
+                <span>{p.label}</span>
+                <span className="site-info-prot-state">{p.on ? 'On' : 'Off'}</span>
+              </li>
+            ))}
+          </ul>
         )}
 
         {mine.length > 0 && (

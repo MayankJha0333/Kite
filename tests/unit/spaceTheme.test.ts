@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_THEME, MODES, SWATCH_ROWS, defaultTheme, gradientPatch, pairFromColor, pairFromHue, photoPatch, sanitizeGradient, sanitizeTheme, starterGradient, swatchOf, PLAIN } from '@shared/spaceTheme';
+import { DEFAULT_THEME, MODES, SWATCH_ROWS, defaultTheme, gradientPatch, pairFromColor, pairFromHue, photoPatch, sanitizeGradient, sanitizeTheme, starterGradient, swatchOf, PLAIN, PATTERNS, THEME_PRESETS, presetOf, presetPatch } from '@shared/spaceTheme';
 import { createInitialState } from '@shared/defaults';
 import { loadState } from '@shared/persistence';
 import { setSpaceTheme } from '@shared/spaces';
-import { themeVars, readability, contrast } from '../../src/renderer/theme';
+import { themeVars, readability, contrast, patternCss } from '../../src/renderer/theme';
 import { fresh, run } from './helpers';
 
 const hex = /^#[0-9a-f]{6}$/;
@@ -38,7 +38,7 @@ describe('Space theme (Arc-style: colour, intensity, grain, light/dark/auto)', (
     const fb = DEFAULT_THEME;
     const t = sanitizeTheme({ colors: ['#ABCDEF', '#123456'], mode: 'dark', intensity: 7, grain: 'yes' as never, gradient: { kind: 'mesh' }, motion: { kind: 'drift' }, image: { id: 'x' } } as never, fb);
     expect(t).toEqual({ colors: ['#abcdef', '#123456'], mode: 'dark', intensity: 1, grain: true });
-    const { gradient: _g, ...plainFb } = fb;
+    const { gradient: _g, pattern: _pt, ...plainFb } = fb;
     expect(sanitizeTheme({ colors: ['red', '#000'] as never, mode: 'neon' as never }, fb)).toEqual(plainFb);
     expect(sanitizeTheme(undefined, fb)).toEqual(fb);
     expect(MODES).toEqual(['light', 'dark', 'system']);
@@ -52,7 +52,7 @@ describe('Space theme (Arc-style: colour, intensity, grain, light/dark/auto)', (
     let s = fresh();
     const id = s.spaces[0].id;
     [s] = run(s, (d) => setSpaceTheme(d, id, { intensity: 3, colors: ['#FFEEDD', '#001122'], gradient: {} } as never));
-    expect(s.spaces[0].theme).toEqual({ colors: ['#ffeedd', '#001122'], mode: 'dark', intensity: 1, grain: true });
+    expect(s.spaces[0].theme).toEqual({ colors: ['#ffeedd', '#001122'], mode: 'dark', intensity: 1, grain: true, pattern: 'glow' });
   });
 
   it('paints the window from the colours alone, and keeps the look Kite had', () => {
@@ -162,5 +162,69 @@ describe('your own gradient and picture; the dark default for everyone', () => {
       expect(readability(theme, s.settings, false).text, `space ${i}`).toBeGreaterThanOrEqual(4.5);
       expect(readability(theme, s.settings, false).accent, `space ${i} accent`).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe('Theme presets and patterns', () => {
+  it('offers six presets; picking one sets its gradient, accent, mode and pattern in one go', () => {
+    expect(THEME_PRESETS.map((p) => p.id)).toEqual(['tide', 'ember', 'forest', 'rosewood', 'graphite', 'dawn']);
+    let s = fresh();
+    const id = s.spaces[0].id;
+    // A new Kite is already on the first preset, with the Glow pattern.
+    expect(presetOf(s.spaces[0].theme)).toBe('tide');
+    expect(s.spaces[0].theme.pattern).toBe('glow');
+    for (const p of THEME_PRESETS) {
+      [s] = run(s, (d) => setSpaceTheme(d, id, presetPatch(p.id)));
+      const t = s.spaces[0].theme;
+      expect(t).toMatchObject({ mode: p.mode, pattern: p.pattern, gradient: p.gradient, colors: [p.gradient.colors[0], p.accent] });
+      expect(t.backdrop).toBeUndefined();
+      expect(presetOf(t)).toBe(p.id);
+      // Every preset stays readable at the default intensity.
+      expect(readability(t, s.settings, false).ok, p.id).toBe(true);
+    }
+    expect(presetPatch('nope')).toEqual({});
+    // Changing a colour by hand leaves the preset.
+    [s] = run(s, (d) => setSpaceTheme(d, id, { ...PLAIN, colors: ['#112233', '#445566'] }));
+    expect(presetOf(s.spaces[0].theme)).toBeNull();
+  });
+
+  it('keeps a valid pattern and its strength, and drops anything else', () => {
+    const fb = DEFAULT_THEME;
+    expect(PATTERNS.map((p) => p.id)).toEqual(['glow', 'dots', 'grid', 'lines', 'rings']);
+    expect(sanitizeTheme({ ...fb, pattern: 'dots', patternStrength: 4 }, fb)).toMatchObject({ pattern: 'dots', patternStrength: 1 });
+    const bad = sanitizeTheme({ ...fb, pattern: 'zebra' as never, patternStrength: 0.4 }, fb);
+    expect(bad.pattern).toBeUndefined();
+    expect(bad.patternStrength).toBeUndefined();
+    // A pattern stays when the background changes to a picture or plain colours.
+    let s = fresh();
+    const id = s.spaces[0].id;
+    [s] = run(s, (d) => setSpaceTheme(d, id, { pattern: 'grid', patternStrength: 0.8 }));
+    [s] = run(s, (d) => setSpaceTheme(d, id, { ...PLAIN, colors: ['#aabbcc', '#223344'] }));
+    expect(s.spaces[0].theme).toMatchObject({ pattern: 'grid', patternStrength: 0.8 });
+    // Turning it off removes both fields.
+    [s] = run(s, (d) => setSpaceTheme(d, id, { pattern: undefined, patternStrength: undefined }));
+    expect(s.spaces[0].theme.pattern).toBeUndefined();
+    expect(s.spaces[0].theme.patternStrength).toBeUndefined();
+  });
+
+  it('draws each pattern as CSS layers with one size per layer, light marks on dark and dark on light', () => {
+    expect(patternCss(undefined, true)).toEqual({ image: 'none', size: 'auto' });
+    for (const p of PATTERNS) {
+      const d = patternCss(p.id, true);
+      const l = patternCss(p.id, false);
+      expect(d.image).toContain('255,255,255');
+      expect(l.image).toContain('40,30,20');
+      const layers = d.image.split(/,\s*(?=(?:repeating-)?(?:linear|radial)-gradient)/).length;
+      expect(d.size.split(',').length, p.id).toBe(layers);
+      // Stronger means more visible, never past the cap.
+      const a = (css: string) => Math.max(...[...css.matchAll(/,([\d.]+)\)/g)].map((m) => Number(m[1])));
+      expect(a(patternCss(p.id, true, 1).image)).toBeGreaterThan(a(patternCss(p.id, true, 0.2).image));
+      expect(a(patternCss(p.id, true, 1).image)).toBeLessThanOrEqual(0.6);
+    }
+    const v = themeVars({ ...DEFAULT_THEME, pattern: 'dots' }, fresh().settings, false);
+    expect(v['--pattern']).toContain('radial-gradient');
+    expect(v['--pattern-size']).toBe('18px 18px');
+    const { pattern: _p, ...noPattern } = DEFAULT_THEME;
+    expect(themeVars(noPattern, fresh().settings, false)['--pattern']).toBe('none');
   });
 });
