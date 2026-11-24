@@ -7,157 +7,171 @@
 <meta name="description" content="Kite is a free, open-source browser for macOS with sidebar tabs, Spaces, Split View, a command bar and built-in ad blocking. No account, nothing leaves your computer." />
 <meta property="og:title" content="Kite — a calm, sidebar-first browser" />
 <meta property="og:description" content="Sidebar tabs, Spaces, Split View and built-in ad blocking. Free and open source. No account." />
-<meta property="og:image" content="assets/kite-film-poster.jpg" />
+<meta property="og:image" content="https://kite-browser.vercel.app/assets/kite-film-poster.jpg" />
 <link rel="icon" href="assets/favicon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,500..800,100&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div class="sky" aria-hidden="true"><i class="orb a"></i><i class="orb b"></i><i class="orb c"></i><i class="grain"></i></div>
 
-<header class="nav">
-  <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="30" height="30" />Kite</a>
+<header class="nav" id="nav">
+  <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="32" height="32" />Kite</a>
   <nav>
+    <a href="#try">Try it</a>
     <a href="#features">Features</a>
     <a href="#privacy">Privacy</a>
     <a href="https://github.com/MayankJha0333/M-Arc" rel="noopener">GitHub</a>
-    <a class="pill" href="#download">Download</a>
   </nav>
+  <a class="btn cream small" href="#download">Download</a>
 </header>
 
 <main id="top">
-  <section class="hero">
-    <svg class="kite-fly" viewBox="0 0 220 320" aria-hidden="true">
-      <path class="string" d="M110 150 C 80 210, 150 240, 110 310" />
-      <g class="kite-body">
-        <path d="M110 10 L170 90 L110 170 L50 90 Z" fill="url(#kg)" />
-        <path d="M110 10 L110 170 M50 90 L170 90" stroke="rgba(255,255,255,.55)" stroke-width="2" />
-      </g>
-      <defs><linearGradient id="kg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9bfff" /><stop offset="1" stop-color="#6fe3d4" /></linearGradient></defs>
-    </svg>
-    <p class="eyebrow rise" style="--d:0">Free · open source · macOS</p>
-    <h1 class="rise" style="--d:1">Browse calmly.<br /><span class="grad">Tabs stay out of the way.</span></h1>
-    <p class="lede rise" style="--d:2">Kite is a sidebar-first browser with Spaces, Split View, a command bar and ad blocking built in. No account. Nothing leaves your computer.</p>
-    <div class="cta rise" style="--d:3">
-      <a class="btn primary" data-dl="arm64" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-arm64.dmg">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4l-4.7-4.7 1.4-1.4L11 13.6V3h1zM5 19h14v2H5z"/></svg>
-        Download for Mac <small>Apple Silicon</small>
-      </a>
-      <a class="btn ghost" data-dl="x64" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-x64.dmg">Intel Mac</a>
+  <!-- hero: one bold block -->
+  <section class="hero block indigo">
+    <div class="stickers" id="stickers" aria-hidden="true">
+      <span class="st s1" data-d="34"><svg viewBox="0 0 120 150"><path d="M60 6 L112 66 L60 128 L8 66 Z" fill="#ff6b4a" stroke="#1a1438" stroke-width="5" stroke-linejoin="round"/><path d="M60 6 V128 M8 66 H112" stroke="#1a1438" stroke-width="4"/><path d="M60 128 q-12 10 0 20" fill="none" stroke="#1a1438" stroke-width="4" stroke-linecap="round"/></svg></span>
+      <span class="st s2 key" data-d="22">⌘T</span>
+      <span class="st s3 pilltag" data-d="46">🛡 53 blocked</span>
+      <span class="st s4 chips" data-d="28"><i>🪁</i><i>💼</i><i>🌿</i></span>
+      <span class="st s5 star" data-d="18"><svg viewBox="0 0 100 100"><path d="M50 4 L61 38 L96 38 L68 59 L79 94 L50 73 L21 94 L32 59 L4 38 L39 38 Z" fill="#ffd23f" stroke="#1a1438" stroke-width="5" stroke-linejoin="round"/></svg></span>
+      <span class="st s6 pilltag mint" data-d="40">No account ✓</span>
     </div>
-    <p class="fine rise" style="--d:4">Version 0.1.0 · about 115 MB · <a href="#download">install notes</a></p>
-
-    <div class="stage rise" style="--d:5">
-      <div class="frame" id="tilt">
-        <div class="bar"><i></i><i></i><i></i></div>
-        <video src="assets/kite-film.mp4" poster="assets/kite-film-poster.jpg" autoplay muted loop playsinline preload="metadata"></video>
+    <div class="hero-in">
+      <p class="eyebrow pop" style="--d:0">Free · open source · for Mac</p>
+      <h1 class="pop" style="--d:1">Kite is the browser that <span class="hl">keeps&nbsp;calm</span> and tidies&nbsp;up after&nbsp;you.</h1>
+      <div class="cta pop" style="--d:2">
+        <a class="btn cream big" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-arm64.dmg"><svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M11 3h2v10.200l3.300-3.300 1.400 1.400L12 17l-5.700-5.700 1.400-1.400 3.300 3.300zM5 19h14v2H5z"/></svg>Download Kite</a>
       </div>
+      <p class="fine pop" style="--d:3">Apple Silicon · <a href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-x64.dmg">Intel Mac</a> · about 115 MB</p>
+    </div>
+
+    <div class="demo pop" style="--d:4" id="try">
+      <div class="seg" id="seg" role="tablist">
+        <button type="button" class="on" data-act="tabs">Sidebar</button>
+        <button type="button" data-act="cmd">Command bar</button>
+        <button type="button" data-act="split">Split View</button>
+        <button type="button" data-act="space">Spaces</button>
+        <i></i>
+      </div>
+      <div class="app" id="app">
+        <aside class="side">
+          <div class="lights"><i></i><i></i><i></i></div>
+          <button class="url" id="url" type="button"><svg viewBox="0 0 24 24" width="13" height="13"><circle cx="11" cy="11" r="6.500" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="url-text"></span><kbd>⌘T</kbd></button>
+          <div class="favs" id="favs"></div>
+          <div class="space-name" id="space-name"></div>
+          <button class="newtab" id="newtab" type="button">+ New Tab</button>
+          <div class="tabs" id="tabs"></div>
+          <div class="spaces" id="spaces"></div>
+        </aside>
+        <div class="pages" id="pages"></div>
+        <div class="cmd" id="cmd" hidden>
+          <div class="cmd-box">
+            <div class="cmd-in"><img src="assets/icon.png" alt="" width="26" height="26" /><span id="cmd-text"></span><i class="caret"></i></div>
+            <div class="cmd-list" id="cmd-list"></div>
+            <div class="cmd-foot"><kbd>↑↓</kbd> move <kbd>↵</kbd> open <kbd>esc</kbd> close</div>
+          </div>
+        </div>
+      </div>
+      <p class="hint">A small working copy. Go on, click a tab.</p>
     </div>
   </section>
 
-  <div class="ticker" aria-hidden="true"><div>
-    <span>Sidebar tabs</span><span>Spaces</span><span>Split View</span><span>Command bar</span><span>Peek</span><span>Shields</span><span>Boosts</span><span>Notes</span><span>Video pop-out</span><span>Fast downloads</span><span>Chrome extensions</span>
-    <span>Sidebar tabs</span><span>Spaces</span><span>Split View</span><span>Command bar</span><span>Peek</span><span>Shields</span><span>Boosts</span><span>Notes</span><span>Video pop-out</span><span>Fast downloads</span><span>Chrome extensions</span>
+  <!-- big statement, words light up as you scroll -->
+  <section class="say wrap">
+    <p class="words" id="words">Most browsers pile tabs across the top until you can't read them. Kite puts them in a sidebar, files them into Spaces, and quietly archives the ones you've stopped using. So the only thing on screen is the page you came for.</p>
+  </section>
+
+  <!-- feature tiles -->
+  <section class="wrap" id="features">
+    <h2 class="title reveal">Four ideas do <span class="und">most of the work</span></h2>
+    <div class="tiles">
+      <article class="tile coral reveal">
+        <span class="tag">⌘S hides it</span>
+        <h3>Tabs in a sidebar</h3>
+        <p>Names you can read, with pinned pages, Favorites and folders. Tabs you stop using move to the Archive after 12 hours.</p>
+        <figure><img src="assets/browsing.jpg" alt="Kite with tabs listed in the sidebar" loading="lazy" /></figure>
+      </article>
+      <article class="tile yellow reveal">
+        <span class="tag">⌘T</span>
+        <h3>One box finds everything</h3>
+        <p>Open tabs, notes, history, Spaces and 40 actions. Already open? Kite switches to it instead of making a copy.</p>
+        <figure><img src="assets/command-bar.jpg" alt="The command bar listing open tabs" loading="lazy" /></figure>
+      </article>
+      <article class="tile mint reveal">
+        <span class="tag">⌘⇧=</span>
+        <h3>Pages side by side</h3>
+        <p>Two to four pages next to each other or stacked, with dividers you drag.</p>
+        <figure><img src="assets/split-view.jpg" alt="Two pages side by side in Split View" loading="lazy" /></figure>
+      </article>
+      <article class="tile indigo reveal">
+        <span class="tag">⌃1 … ⌃9</span>
+        <h3>A Space for each part of your day</h3>
+        <p>Work, study and home get their own tabs, icon and colours, with separate logins if you want.</p>
+        <figure><img src="assets/space-editor.jpg" alt="The Space editor with gradients and patterns" loading="lazy" /></figure>
+      </article>
+    </div>
+  </section>
+
+  <!-- tilted band -->
+  <div class="band" aria-hidden="true"><div>
+    <span>Video pop-out</span><span>Notes</span><span>Peek</span><span>Boosts</span><span>Fast downloads</span><span>Chrome extensions</span><span>Little window</span><span>Import from Arc</span>
+    <span>Video pop-out</span><span>Notes</span><span>Peek</span><span>Boosts</span><span>Fast downloads</span><span>Chrome extensions</span><span>Little window</span><span>Import from Arc</span>
   </div></div>
 
-  <section id="features" class="features">
-    <article class="row reveal">
-      <div class="copy">
-        <span class="num">01</span>
-        <h2>Tabs in a sidebar, where there's room to read them</h2>
-        <p>Vertical tabs with pinned pages, Favorites and nested folders. Tabs you stop using move to the Archive by themselves, so the list stays short.</p>
-        <ul><li>Pinned tabs remember their home page</li><li>Folders with drag and drop</li><li>Auto-archive after 12 hours, or whenever you choose</li></ul>
-      </div>
-      <figure class="shot"><img src="assets/browsing.jpg" alt="Kite with six tabs listed in the sidebar and a Wikipedia article open" loading="lazy" /></figure>
-    </article>
-
-    <article class="row flip reveal">
-      <div class="copy">
-        <span class="num">02</span>
-        <h2>One shortcut finds everything</h2>
-        <p>Press <kbd>⌘T</kbd> and type. Kite searches your open tabs, notes, history, Spaces and 40 actions, and switches to a tab you already have instead of opening a copy.</p>
-      </div>
-      <figure class="shot"><img src="assets/command-bar.jpg" alt="The command bar listing open tabs with a Switch to Tab action" loading="lazy" /></figure>
-    </article>
-
-    <article class="row reveal">
-      <div class="copy">
-        <span class="num">03</span>
-        <h2>Two to four pages, side by side</h2>
-        <p>Split View puts pages next to each other or stacked, with dividers you can drag. Start one with <kbd>⌘⇧=</kbd> or by dropping a tab onto the page.</p>
-      </div>
-      <figure class="shot"><img src="assets/split-view.jpg" alt="Split View showing Wikipedia and MDN side by side" loading="lazy" /></figure>
-    </article>
-
-    <article class="row flip reveal">
-      <div class="copy">
-        <span class="num">04</span>
-        <h2>A Space for each part of your day</h2>
-        <p>Give work, study and home their own tabs, icon and look. Pick a gradient, a pattern or your own picture, and keep separate logins per Space if you want them.</p>
-      </div>
-      <figure class="shot"><img src="assets/space-editor.jpg" alt="The Space editor with icon, gradient presets and pattern choices" loading="lazy" /></figure>
-    </article>
+  <!-- film -->
+  <section class="wrap film-sec">
+    <h2 class="title reveal">See it <span class="und">move</span></h2>
+    <div class="film reveal"><i class="tape t1"></i><i class="tape t2"></i><video src="assets/kite-film.mp4" poster="assets/kite-film-poster.jpg" autoplay muted loop playsinline preload="metadata"></video></div>
   </section>
 
-  <section class="bento">
-    <h2 class="reveal">And the small things that add up</h2>
-    <div class="grid">
-      <div class="card wide reveal">
-        <h3>Shields</h3>
-        <p>Ad and tracker blocking, cookie-banner lists, tracking-parameter removal and cross-site cookie blocking, all on by default.</p>
-        <div class="meter"><b data-count="53">0</b><span>of 57 common ad and tracker requests blocked in our own test</span></div>
-        <div class="dots" aria-hidden="true"></div>
+  <!-- privacy -->
+  <section class="block ink" id="privacy">
+    <div class="wrap priv">
+      <div class="priv-copy reveal">
+        <h2>Your browsing stays <span class="hl mint">on your Mac.</span></h2>
+        <p>Shields are on from the first page. Kite never reports what you do, and there's no account to make.</p>
+        <ul class="ticks">
+          <li>Ad, tracker and cookie-banner lists, plus your own rules</li>
+          <li>Tracking parameters removed from links</li>
+          <li>Cross-site cookies blocked, fingerprinting made harder</li>
+          <li>All your data in one JSON file you can back up</li>
+        </ul>
+        <p class="note">Kite is an early release built on Electron. It is not yet a replacement for a hardened browser if security is your main concern.</p>
       </div>
-      <div class="card reveal">
-        <h3>Faster downloads</h3>
-        <p>Large files are fetched over up to 16 connections at once, with pause and resume.</p>
-        <div class="segs" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="score reveal">
+        <div class="big"><b data-n="53">0</b><span>/57</span></div>
+        <p>common ad and tracker requests blocked in our own test</p>
+        <ul class="pops" id="pops"></ul>
       </div>
-      <div class="card reveal">
-        <h3>Video pop-out</h3>
-        <p>Switch tabs or apps and the playing video floats on top, with its own controls.</p>
-        <div class="pip" aria-hidden="true"><span></span></div>
-      </div>
-      <div class="card reveal"><h3>Notes</h3><p>Rich-text notes live in the sidebar next to your tabs and export as Markdown.</p></div>
-      <div class="card reveal"><h3>Boosts</h3><p>Restyle any site with your own CSS and fonts, or click to hide parts of a page.</p></div>
-      <div class="card reveal"><h3>Chrome extensions</h3><p>Install from the Chrome Web Store, a file or a folder. Kite shows what each one can do first.</p></div>
-      <div class="card reveal"><h3>Peek</h3><p>Links from pinned tabs open in a floating preview. Keep it, split it, or press Esc.</p></div>
-      <div class="card reveal"><h3>Little window</h3><p>A small quick window on <kbd>⌘⌥N</kbd> for a fast lookup, even when Kite is in the background.</p></div>
-      <div class="card reveal"><h3>Bring your Arc sidebar</h3><p>Import Spaces, folders and pinned tabs from Arc. Passwords, cookies and history are never read.</p></div>
     </div>
   </section>
 
-  <section id="privacy" class="privacy reveal">
-    <h2>Your browsing stays on your Mac</h2>
-    <div class="trio">
-      <div><b>No account</b><p>There is nothing to sign in to and no sync server.</p></div>
-      <div><b>No telemetry</b><p>Kite doesn't report what you do. Only the Weather widget and the filter-list updates use the network on their own.</p></div>
-      <div><b>One file</b><p>Tabs, Spaces and settings are saved in a single JSON file you can back up or move.</p></div>
+  <!-- download -->
+  <section class="block indigo dl" id="download">
+    <div class="wrap">
+      <img class="dl-icon reveal" src="assets/icon.png" alt="" width="104" height="104" />
+      <h2 class="reveal">Go fly a <span class="hl">Kite.</span></h2>
+      <p class="lede reveal">Version 0.1.0 for macOS. Free and open source under the MIT licence.</p>
+      <div class="cta reveal">
+        <a class="btn cream big" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-arm64.dmg">Apple Silicon</a>
+        <a class="btn outline big" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-x64.dmg">Intel Mac</a>
+      </div>
+      <ol class="steps">
+        <li class="reveal"><b>Open the .dmg</b>Drag Kite into Applications.</li>
+        <li class="reveal"><b>First launch</b>Right-click Kite, choose Open, then Open again. The build isn't signed with an Apple Developer ID yet, so macOS asks once.</li>
+        <li class="reveal"><b>Updates</b>There are no automatic updates. New versions appear on this page.</li>
+      </ol>
+      <p class="fine">Windows and Linux can be <a href="https://github.com/MayankJha0333/M-Arc#run-it" rel="noopener">built from source</a> · <a href="https://github.com/MayankJha0333/M-Arc/releases" rel="noopener">All releases</a></p>
     </div>
-  </section>
-
-  <section id="download" class="download reveal">
-    <img src="assets/icon.png" alt="" width="96" height="96" />
-    <h2>Download Kite</h2>
-    <p class="lede">Free and open source under the MIT licence. Version 0.1.0 for macOS.</p>
-    <div class="cta">
-      <a class="btn primary" data-dl="arm64" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-arm64.dmg">Apple Silicon <small>M1 and later</small></a>
-      <a class="btn primary alt" data-dl="x64" href="https://github.com/MayankJha0333/M-Arc/releases/latest/download/Kite-mac-x64.dmg">Intel Mac <small>x64</small></a>
-    </div>
-    <ol class="steps">
-      <li><b>Open the .dmg</b> and drag Kite into Applications.</li>
-      <li><b>First launch:</b> right-click Kite, choose Open, then Open again. This build isn't signed with an Apple Developer ID yet, so macOS asks once.</li>
-      <li><b>Optional:</b> Settings → Links &amp; Boosts → make Kite your default browser.</li>
-    </ol>
-    <p class="fine">Kite is an early release. It has no automatic updates, so check back here for new versions. <a href="https://github.com/MayankJha0333/M-Arc/releases" rel="noopener">All releases</a> · <a href="https://github.com/MayankJha0333/M-Arc#run-it" rel="noopener">Build from source</a> (also Windows and Linux)</p>
   </section>
 </main>
 
-<footer>
-  <span><img src="assets/icon.png" alt="" width="20" height="20" /> Kite · made by Mayank Jha</span>
-  <span><a href="https://github.com/MayankJha0333/M-Arc" rel="noopener">Source on GitHub</a> · MIT licence</span>
+<footer class="foot">
+  <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="26" height="26" />Kite</a>
+  <span>Made by Mayank Jha · MIT licence · Kite is an independent project and is not affiliated with Arc or The Browser Company.</span>
+  <nav><a href="https://github.com/MayankJha0333/M-Arc" rel="noopener">GitHub</a><a href="https://github.com/MayankJha0333/M-Arc/issues" rel="noopener">Report a problem</a><a href="#top">Top ↑</a></nav>
 </footer>
 <script src="main.js"></script>
 </body>
