@@ -4,17 +4,20 @@ const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbe2c8"/><stop offset="1" stop-color="#e58f65"/>
+      <stop offset="0" stop-color="#3b39a6"/><stop offset=".55" stop-color="#2a4f9a"/><stop offset="1" stop-color="#16627c"/>
     </linearGradient>
+    <radialGradient id="glow" cx=".2" cy="0" r=".9">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
-  <g transform="translate(232 150) scale(11.7)">
-    <path d="M24 3 L38 19 L24 33 L10 19 Z" fill="#c4553a"/>
-    <path d="M24 3 L38 19 L24 19 Z" fill="#ffd6b8" opacity=".95"/>
-    <path d="M10 19 L24 33 L24 19 Z" fill="#ffd6b8" opacity=".6"/>
-    <path d="M24 3 V33 M10 19 H38" stroke="#3a2418" stroke-width="1.2" opacity=".55" fill="none"/>
-    <path d="M24 33 C 22 37, 28 39, 25 42 S 21 45, 24 47" stroke="#3a2418" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-    <path d="M23 38 l-3 -1.5 M26 42.5 l3 -1" stroke="#c4553a" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#glow)"/>
+  <g transform="translate(64 64) scale(7.4667)" fill="#fff">
+    <path d="M62 14 92 50 60 48Z"/>
+    <path d="M62 14 30 46 60 48Z" opacity=".8"/>
+    <path d="M92 50 56 86 60 48Z" opacity=".68"/>
+    <path d="M30 46 56 86 60 48Z" opacity=".5"/>
+    <path d="M56 86C47 94 64 98 54 107" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>
   </g>
 </svg>`;
 const b = await chromium.launch();

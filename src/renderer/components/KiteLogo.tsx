@@ -1,13 +1,16 @@
-/** Kite's mark: an original kite shape with a ribbon tail. */
+/**
+ * Kite's mark: a kite seen head-on, cut into four facets of one colour, with a ribbon tail.
+ * Original artwork. The same shape is drawn in white on the app icon (scripts/make-icon.mjs).
+ */
 export function KiteLogo({ size = 28 }: { size?: number }) {
+  const c = 'var(--tint-2, #8f8cff)';
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" className="kite-logo">
-      <path d="M24 3 L38 19 L24 33 L10 19 Z" fill="var(--tint-2, #e58f65)" />
-      <path d="M24 3 L38 19 L24 19 Z" fill="var(--tint-1, #f2c9a0)" opacity=".9" />
-      <path d="M10 19 L24 33 L24 19 Z" fill="var(--tint-1, #f2c9a0)" opacity=".55" />
-      <path d="M24 3 V33 M10 19 H38" stroke="var(--ink, #1e1c1a)" strokeWidth="1.4" opacity=".55" fill="none" />
-      <path d="M24 33 C 22 37, 28 39, 25 42 S 21 45, 24 47" stroke="var(--ink, #1e1c1a)" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      <path d="M23 38 l-3 -1.5 M26 42.5 l3 -1" stroke="var(--tint-2, #e58f65)" strokeWidth="2.2" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="11 10 100 100" aria-hidden="true" className="kite-logo">
+      <path d="M62 14 92 50 60 48Z" fill={c} />
+      <path d="M62 14 30 46 60 48Z" fill={c} opacity=".8" />
+      <path d="M92 50 56 86 60 48Z" fill={c} opacity=".68" />
+      <path d="M30 46 56 86 60 48Z" fill={c} opacity=".5" />
+      <path d="M56 86C47 94 64 98 54 107" fill="none" stroke={c} strokeWidth="4" strokeLinecap="round" opacity=".9" />
     </svg>
   );
 }
