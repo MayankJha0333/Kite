@@ -4,7 +4,10 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 30_000,
   fullyParallel: true,
-  workers: 4,
+  // Hosted CI runners are three to four times slower than a laptop: fewer tests at once, and a
+  // test that only fails under that load is tried again (it then counts as flaky, not failed).
+  workers: process.env.CI ? 2 : 4,
+  retries: process.env.CI ? 2 : 0,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:5174/',

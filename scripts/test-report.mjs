@@ -152,7 +152,12 @@ function readPlaywright(file, layer) {
           for (const a of r.attachments ?? []) {
             if (!a.path || !existsSync(a.path)) continue;
             const dest = join(FILES, `${String(++n).padStart(3, '0')}-${basename(a.path)}`);
-            cpSync(a.path, dest);
+            // A file a failed test left half-written (seen on Windows) must not stop the whole report.
+            try {
+              cpSync(a.path, dest);
+            } catch {
+              continue;
+            }
             attachments.push({ name: a.name, path: relative(OUT, dest), type: a.contentType });
           }
         }
