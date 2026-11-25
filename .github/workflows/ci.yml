@@ -50,6 +50,9 @@ jobs:
         run: sudo apt-get install -y xvfb
       - name: Run every check and write the report
         run: npm run test:report
+      - name: Say what failed (shown under Annotations on this run's page)
+        if: failure()
+        run: node scripts/ci-annotate.mjs
       - name: Show the summary on this run's page
         if: always()
         shell: bash
