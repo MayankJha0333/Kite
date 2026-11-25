@@ -120,6 +120,12 @@ export async function boot() {
       const action = findAction(e, fullShortcutMap(getS().settings), isMac);
       if (e.key === 'Escape' && !action) {
         if (ui.menu) return useKite.getState().setUi({ menu: null });
+        // Esc closes an open Peek even when focus isn't inside it yet
+        // (the Peek page may still be loading, or focus is on the app or the page behind).
+        if (ui.peek) {
+          e.preventDefault();
+          return runAction('closePeek');
+        }
         return;
       }
       if (!action) return;

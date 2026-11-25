@@ -336,7 +336,10 @@ function SimulatedSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITI
           evRef.current.onEscape?.();
           return;
         }
-        if (!e.metaKey && !e.ctrlKey && !e.altKey) return;
+        // A plain Esc the page didn't use also goes up to the app, so it can close
+        // a Peek that opened over this page before the Peek took focus.
+        const plainEsc = e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented;
+        if (!plainEsc && !e.metaKey && !e.ctrlKey && !e.altKey) return;
         const copy = new KeyboardEvent('keydown', { key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey, bubbles: true, cancelable: true });
         window.dispatchEvent(copy);
         if (copy.defaultPrevented) e.preventDefault();
