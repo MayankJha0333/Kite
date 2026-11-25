@@ -1,0 +1,68 @@
+# Build Kite on demand, without running the tests.
+#
+# GitHub → Actions → "Build (no tests)" → Run workflow.
+#   - Leave "Release tag" empty: the installers are kept with the run (Artifacts).
+#   - Fill it in (for example v0.1.0): they are also published as a GitHub Release,
+#     which is what the website's download buttons point to.
+#
+# The normal CI/CD workflow (ci.yml) still tests every push before it builds.
+name: Build (no tests)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to publish (e.g. v0.1.0). Leave empty to only build.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Kite for macOS
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build Kite.dmg and Kite.zip (Apple Silicon + Intel, not signed)
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # no Apple Developer ID: build unsigned
+      - name: Also save the installers under names that never change
+        # The website links to releases/latest/download/Kite-mac-arm64.dmg and Kite-mac-x64.dmg.
+        run: |
+          cp release/Kite-*-mac-arm64.dmg release/Kite-mac-arm64.dmg
+          cp release/Kite-*-mac-x64.dmg release/Kite-mac-x64.dmg
+      - name: Keep the app with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kite-macOS-${{ github.sha }}
+          path: |
+            release/*.dmg
+            release/*.zip
+          retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Kite-macOS-${{ github.sha }}
+          path: release
+      - name: Create the release with the app attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: gh release create "$TAG" release/* --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "Kite $TAG" --generate-notes
