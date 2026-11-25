@@ -644,7 +644,7 @@ function Keys() {
   return (
     <>
       <p className="settings-intro">
-        Click a shortcut, then press the new keys. <kbd>⌫</kbd> removes it, <kbd>esc</kbd> cancels. “{SHORTCUT_LABELS.littleWindow}” also works when Kite is in the background. {isMac ? '⌘1–⌘9' : 'Ctrl+1–9'} jump to tabs and ⌃1–⌃9 to Spaces.
+        Click a shortcut, then press the new keys. <kbd>⌫</kbd> removes it, <kbd>esc</kbd> cancels. “{SHORTCUT_LABELS.littleWindow}” also works when Kite is in the background. {isMac ? '⌘1–⌘9 jump to tabs and ⌃1–⌃9 to Spaces.' : 'Ctrl+1–9 jump to tabs and Alt+1–9 to Spaces.'}
       </p>
       <Group>
         <div className="keys">

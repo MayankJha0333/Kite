@@ -14,12 +14,13 @@ import { startPip } from './pipRuntime';
 import { startBrowser } from './browserRuntime';
 import { startSounds } from './sound';
 
-/** All shortcuts including the numbered ones (⌘1…⌘9, ⌃1…⌃9). */
+/** All shortcuts including the numbered ones (⌘1…⌘9 tabs, ⌃1…⌃9 Spaces; off Mac: Ctrl+1…9 tabs, Alt+1…9 Spaces). */
 export function fullShortcutMap(settings: Settings): Record<string, string> {
   const map: Record<string, string> = { ...settings.shortcuts };
   for (let n = 1; n <= 9; n++) {
     map[`tab${n}`] = `mod+${n}`;
-    map[`space${n}`] = `ctrl+${n}`;
+    // Off Mac, "mod" is Ctrl too, so Ctrl+n would clash with the tab shortcut: Spaces use Alt+n there.
+    map[`space${n}`] = isMac ? `ctrl+${n}` : `alt+${n}`;
   }
   return map;
 }

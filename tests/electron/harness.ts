@@ -63,3 +63,5 @@ export async function launch(userData?: string, extraArgs: string[] = [], env: R
 }
 
 export const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
+/** Go to Space n: ⌃n on Mac, Alt+n elsewhere (Ctrl+n is "go to tab" there). */
+export const SPACE = process.platform === 'darwin' ? 'Control' : 'Alt';

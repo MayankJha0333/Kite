@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { zipSync, strToU8 } from 'fflate';
-import { launch, MOD } from './harness';
+import { launch, MOD, SPACE } from './harness';
 
 // A lossless 1×1 WebP: Electron's own image reader can't open these, so this checks the real conversion path.
 const WEBP = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64');
@@ -102,7 +102,7 @@ test.beforeEach(async () => {
   const open = win.locator(':not([data-leaving]) > [data-testid="sheet-close"]');
   if (await open.count()) await open.first().click({ timeout: 3000 }).catch(() => undefined);
   await expect(win.getByTestId('sheet-close')).toHaveCount(0);
-  await win.keyboard.press('Control+1');
+  await win.keyboard.press(`${SPACE}+1`);
 });
 
 async function open(win: Page, address: string) {
@@ -291,7 +291,7 @@ test('Spaces: a Space with separate logins has its own cookies; other Spaces sha
   // What it saves stays inside it…
   await inPage(win, `document.cookie = 'who=second; path=/; max-age=3600'`);
   // …and the first Space still has its own login.
-  await win.keyboard.press('Control+1');
+  await win.keyboard.press(`${SPACE}+1`);
   await expect(row(win, 'cookie:who=first')).toHaveCount(1);
   expect(await inPage(win, 'document.cookie')).toBe('who=first');
   // Both jars are saved on disk separately.

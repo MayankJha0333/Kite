@@ -138,6 +138,7 @@ test.describe('themes', () => {
   });
 
   test('every swatch paints the window, in light and dark, and the app stays readable', async ({ page }) => {
+    test.slow(); // 27 swatches × light and dark: more than 30s on slow CI runners
     await openDesktop(page);
     await newTab(page, 'https://a.com');
     await page.getByTestId('space-menu').click();
