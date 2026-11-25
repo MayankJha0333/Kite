@@ -16,6 +16,10 @@ async function open(win: import('@playwright/test').Page, url: string) {
   await win.getByTestId('cb-input').press('Enter');
 }
 
+// App-switching and floating-video checks need a real, interactive desktop. CI runners have
+// no window focus to give or take, so those checks run on a developer's machine only.
+const NO_DESKTOP = !!process.env.CI;
+
 test('real pages load in a webview and report their title', async () => {
   const { app, win } = await launch();
   await open(win, site.url('/'));
@@ -269,6 +273,7 @@ test('security: Kite’s private API only answers Kite’s own UI', async () => 
 });
 
 test('video pop-out: a real playing video floats when you switch tabs or apps, and comes back', async () => {
+  test.skip(NO_DESKTOP, 'needs a real desktop with window focus and picture-in-picture, which CI runners do not have');
   const logFile = join(mkdtempSync(join(tmpdir(), 'kite-log-')), 'kite-debug.log');
   const { app, win } = await launch(undefined, [], { KITE_DEBUG_LOG: logFile });
   await open(win, site.url('/video'));
@@ -306,6 +311,7 @@ test('video pop-out: a real playing video floats when you switch tabs or apps, a
 });
 
 test('video pop-out: another app’s window taking focus really triggers it', async () => {
+  test.skip(NO_DESKTOP, 'needs a real desktop with window focus and picture-in-picture, which CI runners do not have');
   const { app, win } = await launch();
   await open(win, site.url('/video'));
   await expect(win.locator('[data-title="Video Page"] [data-testid^="sound-"]')).toBeVisible({ timeout: 15000 });
@@ -331,6 +337,7 @@ test('video pop-out: another app’s window taking focus really triggers it', as
 });
 
 test('video pop-out: works on tab switch even when another video on the page stopped (like YouTube previews)', async () => {
+  test.skip(NO_DESKTOP, 'needs a real desktop with window focus and picture-in-picture, which CI runners do not have');
   const { app, win } = await launch();
   await open(win, site.url('/video?busy'));
   await expect(win.locator('[data-title="Video Page"] [data-testid^="sound-"]')).toBeVisible({ timeout: 15000 });
@@ -356,6 +363,7 @@ test('video pop-out: works on tab switch even when another video on the page sto
 });
 
 test('video pop-out: a video the system paused as you switched apps still pops out, and keeps playing', async () => {
+  test.skip(NO_DESKTOP, 'needs a real desktop with window focus and picture-in-picture, which CI runners do not have');
   const { app, win } = await launch();
   await open(win, site.url('/video'));
   await expect(win.locator('[data-title="Video Page"] [data-testid^="sound-"]')).toBeVisible({ timeout: 15000 });
@@ -376,6 +384,7 @@ test('video pop-out: a video the system paused as you switched apps still pops o
 });
 
 test('video pop-out: a video you paused yourself does not pop out when you switch apps', async () => {
+  test.skip(NO_DESKTOP, 'needs a real desktop with window focus and picture-in-picture, which CI runners do not have');
   const { app, win } = await launch();
   await open(win, site.url('/video'));
   await expect(win.locator('[data-title="Video Page"] [data-testid^="sound-"]')).toBeVisible({ timeout: 15000 });
@@ -394,6 +403,7 @@ test('video pop-out: a video you paused yourself does not pop out when you switc
 });
 
 test('floating video controls (design D): play/pause, minimize to the mini player, show video, back to tab, close', async () => {
+  test.skip(NO_DESKTOP, 'needs a real desktop with window focus and picture-in-picture, which CI runners do not have');
   const { app, win } = await launch();
   await open(win, site.url('/video'));
   await expect(win.locator('[data-title="Video Page"] [data-testid^="sound-"]')).toBeVisible({ timeout: 15000 });

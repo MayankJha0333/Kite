@@ -13,6 +13,7 @@ import { launch, startSite, MOD } from '../electron/harness';
 
 test.describe.configure({ mode: 'serial' });
 test.skip(process.platform !== 'darwin', 'macOS only');
+test.skip(!!process.env.CI, 'uses the real Mac desktop (app switching, a floating panel), which CI runners do not have');
 
 let app: ElectronApplication;
 let win: Page;

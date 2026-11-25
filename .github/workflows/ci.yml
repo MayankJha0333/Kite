@@ -100,6 +100,11 @@ jobs:
         with:
           name: Kite-macOS-${{ github.sha }}
           path: release
+      - name: Also attach the installers under names that never change
+        # The website links to releases/latest/download/Kite-mac-arm64.dmg and Kite-mac-x64.dmg.
+        run: |
+          cp release/Kite-*-mac-arm64.dmg release/Kite-mac-arm64.dmg
+          cp release/Kite-*-mac-x64.dmg release/Kite-mac-x64.dmg
       - name: Create the release with the app attached
         env:
           GH_TOKEN: ${{ github.token }}
