@@ -224,7 +224,12 @@ if (!QUICK) {
 }
 
 const built = await step('build', 'Build the app', 'npm', ['run', 'build']);
-if (built) {
+// Kite is built and shipped for macOS. On CI the real-app tests run there only: on the hosted
+// Linux and Windows runners many of them fail for reasons that are about the runner or the
+// platform, not the change being tested. Run `npm run test:report` on such a machine to see them.
+const SKIP_APP = !!process.env.KITE_SKIP_REAL_APP;
+if (built && SKIP_APP) console.log(`• Real app tests (Electron on ${OS_NAME}) … skipped (KITE_SKIP_REAL_APP is set)`);
+if (built && !SKIP_APP) {
   await playwrightGroup('app', 'Real app', `Real app tests (Electron on ${OS_NAME})`, 'playwright.electron.config.ts', {
     KITE_DEBUG_LOG: join(LOGS, 'kite-debug-app.log'),
   });
@@ -273,6 +278,7 @@ const meta = {
   notCovered: [
     ...(OS !== 'darwin' ? ['macOS desktop checks (floating video over other apps) — run this on a Mac'] : []),
     ...(QUICK ? ['UI tests (skipped with --quick)'] : []),
+    ...(process.env.KITE_SKIP_REAL_APP ? ['Real app tests (Electron) — skipped on this system; they run on macOS'] : []),
     'How things look — screenshots are attached where available; judge them by eye',
   ],
 };
