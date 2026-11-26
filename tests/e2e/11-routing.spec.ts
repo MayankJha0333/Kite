@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, openApp, todayRows } from './fixtures';
+import { test, expect, openApp, savedState, todayRows } from './fixtures';
 
 async function openRouting(page: Page) {
   await page.keyboard.press('Meta+t');
@@ -21,6 +21,24 @@ test.describe('link routing', () => {
     const opened = await page.evaluate(() => window.__kiteTest!.littleOpened);
     expect(opened).toEqual(['https://mail.example/msg']);
     await expect(todayRows(page)).toHaveCount(0);
+  });
+
+  test('the choice is one tab stop, and the arrow keys move it', async ({ page }) => {
+    await openApp(page);
+    await openRouting(page);
+    const little = page.getByTestId('route-fallback-little');
+    const active = page.getByTestId('route-fallback-active');
+    await expect(little).toHaveAttribute('tabindex', '0');
+    await expect(active).toHaveAttribute('tabindex', '-1');
+    await little.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(active).toHaveAttribute('aria-checked', 'true');
+    await expect(active).toBeFocused();
+    expect((await savedState(page)).settings.externalLinksTarget).toBe('active');
+    // It wraps, as a native radio group does.
+    await page.keyboard.press('ArrowRight');
+    await expect(little).toHaveAttribute('aria-checked', 'true');
+    await expect(little).toBeFocused();
   });
 
   test('or in the current Space, if you prefer', async ({ page }) => {

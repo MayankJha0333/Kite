@@ -78,7 +78,7 @@ Studied only — no Arc code, text, icons or name are used in Kite.
 | Custom keyboard shortcuts | "Custom Shortcuts" | ✅ |
 | Sound effects | "Play Arc sound effects" | ✅ Settings › Motion & Sound |
 | Alternative app icons | "App icon could not be set" | ❌ |
-| Welcome / onboarding steps | `ARC_WelcomeToArcFeature` | 🟡 empty state only |
+| Welcome / onboarding steps | `ARC_WelcomeToArcFeature` | ✅ three steps beside the real sidebar on a new profile, with starter Favorites and Arc import |
 
 ## Data, import and accounts
 

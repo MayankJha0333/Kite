@@ -5,7 +5,6 @@ import { moveDivider, movePane, resetSizes, separatePane, setOrientation } from 
 import { act, useKite } from '../store';
 import { closeItemCmd, selectItem } from '../commands';
 import { now } from '../platform';
-import { SiteIcon } from './SiteIcon';
 
 type Rect = { left: number; top: number; width: number; height: number };
 
@@ -21,18 +20,23 @@ export function splitRects(split: SplitItem): Record<ID, Rect> {
   return out;
 }
 
-export const PANE_GAP = 4; // px between panes
-export const PANE_BAR = 30; // px header above each pane
-
-/** CSS position for a pane's page, leaving room for the gap and its header. */
+/**
+ * CSS position for a pane. The panes share the page card edge to edge; every pane but the
+ * first gives up one pixel at its leading edge, and that pixel is the divider's hairline.
+ */
 export function paneStyle(r: Rect): React.CSSProperties {
+  const x = r.left > 0 ? 1 : 0;
+  const y = r.top > 0 ? 1 : 0;
   return {
-    left: `calc(${r.left}% + ${PANE_GAP}px)`,
-    top: `calc(${r.top}% + ${PANE_GAP + PANE_BAR}px)`,
-    width: `calc(${r.width}% - ${PANE_GAP * 2}px)`,
-    height: `calc(${r.height}% - ${PANE_GAP * 2 + PANE_BAR}px)`,
+    left: `calc(${r.left}% + ${x}px)`,
+    top: `calc(${r.top}% + ${y}px)`,
+    width: `calc(${r.width}% - ${x}px)`,
+    height: `calc(${r.height}% - ${y}px)`,
   };
 }
+
+/** Half of the divider's grab area, in px (the hairline is drawn down its middle). */
+const DIVIDER_REACH = 4;
 
 export function SplitChrome({ split }: { split: SplitItem }) {
   const rects = splitRects(split);
@@ -44,39 +48,32 @@ export function SplitChrome({ split }: { split: SplitItem }) {
         const r = rects[id];
         const tab = items[id];
         if (!tab || tab.kind !== 'tab') return null;
+        const name = displayTitle(tab);
         return (
-          <div
-            key={id}
-            className="pane-frame"
-            data-focused={split.focused === i || undefined}
-            data-testid={`pane-${i}`}
-            style={{ left: `calc(${r.left}% + ${PANE_GAP}px)`, top: `calc(${r.top}% + ${PANE_GAP}px)`, width: `calc(${r.width}% - ${PANE_GAP * 2}px)`, height: `calc(${r.height}% - ${PANE_GAP * 2}px)` }}
-          >
-            <div className="pane-bar" onMouseDown={() => selectItem(id)} onDoubleClick={() => act((d) => resetSizes(d, split.id))}>
-              <SiteIcon url={tab.url} favicon={tab.favicon} title={tab.title} size={14} />
-              <span className="pane-title">{displayTitle(tab)}</span>
-              <span className="pane-actions">
-                {split.panes.length > 1 && (
-                  <button className="icon-btn tiny" title="Swap with next pane" aria-label="Swap" data-testid={`pane-swap-${i}`} onClick={() => act((d) => movePane(d, split.id, i, (i + 1) % split.panes.length))}>
-                    <ArrowLeftRight size={12} />
-                  </button>
-                )}
+          <div key={id} className="pane-frame" data-focused={split.focused === i || undefined} data-testid={`pane-${i}`} style={paneStyle(r)}>
+            {/* The pane's only standing chrome: a grip at its top edge. Its actions come out while the pointer or the keyboard is on it. */}
+            <div className="pane-handle" data-testid={`pane-handle-${i}`} title={name} onMouseDown={() => selectItem(id)} onDoubleClick={() => act((d) => resetSizes(d, split.id))}>
+              <span className="pane-grip" />
+              <div className="pane-actions" role="toolbar" aria-label={`Pane ${i + 1}: ${name}`}>
+                <button className="icon-btn" title="Swap with the next pane" aria-label="Swap with the next pane" data-testid={`pane-swap-${i}`} onClick={() => act((d) => movePane(d, split.id, i, (i + 1) % split.panes.length))}>
+                  <ArrowLeftRight size={16} />
+                </button>
                 <button
-                  className="icon-btn tiny"
-                  title={vertical ? 'Side by side' : 'Stack vertically'}
-                  aria-label="Flip layout"
+                  className="icon-btn"
+                  title={vertical ? 'Place side by side' : 'Stack top and bottom'}
+                  aria-label={vertical ? 'Place side by side' : 'Stack top and bottom'}
                   data-testid={`pane-flip-${i}`}
                   onClick={() => act((d) => setOrientation(d, split.id, vertical ? 'row' : 'column'))}
                 >
-                  {vertical ? <Columns2 size={12} /> : <Rows2 size={12} />}
+                  {vertical ? <Columns2 size={16} /> : <Rows2 size={16} />}
                 </button>
-                <button className="icon-btn tiny" title="Separate into its own tab" aria-label="Separate" data-testid={`pane-separate-${i}`} onClick={() => act((d) => separatePane(d, split.id, id, now()))}>
-                  <SquareArrowOutUpRight size={12} />
+                <button className="icon-btn" title="Separate into its own tab" aria-label="Separate into its own tab" data-testid={`pane-separate-${i}`} onClick={() => act((d) => separatePane(d, split.id, id, now()))}>
+                  <SquareArrowOutUpRight size={16} />
                 </button>
-                <button className="icon-btn tiny" title="Close pane" aria-label="Close pane" data-testid={`pane-close-${i}`} onClick={() => closeItemCmd(id)}>
-                  <X size={12} />
+                <button className="icon-btn" title="Close pane" aria-label="Close pane" data-testid={`pane-close-${i}`} onClick={() => closeItemCmd(id)}>
+                  <X size={16} />
                 </button>
-              </span>
+              </div>
             </div>
           </div>
         );
@@ -84,6 +81,7 @@ export function SplitChrome({ split }: { split: SplitItem }) {
       {split.panes.slice(0, -1).map((id, i) => {
         const r = rects[id];
         const at = vertical ? r.top + r.height : r.left + r.width;
+        const edge = `calc(${at}% - ${DIVIDER_REACH}px)`;
         return (
           <div
             key={`div-${i}`}
@@ -91,13 +89,14 @@ export function SplitChrome({ split }: { split: SplitItem }) {
             data-testid={`divider-${i}`}
             role="separator"
             aria-orientation={vertical ? 'horizontal' : 'vertical'}
-            style={vertical ? { top: `calc(${at}% - 5px)` } : { left: `calc(${at}% - 5px)` }}
+            style={vertical ? { top: edge } : { left: edge }}
             onDoubleClick={() => act((d) => resetSizes(d, split.id))}
             onPointerDown={(e) => {
               e.preventDefault();
               const card = (e.currentTarget.closest('.card') as HTMLElement).getBoundingClientRect();
               document.body.classList.add('resizing');
               if (vertical) document.body.classList.add('resizing-v');
+              // The panes follow the pointer directly: a resize is never animated.
               const move = (ev: PointerEvent) => {
                 const frac = vertical ? (ev.clientY - card.top) / card.height : (ev.clientX - card.left) / card.width;
                 act((d) => moveDivider(d, split.id, i, frac));

@@ -137,3 +137,28 @@ describe('split view', () => {
     expect(back.items[a]).toBeDefined();
   });
 });
+
+describe('openInSplit reuses an open tab', () => {
+  it('moves a Today tab already on that page into the split instead of opening a copy', () => {
+    let [s, [a, b]] = tabs(2);
+    [s] = run(s, (d) => select(d, a, T0));
+    const count = Object.keys(s.items).length;
+    let got: string | null;
+    [s, got] = run(s, (d) => openInSplit(d, 'https://p1.com', T0));
+    expect(got).toBe(b);
+    const sp = Object.values(s.items).find((it) => it.kind === 'split') as SplitItem;
+    expect(sp.panes).toEqual([a, b]);
+    // One split item added, no new tab.
+    expect(Object.keys(s.items).length).toBe(count + 1);
+  });
+
+  it('opens a new tab when the page is only pinned', () => {
+    let [s, [a, b]] = tabs(2);
+    [s] = run(s, (d) => pinItem(d, b));
+    [s] = run(s, (d) => select(d, a, T0));
+    let got: string | null;
+    [s, got] = run(s, (d) => openInSplit(d, 'https://p1.com', T0));
+    expect(got).not.toBe(b);
+    expect(locate(s, b)?.list).toBe('pinned');
+  });
+});

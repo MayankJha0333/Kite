@@ -1,0 +1,1129 @@
+/* Page area: the page card, the string while a page loads, the find bar, Split View, Peek,
+   notes, the site popover, pages that did not load, the crash screen, View Source.
+   Rule one of the design: the page is loud, the chrome is quiet. Everything here stays
+   out of the page's way until it is needed. */
+
+/* ---- stage + page card ----------------------------------------------------- */
+
+.stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  padding: var(--gap) var(--gap) var(--gap) 0;
+}
+
+.app[data-side='right'] .stage {
+  padding: var(--gap) 0 var(--gap) var(--gap);
+}
+
+.app[data-collapsed] .stage {
+  padding: var(--gap);
+}
+
+/* The strip around the page moves the window. (There used to be a 36px empty band
+   here for the window buttons; they now live in the sidebar and hide with it.) */
+.app[data-electron] .stage {
+  -webkit-app-region: drag;
+}
+
+.app[data-electron] .stage > * {
+  -webkit-app-region: no-drag;
+}
+
+/* With no space around the page, a hairline at the top still lets you move the window. */
+.app[data-electron][data-collapsed]:not([data-fullscreen]) .stage::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 80px;
+  right: 80px;
+  height: max(var(--gap), 4px);
+  z-index: var(--z-raised);
+  -webkit-app-region: drag;
+}
+
+/* The page card: a sheet of paper on the chart table. The elevation carries its own
+   hairline, so the edge stays crisp on the shell and on a Space's picture alike. */
+.card {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--elev-2);
+  isolation: isolate;
+  /* Changing Space or mode: the paper's color settles with the frame's. */
+  transition: background-color var(--t-move) var(--ease-out), border-radius var(--t-move) var(--ease-out);
+}
+
+/* No margin chosen (Customize → Page margin 0): the page is the window, so it has no
+   corners to round and nothing to cast a shadow on. */
+@container style(--gap: 0px) {
+  .card {
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+.surface-slot {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.surface-slot[data-visible] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.surface {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--card);
+}
+
+/* While dragging a row or a divider, pages must not swallow the pointer. */
+body.dragging .surface,
+body.resizing .surface {
+  pointer-events: none;
+}
+
+body.resizing-v,
+body.resizing-v * {
+  cursor: row-resize !important;
+}
+
+/* A screen still loading its code (a few ms from disk): hold its place quietly. */
+.lazy-wait {
+  position: absolute;
+  inset: 0;
+  background: var(--card);
+}
+
+/* ---- the string: a page in flight ------------------------------------------ */
+
+/* Along the top inner edge of the page (each pane of a Split View has its own), cut by
+   the card's corners. While the page loads a length of string runs across; when it has
+   loaded, that length pulls taut from where it is to both ends, then lets go. */
+.page-thread {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: var(--z-raised);
+  pointer-events: none;
+}
+
+.page-thread[data-done] > .thread {
+  --p: 1;
+  clip-path: inset(0);
+  transition: none;
+  animation:
+    thread-taut var(--t-settle) var(--ease-out),
+    fade-out var(--t-exit) var(--ease-out) var(--t-settle) forwards;
+}
+
+@keyframes thread-taut {
+  from {
+    clip-path: inset(0 var(--thread-r, 62%) 0 var(--thread-l, 0%));
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+/* Settings covers the page: nothing of the page's own shows through it. */
+.app[data-page] .page-thread,
+.app[data-page] .find-bar {
+  display: none;
+}
+
+/* ---- find bar ---------------------------------------------------------------- */
+
+/* A small popover in the page's top corner. It opens from ⌘F, so it does not animate. */
+.find-bar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+}
+
+/* A docked panel (Downloads) takes the corner away from the sidebar: stand clear of it. */
+.app:not([data-side='right']):has(.sheet-scrim[data-dock]) .find-bar {
+  right: auto;
+  left: 8px;
+}
+
+/* In a Split View the pane handles hang from the top edge; sit just under them. */
+.card[data-split] .find-bar {
+  top: 20px;
+}
+
+.find-bar .search-field {
+  width: 232px;
+  margin-right: 2px;
+}
+
+.find-count {
+  flex: none;
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.find-bar[data-none] .find-count {
+  color: var(--danger);
+}
+
+/* ---- split view -------------------------------------------------------------- */
+
+/* The panes share the one page card; a hairline is all that parts them. */
+.split-chrome {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-raised);
+  pointer-events: none;
+}
+
+.pane-frame {
+  position: absolute;
+}
+
+/* The handle: a short grip hanging from each pane's top edge. The grip of the pane the
+   address field is showing is drawn firmer; that is the only mark of focus. */
+.pane-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: grid;
+  justify-items: center;
+  width: 56px;
+  height: 14px;
+  margin-left: -28px;
+  pointer-events: auto;
+}
+
+.pane-grip {
+  width: 28px;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: var(--r-xs);
+  background: var(--ink-4);
+  /* A grip must read on any page, so it carries the card's color as an edge. */
+  outline: 1px solid var(--card);
+}
+
+.pane-frame[data-focused] .pane-grip {
+  background: var(--ink-2);
+}
+
+/* The pane's actions come down from the handle while the pointer (or the keyboard) is on it. */
+.pane-actions {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-2px) scale(0.98);
+  transform-origin: 50% 0;
+  transition: opacity var(--t-exit) var(--ease-out), transform var(--t-exit) var(--ease-out);
+}
+
+.pane-handle:hover .pane-actions,
+.pane-handle:focus-within .pane-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  transition-duration: var(--t-fast);
+}
+
+/* The divider: a hairline to look at, 8px to grab. */
+.split-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  pointer-events: auto;
+  cursor: col-resize;
+}
+
+.split-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--line);
+  transition: background-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+}
+
+.split-divider:hover::after,
+body.resizing .split-divider::after {
+  background: var(--ink-4);
+  transform: scaleX(3);
+  transition-duration: var(--t-instant);
+}
+
+.split-chrome[data-orientation='column'] .split-divider {
+  top: auto;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.split-chrome[data-orientation='column'] .split-divider::after {
+  top: 50%;
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 1px;
+}
+
+.split-chrome[data-orientation='column'] .split-divider:hover::after,
+body.resizing .split-chrome[data-orientation='column'] .split-divider::after {
+  transform: scaleY(3);
+}
+
+/* Dragging a tab over the page: the part of the page it will take is laid over with a
+   neutral wash, and one line says so. */
+.drop-hint {
+  position: absolute;
+  z-index: var(--z-sticky);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  /* Halfway between ink and paper is a middle grey in either mode, so the wash shows on a
+     light page and on a dark one. */
+  background: color-mix(in srgb, color-mix(in srgb, var(--ink) 50%, var(--card)) 36%, transparent);
+  pointer-events: none;
+}
+
+.drop-hint > span {
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  box-shadow: var(--elev-1);
+  color: var(--ink);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+/* ---- peek -------------------------------------------------------------------- */
+
+/* A page opened over the page. The dim is light: what you came from stays readable. */
+.peek-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 24px 6% 16px;
+  background: color-mix(in srgb, var(--scrim) 70%, transparent);
+  animation: fade-in var(--t-pop) var(--ease-out);
+}
+
+.peek {
+  flex: 1;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  background: var(--surface-3);
+  box-shadow: var(--elev-3);
+  /* It grows from the link that opened it when that point is known. */
+  transform-origin: var(--peek-origin, 50% 40%);
+  animation: arrive var(--t-settle) var(--ease-settle);
+}
+
+/* Closed with the pointer: it goes quicker than it came. (Esc just removes it.) */
+.peek-scrim[data-leaving] {
+  pointer-events: none;
+  animation: fade-out var(--t-exit) var(--ease-out) forwards;
+}
+
+.peek-scrim[data-leaving] > .peek {
+  animation: leave var(--t-exit) var(--ease-out) forwards;
+}
+
+.peek-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.peek-bar > .icon-btn:first-child {
+  margin-left: -6px;
+}
+
+.peek-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  user-select: text;
+}
+
+.peek-title b {
+  color: var(--ink);
+  font-weight: var(--fw-regular);
+}
+
+.peek-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.peek-body {
+  position: relative;
+  flex: 1;
+  background: var(--card);
+}
+
+.peek-body .surface {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- notes ------------------------------------------------------------------- */
+
+/* The one place in Kite where people read and write prose: a reading measure, a larger
+   body size, and nothing around the text but one quiet row of tools. */
+.note {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  user-select: text;
+}
+
+.note-toolbar {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  user-select: none;
+}
+
+.note-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--line);
+}
+
+.note-words {
+  padding: 0 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.note-link-form {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 8px;
+  z-index: var(--z-popover);
+  width: min(320px, calc(100% - 16px));
+  padding: 4px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  transform-origin: 0 0;
+  animation: arrive var(--t-pop) var(--ease-out);
+}
+
+.note-link-form .input {
+  width: 100%;
+}
+
+.note-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.note-paper {
+  /* The measure, counted in the body's own size. A "ch" is the width of a zero, wider than
+     the average letter: 54 of them hold about 68 characters of running text. */
+  font-size: var(--fs-title);
+  max-width: calc(54ch + 48px);
+  margin: 0 auto;
+  padding: 32px 24px 96px;
+}
+
+.note-title {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs-display);
+  line-height: var(--lh-display);
+  font-weight: var(--fw-semibold);
+}
+
+.note-title::placeholder {
+  color: var(--ink-3);
+}
+
+/* The title and the text are the page itself: no ring around what you are writing in. */
+.app .note-title:focus-visible,
+.app .note-body:focus-visible {
+  outline: none;
+}
+
+.note-body {
+  color: var(--ink);
+  font-size: var(--fs-title);
+  line-height: calc(24px * var(--scale, 1));
+  font-weight: var(--fw-regular);
+  text-wrap: pretty;
+}
+
+.note-body p {
+  margin: 0 0 12px;
+}
+
+.note-body p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+/* Headings: on the type scale, with more air above than below. */
+.note-body h1,
+.note-body h2,
+.note-body h3 {
+  font-weight: var(--fw-semibold);
+  text-wrap: balance;
+}
+
+.note-body h1 {
+  margin: 28px 0 8px;
+  font-size: var(--fs-large);
+  line-height: var(--lh-large);
+}
+
+.note-body h2 {
+  margin: 24px 0 6px;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+}
+
+.note-body h3 {
+  margin: 20px 0 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+.note-body > :first-child {
+  margin-top: 0;
+}
+
+.note-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.note-body ul,
+.note-body ol {
+  margin: 0 0 12px;
+  padding-left: 24px;
+}
+
+.note-body li {
+  margin: 4px 0;
+}
+
+.note-body li p {
+  margin: 0;
+}
+
+.note-body li::marker {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A quotation is set off by a hairline, not a colored bar. */
+.note-body blockquote {
+  margin: 16px 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--line-strong);
+  color: var(--ink-2);
+}
+
+.note-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* Code is the one thing set in a fixed-width face. */
+.note-body code {
+  padding: 1px 4px;
+  border-radius: var(--r-xs);
+  background: var(--fill-field);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--fs-body);
+}
+
+.note-body pre {
+  margin: 16px 0;
+  padding: 12px 16px;
+  overflow-x: auto;
+  border-radius: var(--r-md);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  line-height: var(--lh-title);
+  tab-size: 2;
+}
+
+.note-body pre code {
+  padding: 0;
+  background: none;
+}
+
+.note-body hr {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.note-body ul[data-type='taskList'] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.note-body ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.note-body ul[data-type='taskList'] li > label {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: calc(24px * var(--scale, 1));
+  user-select: none;
+}
+
+.note-body ul[data-type='taskList'] input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.note-body ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-body ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+
+/* ---- site popover ------------------------------------------------------------ */
+
+/* Opened from the address field and grown from it (SiteInfo.tsx places it under the
+   field; the numbers here are where it sits when the field cannot be found). One sheet of
+   paper, parted by hairlines: connection, Shields, zoom, permissions, the site's data. */
+.site-info-catcher {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+}
+
+.site-info {
+  position: absolute;
+  top: 92px;
+  left: 8px;
+  z-index: var(--z-popover);
+  width: min(320px, calc(100vw - 16px));
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  color: var(--ink);
+  transform-origin: 20px 0;
+  animation: arrive var(--t-pop) var(--ease-out);
+  user-select: text;
+}
+
+.app[data-side='right'] .site-info {
+  left: auto;
+  right: 8px;
+  transform-origin: calc(100% - 20px) 0;
+}
+
+.site-info-part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.site-info-part + .site-info-part {
+  border-top: 1px solid var(--line);
+}
+
+.site-info p {
+  margin: 0;
+}
+
+.site-info-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--h-sm);
+}
+
+.site-info-line > svg {
+  flex: none;
+}
+
+.site-info-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.site-info-text > b {
+  font-weight: var(--fw-medium);
+}
+
+.site-info-text > .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The connection, said plainly and in the color of its state. */
+.site-info-conn {
+  color: var(--ink-2);
+}
+
+.site-info-conn b {
+  font-weight: var(--fw-semibold);
+}
+
+.site-info[data-level='secure'] .site-info-conn {
+  color: var(--ok);
+}
+
+.site-info[data-level='insecure'] .site-info-conn {
+  color: var(--warn);
+}
+
+.site-info[data-level='broken'] .site-info-conn {
+  color: var(--danger);
+}
+
+.site-info-conn .url-lock {
+  opacity: 1;
+}
+
+.site-info-log-btn {
+  align-self: flex-start;
+  margin-left: -8px;
+}
+
+.site-info-log-btn[aria-expanded='true'] > svg {
+  transform: rotate(90deg);
+}
+
+.site-info-hosts,
+.site-info-prot {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.site-info-hosts {
+  max-height: 160px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.site-info-hosts > li,
+.site-info-prot > li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.site-info-hosts > li > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-info-hosts > li > span:last-child,
+.site-info-prot-state {
+  flex: none;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.site-info-prot > li[data-on] .site-info-prot-state {
+  color: var(--ink);
+}
+
+.site-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--h-md);
+}
+
+.site-info-row > span:first-child {
+  min-width: 0;
+}
+
+.site-info-zoom {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.site-info-zoom-value {
+  min-width: 48px;
+  padding: 0 4px;
+  justify-content: center;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The last part: the site's data, and the two places in Settings this popover leads to.
+   Quiet text buttons, pulled left so their words line up with everything above. */
+.site-info-foot {
+  flex-flow: row wrap;
+  gap: 4px 0;
+}
+
+.site-info-foot > .btn {
+  margin: 0 8px 0 -8px;
+}
+
+/* ---- a page that didn't load ------------------------------------------------- */
+
+/* One calm layout for every failure: what happened, the likely cause and the way out,
+   the code for whoever needs it, and the action. It lies on the contour field. */
+.load-error {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 24px 12vh;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--card);
+  color: var(--ink);
+  text-align: center;
+  user-select: text;
+  animation: fade-in var(--t-pop) var(--ease-out);
+}
+
+.load-error > .contour-field {
+  z-index: -1;
+}
+
+.load-error h2 {
+  max-width: 480px;
+  margin: 0;
+  font-size: var(--fs-large);
+  line-height: var(--lh-large);
+  font-weight: var(--fw-semibold);
+  overflow-wrap: anywhere;
+}
+
+.load-error p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-body);
+  line-height: calc(20px * var(--scale, 1));
+  text-wrap: pretty;
+}
+
+.load-error .load-error-code {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  overflow-wrap: anywhere;
+}
+
+.load-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  user-select: none;
+}
+
+/* ---- Kite's own window failed -------------------------------------------------- */
+
+/* Drawn outside .app (the app itself is what failed), so the handful of tokens the
+   screen and its buttons need are set here, in the Calm Air colors for each mode. */
+.app-crash {
+  --ink: #14211f;
+  --ink-2: rgba(20, 33, 31, 0.78);
+  --ink-3: rgba(20, 33, 31, 0.66);
+  --line: rgba(20, 33, 31, 0.1);
+  --accent: #c2187a;
+  --accent-ink: #ffffff;
+  --fill-field: rgba(20, 33, 31, 0.05);
+  --fill-hover: rgba(20, 33, 31, 0.06);
+  --fill-press: rgba(20, 33, 31, 0.09);
+  --surface-3: #ffffff;
+  --elev-3: 0 0 0 0.5px rgba(20, 33, 31, 0.18), 0 2px 6px rgba(20, 33, 31, 0.1), 0 24px 64px rgba(20, 33, 31, 0.22);
+  --fs-micro: 11px;
+  --fs-small: 12px;
+  --fs-body: 13px;
+  --fs-large: 20px;
+  --lh-micro: 14px;
+  --lh-small: 15px;
+  --lh-body: 16px;
+  --lh-large: 24px;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --r-sm: 6px;
+  --r-xl: 16px;
+  --h-sm: 24px;
+  --h-md: 28px;
+  --t-fast: 120ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: start center;
+  padding: 12vh 24px 24px;
+  background: #e9f0ee;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Figtree', system-ui, sans-serif;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-crash {
+    --ink: #e6eef0;
+    --ink-2: rgba(230, 238, 240, 0.78);
+    --ink-3: rgba(230, 238, 240, 0.64);
+    --line: rgba(230, 238, 240, 0.12);
+    --accent: #e27aa8;
+    --accent-ink: #1b0a13;
+    --fill-field: rgba(230, 238, 240, 0.07);
+    --fill-hover: rgba(230, 238, 240, 0.07);
+    --fill-press: rgba(230, 238, 240, 0.1);
+    --surface-3: #27333d;
+    --elev-3: 0 0 0 0.5px rgba(0, 0, 0, 0.75), inset 0 0.5px 0 rgba(255, 255, 255, 0.1), 0 4px 10px rgba(0, 0, 0, 0.35), 0 28px 72px rgba(0, 0, 0, 0.6);
+    background: #141c22;
+  }
+}
+
+.app-crash-card {
+  width: min(440px, 100%);
+  padding: 20px;
+  border-radius: var(--r-xl);
+  background: var(--surface-3);
+  box-shadow: var(--elev-3);
+}
+
+.app-crash-card h1 {
+  margin: 0 0 8px;
+  font-size: var(--fs-large);
+  line-height: var(--lh-large);
+  font-weight: var(--fw-semibold);
+}
+
+.app-crash-card p {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+  line-height: 20px;
+}
+
+.app-crash-detail {
+  max-height: 160px;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  overflow: auto;
+  border-radius: var(--r-sm);
+  background: var(--fill-field);
+  color: var(--ink-3);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--fs-micro);
+  line-height: var(--lh-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.app-crash .inline-form {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+/* ---- View Page Source ---------------------------------------------------------- */
+
+/* Code, so a fixed-width face is right here. */
+.source {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.source-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.source-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.source-title b {
+  color: var(--ink);
+  font-weight: var(--fw-regular);
+}
+
+.source-actions {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
+.source-wait {
+  padding: 16px;
+}
+
+.source > .notice {
+  margin: 8px 16px 0;
+}
+
+.source-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 0;
+  user-select: text;
+}
+
+.source-table {
+  border-collapse: collapse;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--fs-small);
+  line-height: calc(18px * var(--scale, 1));
+  tab-size: 2;
+}
+
+.source-ln {
+  position: sticky;
+  left: 0;
+  width: 1%;
+  padding: 0 12px 0 16px;
+  background: var(--card);
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  vertical-align: top;
+  user-select: none;
+}
+
+.source-code {
+  padding: 0 24px 0 4px;
+  white-space: pre;
+}
+
+.source[data-wrap] .source-code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}

@@ -43,6 +43,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Download Electron (macOS)
+        # Since Electron 42, `npm ci` no longer downloads Electron itself: it would arrive on
+        # first launch, in the middle of the first real-app test. Only macOS runs those tests.
+        if: runner.os == 'macOS'
+        run: npx install-electron --no
       - name: Browser and system libraries for the tests
         run: npx playwright install --with-deps chromium
       - name: Virtual screen (Linux)

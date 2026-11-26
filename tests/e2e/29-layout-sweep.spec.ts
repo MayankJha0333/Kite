@@ -5,7 +5,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, openApp, newTab, todayRows, expectTidy, MOD } from './fixtures';
 
-const SETTINGS_TABS = ['general', 'appearance', 'links', 'privacy', 'shortcuts', 'advanced'];
+const SETTINGS_TABS = ['general', 'appearance', 'privacy', 'shortcuts', 'advanced'];
 
 async function menuOpen(page: Page) {
   await expect(page.getByTestId('context-menu')).toBeVisible();

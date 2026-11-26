@@ -184,6 +184,7 @@ test('Shields, full pipeline: lists download and build off-thread; page fixes ru
   expect(requests.some((r) => r.startsWith('/mine/blocked-by-me.png'))).toBe(true);
   await win.keyboard.press(`${MOD}+Comma`);
   await win.getByTestId('settings-privacy').click();
+  await win.getByTestId('shields-advanced').click();
   await win.getByTestId('shields-user-rules').fill('||127.0.0.1^*/mine/');
   await win.getByTestId('shields-user-save').click();
   await expect(win.getByTestId('shields-user-count')).toContainText('1 rule', { timeout: 15000 });

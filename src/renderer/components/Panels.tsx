@@ -9,6 +9,7 @@ import { ImportArc } from './ImportArc';
 import { DownloadsPanel } from './Downloads';
 import { ExtensionsPanel } from './Extensions';
 import { Welcome } from './Welcome';
+import { Customize } from './Customize';
 
 /** Side sheets (Settings, Archive, Boosts, Space editor…). A panel that breaks closes
  *  itself with a message instead of taking the whole window (and your pages) down. */
@@ -51,5 +52,6 @@ function PanelSwitch() {
   if (panel === 'downloads') return <DownloadsPanel />;
   if (panel === 'extensions') return <ExtensionsPanel />;
   if (panel === 'welcome') return <Welcome />;
+  if (panel === 'customize') return <Customize />;
   return null;
 }

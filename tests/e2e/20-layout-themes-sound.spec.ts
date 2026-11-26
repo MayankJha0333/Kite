@@ -69,7 +69,7 @@ test.describe('layout: no wasted space around the page', () => {
     await newTab(page, 'https://a.com');
     await page.keyboard.press(`${MOD}+Comma`);
     await page.getByTestId('settings-appearance').click();
-    await page.getByTestId('set-gap').fill('0');
+    await page.getByTestId('set-margin-edge').click();
     await page.getByTestId('sheet-close').click();
     await page.keyboard.press(`${MOD}+s`);
     await expect.poll(async () => (await page.getByTestId('page-card').boundingBox())!.x).toBe(0);
@@ -125,14 +125,24 @@ test.describe('layout: no wasted space around the page', () => {
 });
 
 test.describe('themes', () => {
-  test('a new Kite starts on the dark default gradient, and the editor has only the Arc controls', async ({ page }) => {
+  test('a new Kite starts on Calm Air (one flat tint, light or dark from the system), and the Space editor has every theme control', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
     await openDesktop(page);
-    expect(await cssVar(page, '--tint-2')).toBe('#8f8cff');
+    expect(await cssVar(page, '--tint-2')).toBe('#c2187a');
+    await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'light');
+    expect(await cssVar(page, '--backdrop')).toBe('#e9f0ee');
+    await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'dark');
-    expect(await cssVar(page, '--backdrop')).toMatch(/^linear-gradient\(160deg/);
     await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-edit-space').click();
     await expect(page.getByTestId('theme-controls')).toBeVisible();
+    // First: Mode, one row of colors (Calm Air's own, chosen, then nine hues) and three backgrounds.
+    await expect(page.getByTestId('preset-quiet')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-testid^="swatch-"]')).toHaveCount(9);
+    await expect(page.getByTestId('theme-backdrops').getByRole('radio')).toHaveCount(3);
+    await expect(page.getByTestId('backdrop-none')).toHaveAttribute('aria-checked', 'true');
+    // "Custom…" holds the rest of the color controls.
+    await page.getByTestId('theme-custom-toggle').click();
     for (const id of ['space-hue', 'space-vivid', 'space-intensity', 'space-grain', 'space-mode-light', 'space-mode-dark', 'space-mode-system', 'color-a', 'color-b']) await expect(page.getByTestId(id)).toBeVisible();
     await expect(page.locator('[data-testid^="swatch-"]')).toHaveCount(27);
   });
@@ -143,6 +153,7 @@ test.describe('themes', () => {
     await newTab(page, 'https://a.com');
     await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-edit-space').click();
+    await page.getByTestId('theme-custom-toggle').click(); // the pastel and gray rows are behind "Custom…"
     const contrast = () =>
       page.getByTestId('app').evaluate((el) => {
         const cs = getComputedStyle(el);

@@ -35,6 +35,36 @@ test.describe('notes', () => {
     await expect(page.getByTestId('note-body').locator('li[data-checked="true"]')).toHaveCount(1);
   });
 
+  test('a note reads like a page of prose: a measure, a larger body, one quiet row of tools', async ({ page }) => {
+    await openApp(page);
+    await page.keyboard.press(`${MOD}+Shift+o`);
+    await page.getByTestId('note-body').click();
+    await page.keyboard.type('The wind is steady from the west on Saturday, so the long field behind the school is the place to fly the big delta. ');
+    await page.keyboard.type('Bring the spare line as well; the small one will not hold above ten knots, and the forecast says twelve by noon.');
+    const body = page.getByTestId('note-body');
+    await expect(body).toHaveCSS('font-size', '15px');
+    await expect(body).toHaveCSS('line-height', '24px');
+    // About 68 characters a line: never the full width of the page.
+    const chars = await body.locator('p').evaluate((p) => {
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      return p.textContent!.length / lines;
+    });
+    expect(chars).toBeGreaterThan(50);
+    expect(chars).toBeLessThan(80);
+    const tools = page.locator('.note-toolbar button');
+    expect(await tools.count()).toBeGreaterThan(12);
+    for (const b of await tools.evaluateAll((els) => els.map((e) => e.getBoundingClientRect()))) expect([b.width, b.height]).toEqual([24, 24]);
+    // A tool that is on says so to assistive tech too.
+    await page.getByTestId('tool-bold').click();
+    await expect(page.getByTestId('tool-bold')).toHaveAttribute('aria-pressed', 'true');
+    // The tools also work from the keyboard.
+    await page.getByTestId('tool-italic').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('tool-italic')).toHaveAttribute('aria-pressed', 'true');
+  });
+
   test('add a link with the inline link box', async ({ page }) => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Shift+o`);

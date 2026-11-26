@@ -1,0 +1,165 @@
+/* ---- Calm Air tokens ---------------------------------------------------------
+   The whole window is drawn from these. Colors that depend on the Space (shell,
+   ink, accent, line) still come from theme.ts as inline variables on .app; the
+   tokens below are the fixed scales every surface shares.
+
+   Type: six sizes, three weights. Shape: five radii. Controls: five heights.
+   Depth: three elevations, each carrying its own hairline ring (so an elevated
+   thing never also has a border). Motion: keyboard actions are instant, things
+   arriving under the pointer settle on an ease-out, nothing eases in. */
+.app {
+  /* type — sizes follow the text-size setting through --scale */
+  --fs-micro: calc(11px * var(--scale, 1));
+  --fs-small: calc(12px * var(--scale, 1));
+  --fs-body: calc(13px * var(--scale, 1));
+  --fs-title: calc(15px * var(--scale, 1));
+  --fs-large: calc(20px * var(--scale, 1));
+  --fs-display: calc(28px * var(--scale, 1));
+  --lh-micro: calc(14px * var(--scale, 1));
+  --lh-small: calc(15px * var(--scale, 1));
+  --lh-body: calc(16px * var(--scale, 1));
+  --lh-title: calc(20px * var(--scale, 1));
+  --lh-large: calc(24px * var(--scale, 1));
+  --lh-display: calc(32px * var(--scale, 1));
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* shape */
+  --r-xs: 5px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  /* control heights */
+  --h-xs: 20px;
+  --h-sm: 24px;
+  --h-md: 28px;
+  --h-lg: 32px;
+  --h-xl: 44px;
+
+  /* fills: tinted from the ink, so they carry the shell's hue */
+  --fill-hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --fill-press: color-mix(in srgb, var(--ink) 11%, transparent);
+  --fill-selected: rgba(255, 255, 255, 0.86);
+  --fill-field: color-mix(in srgb, var(--ink) 5%, transparent);
+  --line-strong: color-mix(in srgb, var(--ink) 18%, transparent);
+
+  /* state colors: one value each per mode, used only where they carry meaning */
+  --danger: #c2302b;
+  --danger-soft: rgba(194, 48, 43, 0.1);
+  --ok: #1d7a4c;
+  --warn: #8f5600;
+
+  /* surfaces: paper lying on the chart table */
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+
+  /* depth: a hairline ring, a contact shadow, an ambient one */
+  --elev-1: 0 0 0 0.5px rgba(20, 33, 31, 0.14), 0 1px 2px rgba(20, 33, 31, 0.08);
+  --elev-2: 0 0 0 0.5px rgba(20, 33, 31, 0.16), 0 1px 3px rgba(20, 33, 31, 0.08), 0 8px 24px rgba(20, 33, 31, 0.14);
+  --elev-3: 0 0 0 0.5px rgba(20, 33, 31, 0.18), 0 2px 6px rgba(20, 33, 31, 0.1), 0 24px 64px rgba(20, 33, 31, 0.22);
+
+  /* layers */
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-sidebar: 30;
+  --z-popover: 40;
+  --z-sheet: 50;
+  --z-command: 60;
+  --z-menu: 70;
+  --z-toast: 80;
+  --z-drag: 90;
+
+  /* motion — every duration follows the speed setting */
+  --t-instant: 0ms;
+  --t-fast: calc(120ms * var(--speed, 1));
+  --t-pop: calc(180ms * var(--speed, 1));
+  --t-settle: calc(240ms * var(--speed, 1));
+  --t-move: calc(280ms * var(--speed, 1));
+  --t-exit: calc(140ms * var(--speed, 1));
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-move: var(--ease-in-out);
+  /* a spring with no bounce, sampled: fast off the line, long soft landing */
+  --ease-settle: linear(0, 0.004 1%, 0.0188 2.3%, 0.0422 3.5%, 0.0789 5%, 0.1613 7.8%, 0.3625 13.8%, 0.4654 17%, 0.5578 20.3%, 0.6382 23.5%, 0.7066 26.8%, 0.7679 30.3%, 0.8177 33.8%, 0.8602 37.5%, 0.8992 42%, 0.9291 46.8%, 0.9533 52.3%, 0.9712 58.5%, 0.9834 65.5%, 0.9914 73.8%, 1);
+
+  /* the string: Kite's one progress language */
+  --thread: var(--accent);
+  --thread-w: 2px;
+}
+
+.app[data-theme='dark'] {
+  --fill-hover: color-mix(in srgb, var(--ink) 7%, transparent);
+  --fill-press: color-mix(in srgb, var(--ink) 13%, transparent);
+  --fill-selected: color-mix(in srgb, var(--ink) 14%, transparent);
+  --fill-field: color-mix(in srgb, var(--ink) 7%, transparent);
+  --line-strong: color-mix(in srgb, var(--ink) 22%, transparent);
+  --danger: #ff6b63;
+  --danger-soft: rgba(255, 107, 99, 0.14);
+  --ok: #5fd08f;
+  --warn: #f2b34a;
+  /* in the dark, height reads as a lighter sheet as well as a shadow */
+  --surface-1: #222c34;
+  --surface-2: #242f38;
+  --surface-3: #27333d;
+  --elev-1: 0 0 0 0.5px rgba(0, 0, 0, 0.6), inset 0 0.5px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-2: 0 0 0 0.5px rgba(0, 0, 0, 0.7), inset 0 0.5px 0 rgba(255, 255, 255, 0.1), 0 2px 4px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.45);
+  --elev-3: 0 0 0 0.5px rgba(0, 0, 0, 0.75), inset 0 0.5px 0 rgba(255, 255, 255, 0.1), 0 4px 10px rgba(0, 0, 0, 0.35), 0 28px 72px rgba(0, 0, 0, 0.6);
+}
+
+/* The string. Determinate: set --p from 0 to 1. Busy: a segment crossing left to right. */
+.thread {
+  display: block;
+  height: var(--thread-w);
+  border-radius: var(--thread-w);
+  background: var(--thread);
+  transform: scaleX(var(--p, 0));
+  transform-origin: left center;
+  transition: transform var(--t-fast) linear;
+}
+
+.thread[data-busy] {
+  position: relative;
+  overflow: hidden;
+  transform: none;
+  transition: none;
+  background: transparent;
+}
+
+.thread[data-busy]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 38%;
+  border-radius: inherit;
+  background: var(--thread);
+  animation: thread-run 1.1s linear infinite;
+}
+
+@keyframes thread-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(265%);
+  }
+}
+
+.app[data-motion='reduced'] .thread[data-busy]::after {
+  animation: none;
+  width: 100%;
+  opacity: 0.7;
+}
+
+/* Browser surfaces that are part of the design too. */
+.app ::selection {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  color: var(--ink);
+}
+
+.app :is(input, textarea, [contenteditable]) {
+  caret-color: var(--accent);
+}

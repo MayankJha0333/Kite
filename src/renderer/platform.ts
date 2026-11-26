@@ -53,6 +53,8 @@ export interface TestHooks {
   windowButtons: { visible: boolean; x: number; y: number }[];
   windowState(v: { fullscreen: boolean }): void;
   calls: string[];
+  /** A newer Kite to pretend exists (see shared/updates.ts). */
+  update?: import('@shared/updates').UpdateInfo | null;
   shieldsCount(tabId: string, count: number): void;
   setDownloads(list: import('@shared/downloads').DownloadEntry[]): void;
   downloadDone(entry: import('@shared/downloads').DownloadEntry): void;
@@ -203,6 +205,9 @@ function makeWebBridge(): KiteBridge {
       return true;
     },
     appInfo: async () => ({ version: __KITE_VERSION__, electron: '', chromium: navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1] ?? '', node: '', platform: platformName, arch: '', dataDir: '(browser test mode)', packaged: false }),
+    // In the browser test mode there is nothing to update; tests set `hooks.update` to pretend there is.
+    checkForUpdate: async () => ({ value: hooks.update ?? null }),
+    openUpdate: (url) => void hooks.calls.push(`openUpdate:${url}`),
     revealData: () => void hooks.calls.push('revealData'),
     printPage: () => void hooks.calls.push('print'),
     capturePage: async (_id, full) => {
@@ -244,6 +249,8 @@ function makeWebBridge(): KiteBridge {
     },
     // Browser test mode: every site has an icon, like real ones do.
     siteIcon: async (url) => (/^https?:/.test(url) ? fakeFavicon(url) : null),
+    // Test mode has no network: icons are already inline or not there at all.
+    iconPixels: async () => null,
     permissions: async () => hooks.permissions,
     onPermissions: (cb) => permState.on(cb),
     forgetPermission: (site, permission) => {

@@ -1,0 +1,54 @@
+/* Reduce Motion, for every surface: Kite's own switch and the system setting. Loaded last.
+   Fewer and gentler, not none: nothing slides, scales or travels; sheets, popovers and
+   toasts fade in for 140ms; hover, press and toggle colors still answer; the string stops
+   running and shows as a still line.
+
+   The two blocks below are the same rules, once for Kite's switch and once for the system's
+   setting. A new overlay that should fade in under Reduce Motion is added to both.
+   The command bar and menus are not in the lists: they open in one frame for everyone. */
+
+/* Kite's switch (Settings → Reduce Motion). */
+.app[data-motion='reduced'] *,
+.app[data-motion='reduced'] *::before,
+.app[data-motion='reduced'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0s !important;
+  transition-property: background, background-color, color, opacity, box-shadow, border-color, fill, stroke !important;
+  transition-duration: 120ms !important;
+  transition-timing-function: ease !important;
+}
+.app[data-motion='reduced'] :is(.sheet, .kite-page, .toast, .peek, .site-info) {
+  animation: fade-in 140ms ease-out !important;
+}
+.app[data-motion='reduced'] :is(.sheet-scrim[data-leaving] .sheet, .kite-page[data-leaving], .toast[data-leaving]) {
+  animation: fade-out 100ms ease-out forwards !important;
+}
+.app[data-motion='reduced'] .thread[data-busy]::after {
+  animation: none !important;
+  width: 100%;
+  opacity: 0.7;
+}
+
+/* The system's setting (System Settings → Accessibility → Reduce Motion). */
+@media (prefers-reduced-motion: reduce) {
+  .app *,
+  .app *::before,
+  .app *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
+    transition-property: background, background-color, color, opacity, box-shadow, border-color, fill, stroke !important;
+    transition-duration: 120ms !important;
+    transition-timing-function: ease !important;
+  }
+  .app :is(.sheet, .kite-page, .toast, .peek, .site-info) {
+    animation: fade-in 140ms ease-out !important;
+  }
+  .app :is(.sheet-scrim[data-leaving] .sheet, .kite-page[data-leaving], .toast[data-leaving]) {
+    animation: fade-out 100ms ease-out forwards !important;
+  }
+  .app .thread[data-busy]::after {
+    animation: none !important;
+    width: 100%;
+    opacity: 0.7;
+  }
+}

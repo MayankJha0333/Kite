@@ -1,0 +1,1121 @@
+/* The start page (every new tab, and the window with nothing open), its widgets, and the
+   first run. */
+
+/* ==== Start page =================================================================
+   One centered 640px column on the shell's own tint, the chart's contour lines behind it:
+   greeting, search field, Favorites, then widgets on the same column grid. It is simply
+   there when a tab opens. Nothing on it animates in: a new tab is opened a hundred times
+   a day, and an entrance there reads as waiting. */
+.start {
+  position: absolute;
+  inset: 0;
+  background: var(--chrome-mid);
+  container-type: inline-size;
+  /* where the lines thin out: behind the greeting and the search field */
+  --contour-clear: 50% 32%;
+}
+
+/* A Space's picture or gradient takes the place of the contour lines. */
+.start-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-position: center;
+  background-size: cover;
+}
+
+/* The page scrolls inside the drawing, so the lines (or the picture) stay put. */
+.start-scroll {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.start-top {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  padding: 8px 8px 0;
+}
+
+.start-inner {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: min(640px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: clamp(16px, 11vh, 104px) 0 32px;
+}
+
+.start-hello {
+  margin-bottom: 20px;
+}
+
+.start-greet {
+  margin: 0;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-display);
+  text-wrap: balance;
+}
+
+.start-date {
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- search field ---- */
+
+.start-box {
+  position: relative;
+  z-index: var(--z-raised);
+}
+
+.start-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--h-xl);
+  padding: 0 8px 0 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+  cursor: text;
+}
+
+/* The field holds the caret from the moment the page appears, so at rest the caret is its
+   only mark. The ring is drawn when someone reaches the field with the Tab key. */
+.start-search[data-ring] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.start-search-icon {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.start-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+  user-select: text;
+}
+
+.app .start-input:focus-visible {
+  outline: none;
+}
+
+.start-input::placeholder {
+  color: var(--ink-3);
+}
+
+.start-engine {
+  flex: none;
+}
+
+/* Pages you have been to that match what you are typing: a menu under the field. */
+.start-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+}
+
+.start-suggest li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-md);
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  cursor: default;
+}
+
+.start-suggest li[data-on] {
+  background: var(--fill-hover);
+}
+
+.start-sug-title {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.start-sug-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---- Favorites and Frequently visited ---- */
+
+.start-sec {
+  margin-top: 32px;
+}
+
+.start-sec > .section-label {
+  margin-bottom: 4px;
+}
+
+/* A strict grid of 72px tiles. It reaches 12px past the column on both sides so that the
+   first and last icon plates, not the tiles' hover area, line up with the search field. */
+.start-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 72px);
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin: 0 -12px;
+}
+
+.start-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 2px 6px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-small);
+  cursor: default;
+}
+
+.start-tile:hover {
+  background: var(--fill-hover);
+  color: var(--ink);
+}
+
+.start-tile:active {
+  background: var(--fill-press);
+}
+
+/* The plate a site's icon sits on: a small sheet of paper. An icon too dark to read on it
+   at night gets its own pale backing from SiteIcon, exactly as in the sidebar. */
+.start-tile-plate {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+}
+
+/* A site with no icon shows its first letter, sized to the larger tile. */
+.start-tile-plate .site-icon.letter {
+  font-size: var(--fs-title);
+}
+
+.start-tile-add {
+  color: var(--ink-3);
+}
+
+.start-tile-add .start-tile-plate {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--ink-3);
+}
+
+.start-tile-add:hover .start-tile-plate {
+  color: var(--ink);
+}
+
+/* A site's name may take two lines, so "Hacker News" isn't cut off. */
+.start-tile-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.start-hint {
+  margin: 12px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+/* Adding or editing a shortcut, in place under the tiles. */
+.shortcut-editor {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr auto auto;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  transform-origin: 10% 0;
+  animation: arrive var(--t-pop) var(--ease-out);
+}
+
+@container (max-width: 520px) {
+  .shortcut-editor {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---- shortcut hints at the foot of the page (off unless asked for) ---- */
+
+.start-foot {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: auto;
+  padding: 16px 24px 20px;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.start-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Kite's own pages in a sidebar row: a small glyph where a site would have its icon. */
+.site-icon.newtab {
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--r-xs);
+  background: var(--fill-hover);
+  color: var(--ink-2);
+}
+
+/* ---- over a picture or gradient ----
+   Words that lie straight on the picture take the picture's tone, whatever mode the Space
+   is in: on a dark picture the light ink, on a light one the dark ink, each with a soft
+   halo of the other so it holds on a busy spot. Everything that is a control or a panel
+   (the search field, widgets, the buttons) stays opaque paper and needs no help. */
+.start[data-tone] {
+  --pic-ink: var(--ink);
+  --pic-halo: var(--card);
+}
+
+.app[data-theme='light'] .start[data-tone='dark'],
+.app[data-theme='dark'] .start[data-tone='light'] {
+  --pic-ink: var(--card);
+  --pic-halo: var(--ink);
+}
+
+.start[data-tone] :is(.start-greet, .start-date, .start-sec > .section-label, .start-tile, .start-hint) {
+  color: var(--pic-ink);
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--pic-halo) 60%, transparent),
+    0 1px 2px color-mix(in srgb, var(--pic-halo) 50%, transparent);
+}
+
+.start[data-tone] .start-tile:hover {
+  background: color-mix(in srgb, var(--pic-ink) 14%, transparent);
+}
+
+.start[data-tone] .start-tile:active {
+  background: color-mix(in srgb, var(--pic-ink) 20%, transparent);
+}
+
+.start[data-tone] .start-tile-add .start-tile-plate {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pic-ink) 60%, transparent);
+  color: var(--pic-ink);
+}
+
+.start[data-backdrop] .start-customize {
+  background-color: var(--surface-1);
+  box-shadow: var(--elev-1);
+  color: var(--ink);
+}
+
+.start[data-backdrop] .start-foot {
+  align-self: center;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+  color: var(--ink-2);
+}
+
+/* ==== Widgets ====================================================================
+   Paper panels on the page's column grid: three cells across at full width, fewer in a
+   narrow window (WidgetLayer.tsx places them). A widget is moved by its title bar and
+   lands on a cell; the others make room. */
+.home-widgets {
+  position: relative;
+  margin-top: 32px;
+}
+
+.home-widgets[data-empty] {
+  margin-top: 0;
+}
+
+.widget {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+  color: var(--ink);
+}
+
+/* On the full grid a widget travels to its new cell. In a narrow window cells follow the
+   window's width, and nothing should trail behind a resize. */
+.home-widgets[data-cols='3'] .widget {
+  transition:
+    translate var(--t-move) var(--ease-in-out),
+    box-shadow var(--t-fast) var(--ease-out);
+}
+
+/* One added just now settles in; those already on the page are simply there. */
+.widget[data-new] {
+  animation: arrive var(--t-pop) var(--ease-out);
+}
+
+.home-widgets .widget[data-dragging] {
+  z-index: var(--z-raised);
+  box-shadow: var(--elev-2);
+  cursor: grabbing;
+  transition: none;
+}
+
+.widget-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: var(--h-md);
+  padding: 0 4px 0 12px;
+  user-select: none;
+}
+
+.widget-head[data-movable] {
+  cursor: grab;
+}
+
+.widget-head[data-movable]:active {
+  cursor: grabbing;
+}
+
+.widget-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The options button shows with the pointer or the keyboard in the widget: at once coming in, eased going out. */
+.widget-more {
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+
+.widget:hover .widget-more,
+.widget:focus-within .widget-more {
+  opacity: 1;
+  transition-duration: var(--t-instant);
+}
+
+.widget-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 12px 12px;
+}
+
+/* A widget's one large figure (the time, the temperature, the countdown) and the line under it. */
+.wg-figure {
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-display);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.wg-sub {
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Clock */
+.wg-clock {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+}
+
+/* Weather: now on the left, the next days beside it (wide) or under it (large). */
+.wg-weather {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  min-height: 0;
+}
+
+.widget[data-size='wide'] .wg-weather {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.wg-weather-ask {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wg-weather-ask p {
+  margin: 0;
+}
+
+.wg-weather-now {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.widget[data-size='wide'] .wg-weather-now {
+  flex: 1;
+}
+
+.wg-weather-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+
+.wg-weather-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.wg-weather-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+}
+
+.wg-weather-wind {
+  white-space: nowrap;
+}
+
+.wg-weather-wind > svg {
+  margin-bottom: -2px;
+  color: var(--ink-3);
+}
+
+.wg-weather-place {
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+.wg-weather-place:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.wg-weather-days {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.widget[data-size='wide'] .wg-weather-days {
+  flex: 0 0 204px;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.widget[data-size='large'] .wg-weather-days {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.wg-weather-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.wg-weather-dow,
+.wg-weather-low {
+  color: var(--ink-3);
+}
+
+.wg-weather-err {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Note: written straight onto the widget's paper. The ring goes round the whole widget. */
+.wg-note {
+  flex: 1;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: var(--lh-title);
+  resize: none;
+}
+
+.app .wg-note:focus-visible {
+  outline: none;
+}
+
+.widget:has(.wg-note:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* To-do */
+.wg-todo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.wg-todo-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wg-todo-add .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.wg-todo-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.wg-todo-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--h-sm);
+  padding: 0 2px;
+}
+
+.wg-todo-list li[data-done] .wg-todo-text {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+
+.wg-todo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wg-todo-x {
+  opacity: 0;
+}
+
+.wg-todo-list li:hover .wg-todo-x,
+.wg-todo-x:focus-visible {
+  opacity: 1;
+}
+
+.wg-todo-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--h-sm);
+}
+
+/* Calendar */
+.wg-cal {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wg-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wg-cal-month {
+  height: var(--h-xs);
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--fw-medium);
+  cursor: default;
+}
+
+.wg-cal-month:hover {
+  background: var(--fill-hover);
+}
+
+.wg-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 2px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.wg-cal-dow {
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  line-height: var(--h-xs);
+}
+
+.wg-cal-day {
+  display: grid;
+  place-items: center;
+  height: var(--h-sm);
+  border-radius: var(--r-sm);
+}
+
+.wg-cal-day[data-today] {
+  background: var(--fill-selected);
+  font-weight: var(--fw-semibold);
+}
+
+/* Focus timer: the countdown, the string showing how far through it is, then its length. */
+.wg-timer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.wg-timer-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wg-timer-top .wg-figure {
+  flex: 1;
+}
+
+.wg-timer-track {
+  height: var(--thread-w);
+  border-radius: var(--thread-w);
+  background: var(--fill-selected);
+}
+
+.wg-timer-length {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wg-timer-length > .segmented {
+  flex: 1;
+}
+
+/* ==== First run ==================================================================
+   Three steps that take over the page area the first time Kite opens (Welcome.tsx). The
+   sidebar stays in view beside it: it is the thing being introduced. Same paper, same
+   contour lines and the same column as the start page that follows it. */
+.first-run {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sticky);
+  background: var(--chrome-mid);
+  container-type: inline-size;
+  --contour-clear: 46% 34%;
+}
+
+.first-run-scroll {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.first-run-col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  width: min(560px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: clamp(24px, 9vh, 96px) 0 32px;
+}
+
+/* The first screen is a title page: it sits lower, with air above it. */
+.first-run[data-step='hello'] .first-run-col {
+  padding-top: clamp(32px, 22vh, 220px);
+}
+
+/* The kite, in ink. Its string is the one line of color on the page. */
+.first-run-mark {
+  margin-bottom: 16px;
+  color: var(--ink);
+  line-height: 0;
+  --tint-2: var(--ink);
+}
+
+.first-run-title {
+  margin: 0;
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-display);
+  text-wrap: balance;
+}
+
+/* The title takes the keyboard at each step so Return and Esc work at once; it is not a control and shows no ring. */
+.first-run-title:focus {
+  outline: none;
+}
+
+.first-run-string {
+  width: 100%;
+  margin-top: 16px;
+  transition: transform var(--t-move) var(--ease-out);
+}
+
+.first-run-lede {
+  max-width: 60ch;
+  margin: 8px 0 0;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.first-run[data-step='hello'] .first-run-lede {
+  max-width: 48ch;
+  margin-top: 16px;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+}
+
+.first-run-aside {
+  margin: 16px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.first-run-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+/* The sidebar's three places, read like a chart's legend: the name, then what it is. */
+.first-run-places {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+
+.first-run-places li {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  column-gap: 12px;
+  padding: 6px 8px;
+  border-radius: var(--r-md);
+  cursor: default;
+}
+
+.first-run-places li:hover,
+.first-run-places li:focus-visible {
+  background: var(--fill-hover);
+}
+
+.app .first-run-places li:focus-visible {
+  outline-offset: -2px;
+}
+
+.first-run-places strong {
+  font-weight: var(--fw-medium);
+}
+
+.first-run-places span {
+  color: var(--ink-2);
+}
+
+.first-run-habit {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-title);
+}
+
+.first-run-keys {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0 2px;
+  vertical-align: 2px;
+}
+
+.first-run-starters > .section-label {
+  margin-bottom: 4px;
+}
+
+/* Starter Favorites: a short checklist, each site with its icon. */
+.first-run-picks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 12px;
+  margin: 0 -8px;
+}
+
+@container (max-width: 520px) {
+  .first-run-picks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.first-run-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: var(--r-md);
+  cursor: default;
+}
+
+.first-run-pick:hover {
+  background: var(--fill-hover);
+}
+
+.first-run-pick:active {
+  background: var(--fill-press);
+}
+
+/* The same plate as a start-page tile, at list size. */
+.first-run-pick-plate {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+}
+
+.first-run-pick-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Shows which part of the real sidebar a line is about (drawn over the window, not in the sidebar). */
+.first-run-pointer {
+  position: absolute;
+  z-index: var(--z-sidebar);
+  min-height: 2px;
+  border-radius: var(--r-md);
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  pointer-events: none;
+}
+
+/* A place with nothing in it yet: a rule where its first item will go. */
+.first-run-pointer[data-empty] {
+  border-radius: var(--thread-w);
+  background: var(--ink-3);
+  box-shadow: none;
+}
+
+.first-run-default {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.first-run-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--h-md);
+  color: var(--ink);
+}
+
+.first-run-done > svg {
+  color: var(--ok);
+}
+
+.first-run-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 28px;
+}
+
+.first-run-progress {
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the entrance ----
+   Kite's one authored moment, played once in a profile's life: when Kite itself opens the
+   first run at first launch, the mark and the words settle in a beat apart and the string
+   is drawn out under the name. Opening it again from the command bar, and moving between
+   steps, is instant like everything else started from the keyboard. */
+@keyframes first-run-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes first-run-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.first-run[data-entrance] :is(.first-run-mark, .first-run-title, .first-run-lede, .first-run-aside, .first-run-foot) {
+  animation: first-run-rise var(--t-settle) var(--ease-out) backwards;
+}
+
+.first-run[data-entrance] .first-run-title {
+  animation-delay: calc(40ms * var(--speed, 1));
+}
+
+.first-run[data-entrance] .first-run-lede {
+  animation-delay: calc(90ms * var(--speed, 1));
+}
+
+.first-run[data-entrance] .first-run-aside {
+  animation-delay: calc(130ms * var(--speed, 1));
+}
+
+.first-run[data-entrance] .first-run-foot {
+  animation-delay: calc(160ms * var(--speed, 1));
+}
+
+.first-run[data-entrance] .first-run-string {
+  animation: first-run-draw calc(var(--t-settle) * 2) var(--ease-out) calc(120ms * var(--speed, 1)) backwards;
+}
+
+/* Reduce Motion: the same moment as a plain fade, and the string is simply there. */
+.app[data-motion='reduced'] .first-run[data-entrance] :is(.first-run-mark, .first-run-title, .first-run-lede, .first-run-aside, .first-run-foot) {
+  animation: fade-in 140ms ease-out !important;
+}
+
+.app[data-motion='reduced'] .first-run[data-entrance] .first-run-string {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app .first-run[data-entrance] :is(.first-run-mark, .first-run-title, .first-run-lede, .first-run-aside, .first-run-foot) {
+    animation: fade-in 140ms ease-out !important;
+  }
+
+  .app .first-run[data-entrance] .first-run-string {
+    animation: none !important;
+  }
+}

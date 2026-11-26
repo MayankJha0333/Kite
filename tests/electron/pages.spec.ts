@@ -97,7 +97,14 @@ test('Capture and Capture Full Page write PNGs to Downloads and copy them', asyn
   await expect(win.getByTestId('toast').filter({ hasText: 'Full page captured' })).toBeVisible({ timeout: 15000 });
   await expect.poll(() => readdirSync(dir).filter((f) => f.startsWith('Capture ') && f.endsWith('.png')).length, { timeout: 10000 }).toBe(2);
   for (const f of readdirSync(dir)) expect(statSync(join(dir, f)).size).toBeGreaterThan(1000);
-  const clip = await app.evaluate(({ clipboard }) => clipboard.readImage().getSize());
+  const clip = await app.evaluate(async ({ clipboard, nativeImage }) => {
+    for (const item of await clipboard.read()) {
+      if (!item.types.includes('image/png')) continue;
+      const png = await item.getType('image/png');
+      return nativeImage.createFromBuffer(Buffer.from(await png.arrayBuffer())).getSize();
+    }
+    return { width: 0, height: 0 };
+  });
   expect(clip.width).toBeGreaterThan(100);
   await app.close();
 });

@@ -95,11 +95,37 @@ describe('theme colors', () => {
     for (const colors of [['#f2c9a0', '#e58f65'], ['#fbe38e', '#f29e4c'], ['#3a4256', '#141824'], ['#ffffff', '#ffffff']] as [string, string][]) {
       for (const mode of ['light', 'dark'] as const) {
         const v = themeVars({ colors, mode, intensity: 0.55, grain: true }, s.settings, false);
-        expect(contrast(v['--accent'], v['--chrome-mid'])).toBeGreaterThanOrEqual(2.9);
+        expect(contrast(v['--accent'], v['--chrome-mid'])).toBeGreaterThanOrEqual(3);
       }
     }
   });
   it('mixes colors', () => {
     expect(mix('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+});
+
+describe('motion feel', () => {
+  /** The furthest a CSS easing travels (1 = its resting place; above 1 it overshoots). */
+  const peak = (ease: string) => {
+    const n = ease.match(/-?[\d.]+/g)!.map(Number);
+    if (ease.startsWith('linear(')) return Math.max(...n);
+    // cubic-bezier(x1, y1, x2, y2): sample the curve's y.
+    const [, y1, , y2] = n;
+    return Math.max(...Array.from({ length: 101 }, (_, i) => i / 100).map((u) => 3 * (1 - u) ** 2 * u * y1 + 3 * (1 - u) * u ** 2 * y2 + u ** 3));
+  };
+
+  it('no feel sends a sheet, a menu or the sidebar past its resting place; the bounce of Bouncy and Spring is in the press only', () => {
+    const s = fresh();
+    const vars = (motionFeel: typeof s.settings.motionFeel, motionSpeed = 1) => themeVars(s.spaces[0].theme, { ...s.settings, motionFeel, motionSpeed }, false);
+    for (const feel of ['style', 'smooth', 'snappy', 'bouncy', 'spring'] as const) {
+      expect(peak(vars(feel)['--ease']), feel).toBeLessThanOrEqual(1.005);
+      expect(parseInt(vars(feel)['--dur'])).toBeLessThanOrEqual(400);
+    }
+    for (const feel of ['style', 'smooth', 'snappy'] as const) expect(peak(vars(feel)['--press-ease']), feel).toBeLessThanOrEqual(1);
+    for (const feel of ['bouncy', 'spring'] as const) expect(peak(vars(feel)['--press-ease']), feel).toBeGreaterThan(1.02);
+    // The default is the stylesheet's own ease-out, and the speed setting divides every length.
+    expect(vars('style')).toMatchObject({ '--ease': 'cubic-bezier(0.23, 1, 0.32, 1)', '--dur': '220ms', '--speed': '1', '--press-dur': '120ms' });
+    expect(vars('style', 2)).toMatchObject({ '--dur': '110ms', '--speed': '0.5', '--press-dur': '60ms' });
+    expect(vars('bouncy', 2)['--dur']).toBe('160ms');
   });
 });

@@ -8,8 +8,9 @@ test.describe('New Tab opens a new-tab page', () => {
     await expect(page.getByTestId('start-page')).toBeVisible();
     await expect(page.getByTestId('command-bar')).toHaveCount(0);
     await expect(page.getByTestId('start-input')).toBeFocused();
-    await expect(todayRows(page)).toHaveCount(2);
-    await expect(todayRows(page).first()).toContainText('New Tab');
+    // The empty tab has no row of its own: "New Tab" in the sidebar is the selected row while it is on screen.
+    await expect(todayRows(page)).toHaveCount(1);
+    await expect(page.getByTestId('btn-new-tab')).toHaveAttribute('data-active', 'true');
     // The address bar reads as empty, and clicking it goes to the big box.
     await expect(page.getByTestId('url-pill')).toHaveText('Search or enter address');
     await page.getByTestId('start-input').blur();
@@ -17,7 +18,33 @@ test.describe('New Tab opens a new-tab page', () => {
     await expect(page.getByTestId('start-input')).toBeFocused();
     // Clicking New Tab again on an empty new tab doesn't make another.
     await page.getByTestId('btn-new-tab').click();
-    await expect(todayRows(page)).toHaveCount(2);
+    await expect(todayRows(page)).toHaveCount(1);
+    const tabs = Object.values((await savedState(page)).items as Record<string, { kind: string; url: string }>).filter((i) => i.kind === 'tab');
+    expect(tabs.filter((t) => t.url.startsWith('kite:'))).toHaveLength(1);
+  });
+
+  test('the start page is simply there: nothing animates in, and the field shows its ring only for the Tab key', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'https://github.com');
+    await page.getByTestId('btn-new-tab').click();
+    const start = page.getByTestId('start-page');
+    await expect(start).toBeVisible();
+    // A new tab is opened a hundred times a day: no entrance, on the page or anything in it.
+    expect(await start.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+    // Focused and ready, with only the caret to show it (no ring at rest).
+    const field = page.locator('.start-search');
+    await expect(page.getByTestId('start-input')).toBeFocused();
+    await expect(field).toHaveCSS('outline-style', 'none');
+    await expect(page.getByTestId('start-input')).toHaveCSS('caret-color', await page.getByTestId('app').evaluate((el) => { const p = document.createElement('i'); p.style.color = 'var(--accent)'; el.append(p); const c = getComputedStyle(p).color; p.remove(); return c; }));
+    // Reached with the keyboard, it has the real focus ring.
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByTestId('start-input')).toBeFocused();
+    await expect(field).toHaveCSS('outline-style', 'solid');
+    await expect(field).toHaveCSS('outline-width', '2px');
+    // No brand tile in the field any more, and the engine is a quiet pop-up button.
+    await expect(field.locator('.kite-logo')).toHaveCount(0);
+    await expect(page.getByTestId('home-engine')).toHaveClass(/select/);
   });
 
   test('what you type opens in that same tab; nothing about the new tab goes in history', async ({ page }) => {

@@ -31,6 +31,8 @@ export function updateSettings(s: AppState, patch: Partial<Settings>): void {
   next.shields = sanitizeShields(next.shields);
   if (!MOTION_FEELS.includes(next.motionFeel)) next.motionFeel = 'style';
   for (const k of ['httpsOnly', 'sendGpc', 'askWhereToSave', 'sounds'] as const) next[k] = !!next[k];
+  // On unless switched off: a browser that never hears about security fixes is the bigger risk.
+  next.checkForUpdates = next.checkForUpdates !== false;
   if (typeof next.searchEngine !== 'string' || !next.searchEngine.includes('%s') || !/^https?:\/\//i.test(next.searchEngine)) next.searchEngine = s.settings.searchEngine;
   s.settings = next;
 }

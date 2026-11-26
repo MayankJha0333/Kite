@@ -33,6 +33,31 @@ test.describe('little window', () => {
     expect(moved[1].spaceId).not.toBeNull();
   });
 
+  test('its bar says what the page is, offers Open in Kite, and keeps the rest in a menu', async ({ page }) => {
+    await page.goto('/?platform=darwin&mode=little&url=' + encodeURIComponent('https://read.example/story'));
+    const little = page.getByTestId('little');
+    await expect(little).toHaveAttribute('data-mac', 'true');
+    // The site in full ink, the rest of the address quieter.
+    const [site, rest] = await page.getByTestId('little-url').evaluate((el) => [getComputedStyle(el.querySelector('b')!).color, getComputedStyle(el).color]);
+    expect(site).not.toBe(rest);
+    await expect(page.getByTestId('little-url').locator('b')).toHaveText('read.example');
+    await expect(page.getByTestId('little-open-main')).toHaveText('Open in Kite');
+    // The window is drawn from the same tokens as the main one.
+    expect(await little.evaluate((el) => getComputedStyle(el).getPropertyValue('--thread-w').trim())).toBe('2px');
+    await page.getByTestId('little-open-menu').click();
+    await expect(page.getByRole('menuitem')).toHaveText([/^Open in .+/, 'Reload', 'Copy link', /^Close window/]);
+    await page.keyboard.press('Escape'); // Esc backs out of the menu first
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(little).toBeVisible();
+  });
+
+  test('with nothing open it says what it is for, in its own empty state', async ({ page }) => {
+    await page.goto('/?platform=darwin&mode=little');
+    await expect(page.locator('.little-empty')).toContainText('A quick look-up');
+    await expect(page.locator('.little-empty .contour-field')).toHaveCount(1);
+    await expect(page.locator('.empty')).toHaveCount(0); // the shared empty state is a different thing
+  });
+
   test('links inside the little window navigate it; click the address to edit', async ({ page }) => {
     await page.goto('/?platform=darwin&mode=little&url=' + encodeURIComponent('https://read.example/'));
     await page.frameLocator('iframe').locator('#same').click();

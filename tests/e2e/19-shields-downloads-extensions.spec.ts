@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, openApp, newTab, savedState, MOD } from './fixtures';
+import { test, expect, openApp, newTab, savedState, visibleFrame, MOD } from './fixtures';
 
 const hooks = <T>(page: Page, fn: string, arg?: unknown) => page.evaluate(([f, a]) => new Function('t', 'arg', `return ${f}`)((window as any).__kiteTest, a), [fn, arg] as const) as Promise<T>;
 const cssVar = (page: Page, name: string) => page.getByTestId('app').evaluate((el, n) => getComputedStyle(el).getPropertyValue(n).trim(), name);
@@ -22,7 +22,7 @@ test.describe('Shields and privacy settings', () => {
     await openApp(page);
     const start = await hooks<{ shields: { enabled: boolean; lists: string[]; allow: string[] } }>(page, 't.prefs');
     expect(start).toMatchObject({ httpsOnly: true, sendGpc: true, askWhereToSave: false, shields: { enabled: true, allow: [], stripParams: true } });
-    expect(start.shields.lists).toEqual(expect.arrayContaining(['adguard-base', 'easyprivacy', 'ubo']));
+    expect(start.shields.lists).toEqual(expect.arrayContaining(['adguard-base', 'easyprivacy', 'ubo', 'adguard-cookies']));
     await openAdblock(page);
     await page.getByTestId('shields-list-search').fill('cookie');
     await page.getByTestId('shields-list-adguard-cookies').click();
@@ -30,15 +30,16 @@ test.describe('Shields and privacy settings', () => {
     await page.getByTestId('set-https').click();
     await page.getByTestId('set-ask-save').click();
     const hasCookies = async () => (await hooks<{ shields: { lists: string[] } }>(page, 't.prefs')).shields.lists.includes('adguard-cookies');
-    await expect.poll(hasCookies).toBe(true);
+    // Cookie notices are on by default, so the click turned them off.
+    await expect.poll(hasCookies).toBe(false);
     await expect.poll(() => hooks(page, 't.prefs')).toMatchObject({ httpsOnly: false, askWhereToSave: true });
     const s = await savedState(page);
-    expect(s.settings.shields.lists).toContain('adguard-cookies');
+    expect(s.settings.shields.lists).not.toContain('adguard-cookies');
     expect(s.settings.httpsOnly).toBe(false);
     await page.reload();
     await expect(page.getByTestId('sidebar')).toBeVisible();
     expect(await hooks(page, 't.prefs')).toMatchObject({ httpsOnly: false });
-    expect(await hasCookies()).toBe(true);
+    expect(await hasCookies()).toBe(false);
   });
 
   test('exceptions: add a site (any way you type it), no duplicates, remove it', async ({ page }) => {
@@ -64,6 +65,7 @@ test.describe('Shields and privacy settings', () => {
     await expect(page.getByTestId('shields-status')).toContainText('built into Kite');
     await page.getByTestId('shields-refresh').click();
     await expect(page.getByTestId('shields-status')).toContainText('rules in use');
+    await page.getByTestId('shields-group-ads').locator('.adb-group-head').click();
     await expect(page.getByTestId('shields-list-meta-adguard-base')).toContainText('rules');
     const before = await page.locator('.set-row[data-off]').count();
     await page.getByTestId('shields-enabled').click();
@@ -122,7 +124,7 @@ test.describe('Downloads panel', () => {
     await openApp(page);
     await expect(page.getByTestId('btn-downloads')).toHaveCount(0); // nothing downloaded: no button
     await hooks(page, 't.setDownloads(arg)', [entry({}), entry({ id: 'dl-2', name: 'photo.png', kind: 'image', state: 'completed', received: 3_000_000, total: 3_000_000 }), entry({ id: 'dl-3', name: 'bad.mp4', kind: 'video', state: 'failed', error: 'The connection was lost' })]);
-    await expect(page.getByTestId('btn-downloads')).toHaveAttribute('data-active', 'true');
+    await expect(page.getByTestId('btn-downloads')).toHaveAttribute('data-busy', 'true');
     await page.keyboard.press(`${MOD}+Shift+j`);
     await expect(page.getByTestId('downloads')).toBeVisible();
     const live = page.getByTestId('download-dl-1');
@@ -139,6 +141,27 @@ test.describe('Downloads panel', () => {
     expect(await hooks<string[]>(page, 't.calls')).toEqual(expect.arrayContaining(['download:pause:dl-1', 'download:resume:dl-1', 'download:reveal:dl-2', 'download:cancel:dl-1']));
     await page.getByTestId('downloads-clear').click();
     await expect(page.getByTestId('downloads-empty')).toBeVisible();
+  });
+
+  test('Downloads sits at the side without blocking the window, and shows progress as the string', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'https://example.com');
+    await hooks(page, 't.setDownloads(arg)', [entry({}), entry({ id: 'dl-2', name: 'stream.ts', total: 0 })]);
+    // The sidebar button carries the string while something is coming down.
+    await expect(page.getByTestId('btn-downloads').locator('.thread')).toHaveCount(1);
+    await page.keyboard.press(`${MOD}+Shift+j`);
+    const panel = page.getByRole('dialog', { name: 'Downloads' });
+    await expect(panel).toBeVisible();
+    await expect(panel).not.toHaveAttribute('aria-modal', /.*/);
+    // A known size fills the string by that much; an unknown one just shows it moving.
+    await expect(page.getByTestId('download-dl-1').locator('.thread')).toHaveCSS('--p', '0.25');
+    await expect(page.getByTestId('download-dl-2').locator('.thread')).toHaveAttribute('data-busy', 'true');
+    // The page behind stays usable, and using it does not close the panel.
+    await visibleFrame(page).locator('#title').click();
+    await expect(panel).toBeVisible();
+    await page.keyboard.press(`${MOD}+Shift+j`);
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
   });
 
   test('finishing a download tells you, and a failure says why', async ({ page }) => {
@@ -264,7 +287,8 @@ test.describe('Spaces with separate logins, and animation settings', () => {
     expect(await cssVar(page, '--speed')).toBe('0.5');
     await page.getByTestId('set-feel-bouncy').click();
     expect(await cssVar(page, '--dur')).toBe('160ms');
-    expect(await cssVar(page, '--ease')).toContain('1.45');
+    // The bounce lives in the press only: nothing that arrives or leaves overshoots.
+    expect(await cssVar(page, '--press-ease')).toContain('1.45');
     // A hard-coded duration elsewhere in the stylesheet follows the speed too.
     const sheetAnim = await page.getByTestId('settings').evaluate((el) => getComputedStyle(el).animationDuration);
     expect(parseFloat(sheetAnim)).toBeCloseTo(0.176, 2);

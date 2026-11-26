@@ -46,13 +46,21 @@ export function addToSplit(s: AppState, splitId: ID, tabId: ID, index?: number):
 
 /**
  * Open a URL next to whatever is showing. A single tab becomes a split;
- * an existing split gets another pane. Returns the new tab id.
+ * an existing split gets another pane. A tab already open on that page in Today is moved
+ * in instead of opened twice. Returns the tab id.
  */
 export function openInSplit(s: AppState, url: string, now: number): ID | null {
   const activeId = s.activeBySpace[s.activeSpaceId];
   const active = activeId ? s.items[activeId] : null;
   if (active?.kind === 'split' && active.panes.length >= MAX_PANES) return null;
-  const tabId = newTab(s, { url, now, activate: false });
+  // The page may already be open in this Space's Today list: move that tab into the split
+  // rather than opening a second copy of it. Pinned tabs and Favorites stay where they are.
+  const open = Object.values(s.items).find((it) => {
+    if (it.kind !== 'tab' || it.url !== url || it.id === activeId || ownerSplit(s, it.id)) return false;
+    const at = locate(s, it.id);
+    return at?.list === 'today' && at.spaceId === s.activeSpaceId;
+  });
+  const tabId = open ? open.id : newTab(s, { url, now, activate: false });
   if (active?.kind === 'tab') {
     const id = createSplit(s, [active.id, tabId], now);
     if (id) select(s, tabId, now);

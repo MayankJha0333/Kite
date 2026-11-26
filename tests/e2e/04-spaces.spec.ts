@@ -5,6 +5,8 @@ async function addSpace(page: Page, name: string, swatch?: string) {
   await page.getByTestId('btn-new-space').click();
   await expect(page.getByTestId('space-editor')).toBeVisible();
   await page.getByTestId('space-name-input').fill(name);
+  // The first row of colors is always there; the others are behind "Custom…".
+  if (swatch && !swatch.startsWith('muted-')) await page.getByTestId('theme-custom-toggle').click();
   if (swatch) await page.getByTestId(`swatch-${swatch}`).click();
   await page.getByTestId('space-done').click();
   await expect(page.getByTestId('space-editor')).toHaveCount(0);
@@ -76,12 +78,16 @@ test.describe('spaces', () => {
     await openApp(page);
     await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-edit-space').click();
+    await page.getByTestId('theme-custom-toggle').click();
     await page.getByTestId('color-a').fill('#123456');
     await expect(page.getByTestId('app')).toHaveCSS('--tint-1', '#123456');
     await page.getByTestId('space-mode-dark').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'dark');
     await page.getByTestId('space-mode-light').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'light');
+    // Grain is off on the default (Quiet) look: one click turns it on, another turns it off.
+    await page.getByTestId('space-grain').click();
+    await expect(page.getByTestId('app')).toHaveCSS('--grain-opacity', '.16');
     await page.getByTestId('space-grain').click();
     await expect(page.getByTestId('app')).toHaveCSS('--grain-opacity', '0');
     await page.getByTestId('space-intensity').fill('0');
@@ -179,6 +185,7 @@ test.describe('spaces', () => {
     await openApp(page);
     await addSpace(page, 'Two');
     await spaceBtn(page, 'Two').click({ button: 'right' });
+    await page.getByTestId('menu-more').click();
     await page.getByTestId('menu-space-left').click();
     const names = await page.locator('[data-testid="space-bar"] [role="tab"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-name')));
     expect(names).toEqual(['Two', 'Home']);
@@ -191,5 +198,66 @@ test.describe('spaces', () => {
     await page.reload();
     await expect(page.getByTestId('space-name')).toHaveText('Work');
     await expect(page.locator('[data-testid="space-bar"] [role="tab"]')).toHaveCount(2);
+  });
+});
+
+test.describe('Space header and switcher: look', () => {
+  test('the Space name is a quiet label over its list, not a row', async ({ page }) => {
+    await openApp(page);
+    const name = page.getByTestId('space-name');
+    const label = await name.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { weight: cs.fontWeight, transform: cs.textTransform, size: parseFloat(cs.fontSize) };
+    });
+    expect(label).toEqual({ weight: '600', transform: 'none', size: 11 });
+    // "Today" is the same kind of label.
+    const today = page.getByTestId('sidebar').getByText('Today', { exact: true });
+    expect(await today.evaluate((el) => [getComputedStyle(el).fontWeight, parseFloat(getComputedStyle(el).fontSize)])).toEqual(['600', 11]);
+    expect(await today.evaluate((el) => getComputedStyle(el).color)).toBe(await name.evaluate((el) => getComputedStyle(el).color));
+  });
+
+  test('the Pinned fold lives in the Space header: hidden until pointed at, always shown when folded', async ({ page }) => {
+    await openApp(page);
+    await expect(page.getByTestId('pinned-toggle')).toHaveCount(0); // nothing pinned, nothing to fold
+    await newTab(page, 'a.com');
+    await page.keyboard.press(`${MOD}+d`);
+    const toggle = page.getByTestId('pinned-toggle');
+    await expect(toggle).toHaveCSS('opacity', '0');
+    await page.getByTestId('space-header').hover();
+    await expect(toggle).toHaveCSS('opacity', '1');
+    await toggle.click();
+    await expect(page.getByTestId('pinned-list')).toHaveAttribute('data-collapsed', 'true');
+    await page.mouse.move(600, 400);
+    await expect(toggle).toHaveCSS('opacity', '1');
+    await expect(toggle).toContainText('1 pinned');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('the Space menu is short: one way into the editor, housekeeping under More', async ({ page }) => {
+    await openApp(page);
+    await page.getByTestId('space-menu').click();
+    const top = await page.getByTestId('context-menu').first().locator('[data-testid^="menu-"]').evaluateAll((els) => els.map((e) => e.textContent?.trim()));
+    expect(top).toEqual(['Rename Space', 'Edit Space…', 'New Folder', 'Collapse Pinned Section', 'More', 'Delete Space…']);
+    await page.getByTestId('menu-more').click();
+    for (const id of ['menu-collapse-all', 'menu-expand-all', 'menu-reset-space', 'menu-space-left', 'menu-space-right', 'menu-space-to-folder']) await expect(page.getByTestId(id)).toBeVisible();
+    // With only one Space there is nowhere to turn it into a folder.
+    await expect(page.getByTestId('menu-space-to-folder')).toBeDisabled();
+    await page.keyboard.press('Escape');
+  });
+
+  test('every Space in the switcher is at full strength; the current one is marked; the keyboard ring is not clipped', async ({ page }) => {
+    await openApp(page);
+    await addSpace(page, 'Work');
+    const home = spaceBtn(page, 'Home');
+    const work = spaceBtn(page, 'Work');
+    for (const dot of [home, work]) expect(await dot.evaluate((el) => [getComputedStyle(el).opacity, getComputedStyle(el).filter])).toEqual(['1', 'none']);
+    await expect(work).toHaveAttribute('aria-selected', 'true');
+    expect(await work.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(await home.evaluate((el) => getComputedStyle(el).backgroundColor));
+    // A real outline, drawn inside the button, so the scrolling bar cannot cut it off.
+    await home.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(home).toBeFocused();
+    expect(await home.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset])).toEqual(['solid', '-2px']);
   });
 });

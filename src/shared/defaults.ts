@@ -1,4 +1,4 @@
-import { defaultTheme } from './spaceTheme';
+import { defaultTheme, THEME_VERSION } from './spaceTheme';
 import { defaultShields } from './shields';
 import type { AppState, Settings, Space } from './types';
 import { newId } from './ids';
@@ -145,12 +145,13 @@ export function defaultSettings(): Settings {
     soundVolume: 0.4,
     motionSpeed: 1,
     motionFeel: 'style',
-    themeVersion: 2,
+    themeVersion: THEME_VERSION,
     shields: defaultShields(),
     httpsOnly: true,
     sendGpc: true,
     askWhereToSave: false,
     downloadConnections: 8,
+    checkForUpdates: true,
   };
 }
 

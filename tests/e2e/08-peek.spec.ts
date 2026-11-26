@@ -56,6 +56,28 @@ test.describe('peek', () => {
     await expect(page.getByTestId('peek')).toHaveCount(0);
   });
 
+  test('closed with the pointer it leaves briefly; closed with Esc it is simply gone; its bar is three quiet actions', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'a.com');
+    await visibleFrame(page).locator('#external').click({ modifiers: ['Shift'] });
+    await expect(page.getByTestId('peek')).toBeVisible();
+    await expect.poll(() => page.locator('.peek').evaluate((el) => el.getAnimations().length)).toBe(0); // it has settled
+    for (const id of ['peek-expand', 'peek-split', 'peek-close']) {
+      const b = (await page.getByTestId(id).boundingBox())!;
+      expect([b.width, b.height]).toEqual([24, 24]);
+      await expect(page.getByTestId(id)).toHaveAttribute('title', /.+/);
+    }
+    await expect(page.locator('.peek-bar button')).toHaveCount(3);
+    await page.getByTestId('peek-close').click();
+    await expect(page.getByTestId('peek')).toHaveCount(0);
+    await expect(page.locator('.peek-scrim[data-leaving]')).toHaveCount(1); // still drawn, on its way out
+    await expect(page.locator('.peek-scrim')).toHaveCount(0);
+    await page.getByTestId('toast').getByText('Reopen').click();
+    await expect(page.getByTestId('peek')).toBeVisible();
+    await page.keyboard.press('Escape');
+    expect(await page.locator('.peek-scrim').count()).toBe(0); // from the keyboard: no exit to wait for
+  });
+
   test('Open turns the Peek into a tab', async ({ page }) => {
     await openApp(page);
     await newTab(page, 'a.com');

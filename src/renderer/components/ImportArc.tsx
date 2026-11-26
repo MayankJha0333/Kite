@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileJson, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { countNodes, importArc, parseArc, type ArcData } from '@shared/arcImport';
 import { act, setUi, toast } from '../store';
 import { bridge, isElectron, now } from '../platform';
@@ -29,7 +29,7 @@ export function ImportArc() {
   const findAuto = async () => {
     const r = await bridge.readDefaultArcFile();
     if (r) load(r.text, r.path);
-    else setError('Couldn’t find Arc’s data on this computer. Use “Choose file…” instead.');
+    else setError('Couldn’t find Arc’s data on this computer. Choose the file yourself instead.');
   };
 
   const run = () => {
@@ -42,12 +42,7 @@ export function ImportArc() {
 
   return (
     <Sheet
-      wide
-      title={
-        <span className="boost-title">
-          <Download size={18} /> Import from Arc
-        </span>
-      }
+      title="Import from Arc"
       subtitle="Brings your Spaces, pinned tabs, folders, split views and Favorites into Kite. Nothing is removed from Kite or from Arc."
       testId="import-arc"
       footer={
@@ -64,74 +59,72 @@ export function ImportArc() {
         </>
       }
     >
-      <div className="import-sources">
-        <button className="btn" data-testid="import-auto" onClick={() => void findAuto()}>
-          <Search size={14} /> Find Arc’s data automatically
-        </button>
+      <div className="inline-form">
+        <button className="btn" data-testid="import-auto" onClick={() => void findAuto()}>Find Arc’s data</button>
         {isElectron ? (
-          <button className="btn" data-testid="import-pick" onClick={async () => { const r = await bridge.pickArcFile(); if (r) load(r.text, r.path); }}>
-            <FileJson size={14} /> Choose file…
-          </button>
+          <button className="btn" data-testid="import-pick" onClick={async () => { const r = await bridge.pickArcFile(); if (r) load(r.text, r.path); }}>Choose file…</button>
         ) : (
           <label className="btn">
-            <FileJson size={14} /> Choose file…
-            <input type="file" accept=".json" hidden data-testid="import-file" onChange={async (e) => { const f = e.target.files?.[0]; if (f) load(await f.text(), f.name); e.target.value = ''; }} />
+            Choose file…
+            <input type="file" accept=".json" className="visually-hidden" data-testid="import-file" onChange={async (e) => { const f = e.target.files?.[0]; if (f) load(await f.text(), f.name); e.target.value = ''; }} />
           </label>
         )}
       </div>
-      <p className="muted import-help">
-        Arc keeps this in <code>~/Library/Application Support/Arc/StorableSidebar.json</code>. Only that file is read — never your passwords, cookies or history.
+      <p className="notice import-help">
+        <span>Kite reads one file, <code>~/Library/Application Support/Arc/StorableSidebar.json</code>, where Arc keeps your sidebar. It never reads your passwords, cookies or history.</span>
       </p>
 
       {error && (
-        <div className="import-error" data-testid="import-error">
-          <AlertTriangle size={14} /> {error}
-        </div>
+        <p className="notice danger" role="alert" data-testid="import-error">
+          <AlertTriangle size={14} aria-hidden="true" /> {error}
+        </p>
       )}
 
       {data && (
-        <div className="import-preview" data-testid="import-preview">
-          <div className="import-found">
-            <CheckCircle2 size={14} /> Found {data.spaces.length} Space{data.spaces.length === 1 ? '' : 's'} in <code>{path}</code>
-          </div>
+        // The preview: nothing is imported until Import is pressed, and each Space can be left out.
+        <section className="list-group" data-testid="import-preview">
+          <h3 className="section-label import-found">Found {data.spaces.length} Space{data.spaces.length === 1 ? '' : 's'} in <code>{path}</code></h3>
           {data.spaces.map((sp) => {
             const p = countNodes(sp.pinned);
             const t = countNodes(sp.today);
             const on = chosen.has(sp.arcId);
             return (
-              <label key={sp.arcId} className="import-space" data-on={on || undefined} data-testid="import-space">
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() =>
-                    setChosen((c) => {
-                      const n = new Set(c);
-                      if (n.has(sp.arcId)) n.delete(sp.arcId);
-                      else n.add(sp.arcId);
-                      return n;
-                    })
-                  }
-                />
-                <span className="import-swatch" style={sp.colors ? { background: `linear-gradient(135deg, ${sp.colors[0]}, ${sp.colors[1]})` } : undefined}>
-                  {sp.icon}
-                </span>
-                <span className="import-space-text">
-                  <b>{sp.name}</b>
-                  <span className="muted">
-                    {p.tabs} pinned tab{p.tabs === 1 ? '' : 's'}
-                    {p.folders ? ` · ${p.folders} folder${p.folders === 1 ? '' : 's'}` : ''}
-                    {p.notes ? ` · ${p.notes} note${p.notes === 1 ? '' : 's'}` : ''} · {t.tabs} open tab{t.tabs === 1 ? '' : 's'}
+              <label key={sp.arcId} className="list-row import-space" data-picked={on || undefined} data-testid="import-space">
+                <span className="list-row-main">
+                  <input
+                    type="checkbox"
+                    className="checkbox"
+                    checked={on}
+                    onChange={() =>
+                      setChosen((c) => {
+                        const n = new Set(c);
+                        if (n.has(sp.arcId)) n.delete(sp.arcId);
+                        else n.add(sp.arcId);
+                        return n;
+                      })
+                    }
+                  />
+                  <span className="import-swatch" style={sp.colors ? { background: `linear-gradient(135deg, ${sp.colors[0]}, ${sp.colors[1]})` } : undefined}>
+                    {sp.icon}
+                  </span>
+                  <span className="list-row-text">
+                    <span className="list-row-title">{sp.name}</span>
+                    <span className="list-row-meta">
+                      {p.tabs} pinned tab{p.tabs === 1 ? '' : 's'}
+                      {p.folders ? ` · ${p.folders} folder${p.folders === 1 ? '' : 's'}` : ''}
+                      {p.notes ? ` · ${p.notes} note${p.notes === 1 ? '' : 's'}` : ''} · {t.tabs} open tab{t.tabs === 1 ? '' : 's'}
+                    </span>
                   </span>
                 </span>
               </label>
             );
           })}
           {data.skipped.length > 0 && (
-            <p className="muted" data-testid="import-skipped">
+            <p className="muted import-skipped" data-testid="import-skipped">
               {data.skipped.length} item{data.skipped.length === 1 ? '' : 's'} will be skipped ({Array.from(new Set(data.skipped.map((x) => x.reason))).join(', ')}).
             </p>
           )}
-        </div>
+        </section>
       )}
     </Sheet>
   );

@@ -277,7 +277,8 @@ test.describe('folder and Space menus like Arc', () => {
 
     // And back: the Space becomes a folder in Home.
     await page.getByTestId('space-menu').click();
-    await page.getByTestId('menu-space-to-folder').click();
+    await page.getByTestId('menu-more').click();
+    await expect(page.locator('[data-testid^="menu-space-to-folder-"]')).toHaveText('Turn into Folder in Home');
     await page.locator('[data-testid^="menu-space-to-folder-"]').click();
     await expect(page.locator('[data-space-dot]')).toHaveCount(1);
     await expect(page.getByTestId('space-name')).toHaveText('Home');

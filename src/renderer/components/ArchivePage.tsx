@@ -1,23 +1,29 @@
+// The Archive: tabs that were cleared or went unused, newest first, grouped by day.
+// Click one to bring it back; delete one, or clear the lot.
+
 import { useMemo, useState } from 'react';
-import { Archive, Search, RotateCcw, X, StickyNote, Trash2, Clock } from 'lucide-react';
+import { X, StickyNote } from 'lucide-react';
 import { groupArchive, restoreArchived, deleteArchived, clearArchive, archiveAfterFor } from '@shared/archive';
 import { ARCHIVE_CHOICES } from '@shared/defaults';
 import { displayUrl } from '@shared/url';
 import { act, setUi, useKite } from '../store';
 import { selectItem } from '../commands';
 import { now } from '../platform';
-import { Sheet } from './Sheet';
+import { SearchField, Sheet } from './Sheet';
 import { SiteIcon } from './SiteIcon';
 
-function ruleText(ms: number | null) {
-  if (ms === null) return 'Auto-archive is off for this Space.';
-  const c = ARCHIVE_CHOICES.find((x) => x.ms === ms);
-  return `Unpinned tabs you haven’t used for ${c ? c.label : `${Math.round(ms / 60000)} minutes`} are archived automatically.`;
+/** "12 hours", for the sentences below; null when auto-archive is off for this Space. */
+function afterText(ms: number | null): string | null {
+  if (ms === null) return null;
+  return ARCHIVE_CHOICES.find((x) => x.ms === ms)?.label ?? `${Math.round(ms / 60000)} minutes`;
 }
+
+const WHY = { auto: 'auto-archived', cleared: 'cleared', manual: 'archived' } as const;
+const timeOf = (t: number) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
 export function ArchivePage() {
   const archive = useKite((st) => st.s.archive);
-  const rule = useKite((st) => archiveAfterFor(st.s, st.s.activeSpaceId));
+  const after = useKite((st) => afterText(archiveAfterFor(st.s, st.s.activeSpaceId)));
   const spaces = useKite((st) => st.s.spaces);
   const [q, setQ] = useState('');
   const [confirm, setConfirm] = useState(false);
@@ -29,80 +35,71 @@ export function ArchivePage() {
       title="Archive"
       subtitle={
         <>
-          <Clock size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />
-          {ruleText(rule)}{' '}
-          <button className="link" data-testid="archive-settings" onClick={() => setUi({ panel: 'settings', panelArg: 'tabs' })}>
-            Change
-          </button>
+          {after ? `Unpinned tabs you haven’t used for ${after} move here by themselves.` : 'Auto-archive is off for this Space.'}{' '}
+          <button className="link" data-testid="archive-settings" onClick={() => setUi({ panel: 'settings', panelArg: 'tabs' })}>Change</button>
         </>
       }
       testId="archive-page"
-      wide
+      size="large"
       footer={
         <>
-          <span className="muted">{archive.length} item{archive.length === 1 ? '' : 's'}</span>
-          <span className="spacer" />
           {archive.length > 0 &&
             (confirm ? (
-              <>
-                <span className="muted">Delete everything in the Archive?</span>
-                <button className="btn small" onClick={() => setConfirm(false)}>Cancel</button>
-                <button className="btn small danger-solid" data-testid="archive-clear-confirm" onClick={() => { act(clearArchive); setConfirm(false); }}>
-                  Clear Archive
-                </button>
-              </>
+              <span className="inline-form">
+                <span className="muted">Delete everything in the Archive? This can’t be undone.</span>
+                <button className="btn small danger" data-testid="archive-clear-confirm" onClick={() => { act(clearArchive); setConfirm(false); }}>Clear Archive</button>
+                <button className="btn small ghost" onClick={() => setConfirm(false)}>Cancel</button>
+              </span>
             ) : (
-              <button className="btn small danger" data-testid="archive-clear" onClick={() => setConfirm(true)}>
-                <Trash2 size={13} /> Clear Archive
-              </button>
+              <button className="btn danger ghost" data-testid="archive-clear" onClick={() => setConfirm(true)}>Clear Archive…</button>
             ))}
+          <span className="spacer" />
+          <span className="muted">{archive.length} {archive.length === 1 ? 'page' : 'pages'}</span>
         </>
       }
     >
-      <div className="search-box">
-        <Search size={15} />
-        <input autoFocus placeholder="Search archived pages" value={q} data-testid="archive-search" onChange={(e) => setQ(e.target.value)} />
-      </div>
+      <SearchField autoFocus placeholder="Search the Archive" value={q} testId="archive-search" onChange={setQ} />
       {groups.length === 0 && (
-        <div className="empty-list" data-testid="archive-empty">
-          <span className="empty-state-icon"><Archive size={20} /></span>
-          <span className="empty-state-title">{q ? 'Nothing matches' : 'Nothing archived yet'}</span>
-          <span className="empty-state-text">{q ? 'Try another word, or part of the address.' : 'Tabs you clear or don’t use for a while land here, so you never lose them.'}</span>
+        <div className="empty" data-field data-testid="archive-empty">
+          <div className="contour-field" aria-hidden="true" />
+          <p>{q ? `Nothing in the Archive matches “${q.trim()}”. Try another word, or part of the address.` : after ? `Tabs you clear, or haven’t used for ${after}, move here. Nothing yet.` : 'Tabs you clear from Today move here. Nothing yet.'}</p>
         </div>
       )}
       {groups.map((g) => (
-        <div key={g.label} className="arch-group">
-          <h3 className="arch-day">{g.label}</h3>
+        <section key={g.label} className="list-group">
+          <h3 className="section-label arch-day">{g.label}</h3>
           {g.items.map((e) => {
             const sp = spaceName(e.spaceId);
             return (
-              <div key={e.id} className="arch-row" data-testid="archive-row" data-title={e.title}>
+              <div key={e.id} className="list-row" data-testid="archive-row" data-title={e.title}>
                 <button
-                  className="arch-main"
+                  className="list-row-main"
                   data-testid="archive-restore"
-                  title="Restore"
+                  title="Bring back to Today"
                   onClick={() => {
                     const id = act((d) => restoreArchived(d, e.id, now()));
                     if (id) selectItem(id);
                     setUi({ panel: null });
                   }}
                 >
-                  {e.kind === 'note' ? <StickyNote size={16} className="row-glyph" /> : <SiteIcon url={e.url} title={e.title} size={16} />}
-                  <span className="arch-text">
-                    <span className="arch-title">{e.title || displayUrl(e.url)}</span>
-                    <span className="arch-meta">
-                      {e.kind === 'note' ? 'Note' : displayUrl(e.url)} · {sp ? `${sp.icon} ${sp.name}` : 'Deleted Space'} · {e.reason === 'auto' ? 'auto-archived' : e.reason === 'cleared' ? 'cleared' : 'archived'} {new Date(e.archivedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                  {e.kind === 'note' ? <StickyNote size={16} /> : <SiteIcon url={e.url} title={e.title} size={16} />}
+                  <span className="list-row-text">
+                    <span className="list-row-title">{e.title || displayUrl(e.url)}</span>
+                    <span className="list-row-meta">
+                      {e.kind === 'note' ? 'Note' : displayUrl(e.url)} · {sp ? `${sp.icon} ${sp.name}` : 'Deleted Space'} · {WHY[e.reason] ?? 'archived'}
                     </span>
                   </span>
-                  <RotateCcw size={14} className="arch-restore-icon" />
+                  <span className="list-row-aside">{timeOf(e.archivedAt)}</span>
                 </button>
-                <button className="icon-btn" aria-label="Delete from Archive" data-testid="archive-delete" onClick={() => act((d) => deleteArchived(d, e.id))}>
-                  <X size={14} />
-                </button>
+                <span className="list-row-actions">
+                  <button className="icon-btn small" aria-label="Delete from Archive" title="Delete from Archive" data-testid="archive-delete" onClick={() => act((d) => deleteArchived(d, e.id))}>
+                    <X size={14} />
+                  </button>
+                </span>
               </div>
             );
           })}
-        </div>
+        </section>
       ))}
     </Sheet>
   );

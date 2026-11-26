@@ -13,18 +13,26 @@ async function openThemeEditor(page: Page) {
 }
 
 test.describe('Theme presets and patterns', () => {
-  test('a new Kite shows the Glow pattern; presets and patterns change the window and are saved', async ({ page }) => {
+  test('a new Kite starts on Calm Air (no pattern); presets and patterns change the window and are saved', async ({ page }) => {
     await openApp(page);
-    expect(await cssVar(page, '--pattern')).toContain('radial-gradient');
+    expect(await cssVar(page, '--pattern')).toBe('none');
     await openThemeEditor(page);
-    await expect(page.locator('[data-testid^="preset-"]')).toHaveCount(6);
-    await expect(page.getByTestId('preset-tide')).toHaveAttribute('aria-checked', 'true');
+    // Calm Air leads the row of colors; the six gradient looks are under "Gradient…", the patterns under "Patterns".
+    await page.getByTestId('backdrop-gradient').click();
+    await page.getByTestId('theme-more').click();
+    await expect(page.locator('[data-testid^="preset-"]')).toHaveCount(7);
+    // The default look's preset keeps the id of the look it replaced.
+    await expect(page.getByTestId('preset-quiet')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('preset-quiet')).toHaveAttribute('aria-label', 'Calm Air');
+    await expect(page.getByTestId('pattern-none')).toHaveAttribute('aria-checked', 'true');
+    await page.getByTestId('preset-tide').click();
+    expect(await cssVar(page, '--pattern')).toContain('radial-gradient');
     await expect(page.getByTestId('pattern-glow')).toHaveAttribute('aria-checked', 'true');
 
     await page.getByTestId('preset-dawn').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'light');
     await expect(page.getByTestId('preset-dawn')).toHaveAttribute('aria-checked', 'true');
-    expect(await cssVar(page, '--pattern')).toContain('40,30,20'); // dark marks on a light theme
+    expect(await cssVar(page, '--pattern')).toContain('20,33,31'); // dark marks, in the ink, on a light theme
 
     await page.getByTestId('preset-ember').click();
     await expect(page.getByTestId('app')).toHaveAttribute('data-theme', 'dark');
@@ -113,27 +121,27 @@ test.describe('Per-site protections', () => {
 });
 
 test.describe('Welcome tour', () => {
-  test('opens from the command bar and walks through its four steps; the theme step changes the window', async ({ page }) => {
+  test('opens from the command bar and walks through its three steps; the last step changes the window', async ({ page }) => {
     await openApp(page);
-    await expect(page.getByTestId('welcome')).toHaveCount(0); // never opens by itself
+    await expect(page.getByTestId('welcome')).toHaveCount(0); // a test's own profile never gets it by itself (see 33-first-run)
     await page.keyboard.press(`${MOD}+t`);
     await page.getByTestId('cb-input').fill('Welcome to Kite');
     await page.getByTestId('cb-input').press('Enter');
-    await expect(page.getByTestId('welcome-hello')).toBeVisible();
+    await expect(page.getByTestId('welcome-hello')).toBeAttached();
     await expect(page.getByTestId('welcome-back')).toHaveCount(0);
     await page.getByTestId('welcome-next').click();
-    await expect(page.getByTestId('welcome-import-go')).toBeVisible();
+    await expect(page.getByTestId('welcome-sidebar')).toBeVisible();
     await page.getByTestId('welcome-next').click();
+    await page.getByTestId('welcome-theme').getByTestId('backdrop-gradient').click();
     await page.getByTestId('welcome-theme').getByTestId('preset-forest').click();
     expect(await cssVar(page, '--tint-2')).toBe('#8fe0a8');
     await page.getByTestId('welcome-back').click();
-    await expect(page.getByTestId('welcome-import')).toBeVisible();
+    await expect(page.getByTestId('welcome-sidebar')).toBeVisible();
     await page.getByTestId('welcome-next').click();
-    await page.getByTestId('welcome-next').click();
-    await expect(page.getByTestId('welcome-finish')).toBeVisible();
-    await expect(page.getByTestId('welcome-step')).toHaveAttribute('aria-label', 'Step 4 of 4');
+    await expect(page.getByTestId('welcome-look')).toBeVisible();
+    await expect(page.getByTestId('welcome-step')).toHaveAttribute('aria-label', 'Step 3 of 3');
     await page.getByTestId('welcome-done').click();
     await expect(page.getByTestId('welcome')).toHaveCount(0);
-    expect((await savedState(page)).spaces[0].theme.pattern).toBe('glow');
+    expect((await savedState(page)).spaces[0].theme.gradient.colors[0]).toBe('#1f6b5c');
   });
 });

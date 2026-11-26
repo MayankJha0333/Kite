@@ -41,7 +41,7 @@ test.describe('home page', () => {
     await expect(page.getByTestId('start-favorite').locator('img.site-icon')).toHaveCount(1);
   });
 
-  test('widgets are added from the + button, keep their place, and are saved', async ({ page }) => {
+  test('widgets are added from Customize, keep their place, and are saved', async ({ page }) => {
     await openApp(page);
     await expect(page.getByTestId('empty-state')).toBeVisible();
     await addWidget(page, 'clock');
@@ -87,6 +87,52 @@ test.describe('home page', () => {
     await w.locator('[data-testid^="widget-menu-"]').click();
     await page.getByTestId('widget-remove').click();
     await expect(widgets(page)).toHaveCount(0);
+  });
+
+  test('widgets sit on the page’s column grid, never overlap, and the page scrolls instead of cutting them off', async ({ page }) => {
+    await page.setViewportSize({ width: 1000, height: 640 });
+    await openApp(page);
+    for (const k of ['clock', 'weather', 'todo', 'calendar', 'note', 'timer']) await addWidget(page, k);
+    await expect(widgets(page)).toHaveCount(6);
+    await page.waitForTimeout(300);
+    const column = (await page.locator('.start-search').boundingBox())!;
+    const boxes = await widgets(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => ({ l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) })));
+    // Every widget starts on one of three columns of the same column the search field is in…
+    const lefts = [0, 220, 440].map((x) => Math.round(column.x) + x);
+    for (const b of boxes) expect(lefts).toContain(b.l);
+    expect(Math.max(...boxes.map((b) => b.r))).toBeLessThanOrEqual(Math.round(column.x + column.width));
+    // …and no two share any space.
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) expect(boxes[i].l < boxes[j].r && boxes[j].l < boxes[i].r && boxes[i].t < boxes[j].b && boxes[j].t < boxes[i].b, `widgets ${i} and ${j} overlap`).toBe(false);
+    // More than fits: the page scrolls to the last one rather than clipping it.
+    const scroller = page.locator('.start-scroll');
+    expect(await scroller.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await widgets(page).last().scrollIntoViewIfNeeded();
+    await expect(widgets(page).last()).toBeInViewport({ ratio: 1 });
+    // Dropping one onto another makes the other move over, still without overlap.
+    await scroller.evaluate((el) => el.scrollTo(0, 0));
+    const first = (await widgets(page).nth(0).boundingBox())!;
+    const second = (await widgets(page).nth(1).boundingBox())!;
+    await page.mouse.move(first.x + 40, first.y + 12);
+    await page.mouse.down();
+    await page.mouse.move(second.x + 60, second.y + 14, { steps: 8 });
+    await page.mouse.up();
+    const s = await savedState(page);
+    const cells = s.home.widgets.map((w: { x: number; y: number }) => `${w.x},${w.y}`);
+    expect(new Set(cells).size).toBe(cells.length);
+    expect(s.home.widgets.every((w: { x: number; y: number }) => w.x % 220 === 0 && w.y % 160 === 0)).toBe(true);
+  });
+
+  test('a right-click on the page opens the same menu as Customize; the clock’s options live in its own menu', async ({ page }) => {
+    await openApp(page);
+    await page.getByTestId('empty-state').click({ button: 'right', position: { x: 40, y: 300 } });
+    await expect(page.getByTestId('home-add-widget')).toBeVisible();
+    await page.getByTestId('home-add-widget').hover();
+    await page.getByTestId('home-widget-clock').click();
+    await expect(page.getByTestId('wg-clock-time')).not.toContainText(/:\d\d:\d\d/);
+    await widgets(page).first().locator('[data-testid^="widget-menu-"]').click();
+    await page.getByTestId('widget-clock-seconds').click();
+    await expect(page.getByTestId('wg-clock-time')).toContainText(/:\d\d:\d\d/);
+    expect((await savedState(page)).home.widgets[0].data.seconds).toBe(true);
   });
 
   test('the weather widget asks for a place, then shows the forecast with switchable units', async ({ page }) => {
@@ -144,7 +190,7 @@ test.describe('home page', () => {
     await expect(page.getByTestId('url-pill')).toContainText('kagi.com');
   });
 
-  test('a picture from the + menu becomes the Space theme: home page, window frame and new tabs all show it', async ({ page }) => {
+  test('a picture from the Customize menu becomes the Space theme: home page, window frame and new tabs all show it', async ({ page }) => {
     await openApp(page);
     await customize(page);
     await page.getByTestId('home-background').hover();
@@ -179,6 +225,7 @@ test.describe('home page', () => {
     await page.getByTestId('space-menu').click();
     await page.getByTestId('menu-edit-space').click();
     // Colours, Gradient, Upload, and the 11 built-in pictures.
+    await page.getByTestId('backdrop-picture').click();
     await expect(page.locator('[data-testid^="backdrop-"][data-tone]')).toHaveCount(11);
     for (const id of ['backdrop-none', 'backdrop-gradient', 'backdrop-upload']) await expect(page.getByTestId(id)).toBeVisible();
     await page.getByTestId('backdrop-dunes').click();

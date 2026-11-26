@@ -1,41 +1,15 @@
-// Design tokens and motion maths behind the "Halo" style.
+// Colour and motion maths shared by the window and the tests: the Space colour swatches,
+// the colour wheel, and the spring model behind the "Spring" motion feel.
 //
-// Measured from Arc 1.171 on this Mac with REA (see RESEARCH.md §8). Only
-// numbers and structure are taken — colour values, the shape of the theme
-// model, the spring model — never Arc's code, art, fonts or sounds.
+// The colours the window is painted with are not here: the Calm Air palette is in
+// spaceTheme.ts (CALM_AIR), theme.ts turns it and a Space's colours into CSS variables, and
+// the fixed scales (type, shape, fills, surfaces, depth, motion) are tokens in
+// src/renderer/styles/foundations.css.
 //
-//  - Neutral and accent scales: Arc's ARCUI asset catalog ships a 12-step
-//    Gray, GrayA (alpha) and Indigo scale with separate light and dark values.
-//  - Command bar / sidebar tokens: ARC_CommandBar and the app's own catalog.
-//  - Colour wheel: Arc's Space theme stores a primary colour as hue/saturation/
-//    lightness and the second colour as a hue *offset* from it
-//    (primaryHueDegrees, secondaryHueOffset, colorWheelDriven).
-//  - Springs: Arc animates with a response + damping-ratio spring model
-//    (Motion/ValueAnimation, dampingRatio, transitionSpring). The exact
-//    constants are compiled into the binary and were not recovered; the
-//    values used here are our own choices.
-
-type Pair = readonly [light: string, dark: string];
-
-/** 12-step neutral scale: 1–2 backgrounds, 3–5 surfaces, 6–8 borders, 9–10 solid, 11–12 text. */
-export const GRAY: readonly Pair[] = [
-  ['#fcfcfc', '#161616'], ['#f8f8f8', '#1c1c1c'], ['#f3f3f3', '#232323'], ['#ededed', '#282828'],
-  ['#e8e8e8', '#2e2e2e'], ['#e2e2e2', '#343434'], ['#dbdbdb', '#3e3e3e'], ['#c7c7c7', '#505050'],
-  ['#8f8f8f', '#707070'], ['#858585', '#7e7e7e'], ['#6f6f6f', '#a0a0a0'], ['#171717', '#ededed'],
-];
-
-/** The same scale as see-through ink, so it sits on any Space colour. Alpha per step. */
-export const GRAY_ALPHA: readonly (readonly [light: number, dark: number])[] = [
-  [0.012, 0], [0.027, 0.026], [0.047, 0.056], [0.071, 0.077], [0.09, 0.103], [0.114, 0.129],
-  [0.141, 0.172], [0.22, 0.249], [0.439, 0.386], [0.478, 0.446], [0.565, 0.592], [0.91, 0.923],
-];
-
-/** 12-step indigo: the default accent family. */
-export const INDIGO: readonly Pair[] = [
-  ['#ffffff', '#141421'], ['#f7f8ff', '#16162e'], ['#f0f0ff', '#191a40'], ['#e8e9ff', '#1c1d4f'],
-  ['#d9dafc', '#1f215c'], ['#c8cafa', '#22246e'], ['#aeb0f5', '#272a8a'], ['#8e91f0', '#2e32b2'],
-  ['#3138f9', '#3239fa'], ['#393ecc', '#5458e8'], ['#3438b2', '#8589ff'], ['#101245', '#edeefc'],
-];
+// The swatch rows and the shape of the theme model (a primary colour stored as hue /
+// saturation / lightness, a second colour as a hue offset, a response + damping spring)
+// follow what was measured from Arc 1.171 (see RESEARCH.md §8). Only numbers and structure
+// were taken, never Arc's code, art, fonts or sounds; the spring constants are our own.
 
 /** Space colour swatches, three rows of nine (pastel, muted, greyscale). */
 export const SWATCHES = {
@@ -43,17 +17,6 @@ export const SWATCHES = {
   muted: ['#4b3b58', '#623856', '#854444', '#a77048', '#d1b46a', '#cdcca8', '#84a885', '#34604b', '#2d4468'],
   grey: ['#ffffff', '#e6e6e6', '#cccccc', '#b2b2b2', '#808080', '#666666', '#333333', '#1a1a1a', '#000000'],
 } as const;
-
-/** CSS variables for the scales: --gray-1…12, --gray-a1…12, --indigo-1…12. */
-export function scaleVars(dark: boolean): Record<string, string> {
-  const i = dark ? 1 : 0;
-  const ink = dark ? '255,255,255' : '0,0,0';
-  const out: Record<string, string> = {};
-  GRAY.forEach((p, n) => (out[`--gray-${n + 1}`] = p[i]));
-  GRAY_ALPHA.forEach((p, n) => (out[`--gray-a${n + 1}`] = `rgba(${ink},${p[i]})`));
-  INDIGO.forEach((p, n) => (out[`--indigo-${n + 1}`] = p[i]));
-  return out;
-}
 
 // ---- Springs --------------------------------------------------------------------
 

@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-26T04:04:09.784897+00:00",
+  "title": "Design System: Kite",
+  "extensions": {
+    "colorMeta": {
+      "sea-glass-shell": {
+        "role": "neutral",
+        "displayName": "Sea-glass Shell",
+        "tonalRamp": [
+          "#1a2826",
+          "#2d403c",
+          "#466159",
+          "#6c948b",
+          "#9bb8b1",
+          "#c6d8d3",
+          "#e9f0ee",
+          "#f6f9f8"
+        ]
+      },
+      "night-chart-shell": {
+        "role": "neutral",
+        "displayName": "Night-chart Shell",
+        "tonalRamp": [
+          "#0a0f13",
+          "#141c22",
+          "#1b242b",
+          "#222c34",
+          "#27333d",
+          "#3a4753",
+          "#5b6a77",
+          "#8a97a2"
+        ]
+      },
+      "chart-magenta": {
+        "role": "primary",
+        "displayName": "Chart Magenta",
+        "tonalRamp": [
+          "#3d0626",
+          "#6b0b43",
+          "#9a1160",
+          "#c2187a",
+          "#d9549b",
+          "#e88bbb",
+          "#f4c2da",
+          "#fbe7f0"
+        ]
+      },
+      "dusk-magenta": {
+        "role": "primary",
+        "displayName": "Dusk Magenta (night accent)"
+      },
+      "chart-ink": {
+        "role": "neutral",
+        "displayName": "Chart Ink"
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink"
+      },
+      "signal-red": {
+        "role": "error",
+        "displayName": "Signal Red"
+      },
+      "secure-green": {
+        "role": "success",
+        "displayName": "Secure Green"
+      },
+      "caution-amber": {
+        "role": "warning",
+        "displayName": "Caution Amber"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Start-page greeting, first-run headline."
+      },
+      "large": {
+        "displayName": "Large",
+        "purpose": "Page titles: Settings, History, Archive."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Sheet, popover and Settings group titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Everything by default: rows, menus, buttons, inputs."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Secondary lines, descriptions, URLs."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section labels (600), captions and hints (400)."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code only: View Source, typed addresses and file paths, error codes, key caps."
+      }
+    },
+    "shadows": [
+      {
+        "name": "elev-1",
+        "value": "0 0 0 0.5px rgba(20,33,31,0.14), 0 1px 2px rgba(20,33,31,0.08)",
+        "purpose": "Raised: chosen segment, widgets, start-page search."
+      },
+      {
+        "name": "elev-2",
+        "value": "0 0 0 0.5px rgba(20,33,31,0.16), 0 1px 3px rgba(20,33,31,0.08), 0 8px 24px rgba(20,33,31,0.14)",
+        "purpose": "Floating: menus, popovers, toasts, the page card."
+      },
+      {
+        "name": "elev-3",
+        "value": "0 0 0 0.5px rgba(20,33,31,0.18), 0 2px 6px rgba(20,33,31,0.1), 0 24px 64px rgba(20,33,31,0.22)",
+        "purpose": "Lifted: sheets, command bar, Peek."
+      }
+    ],
+    "motion": [
+      {
+        "name": "t-instant",
+        "value": "0ms",
+        "purpose": "Hover in, press, selection, tab switch, command bar, menus opening."
+      },
+      {
+        "name": "t-fast",
+        "value": "120ms",
+        "purpose": "Hover out, color changes, press feedback, menu close."
+      },
+      {
+        "name": "t-pop",
+        "value": "180ms",
+        "purpose": "Popovers, tooltips, toasts arriving."
+      },
+      {
+        "name": "t-settle",
+        "value": "240ms",
+        "purpose": "Sheets, Peek, panels arriving."
+      },
+      {
+        "name": "t-move",
+        "value": "280ms",
+        "purpose": "On-screen travel: sidebar slide, row reorder, Space change."
+      },
+      {
+        "name": "t-exit",
+        "value": "140ms",
+        "purpose": "Everything leaving."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Arrivals, exits, color."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "On-screen travel."
+      },
+      {
+        "name": "ease-settle",
+        "value": "linear() no-bounce spring",
+        "purpose": "Sheets and Peek."
+      },
+      {
+        "name": "thread-run",
+        "value": "1.1s linear infinite",
+        "purpose": "The string while a page loads."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "min-window",
+        "value": "720px"
+      },
+      {
+        "name": "settings-labelled-tabs",
+        "value": "760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Neutral well; the default action.",
+      "html": "<button class=\"ds-btn\">Cancel</button>",
+      "css": ".ds-btn{height:28px;padding:0 12px;border:0;border-radius:6px;background:rgba(20,33,31,.05);box-shadow:inset 0 0 0 1px rgba(20,33,31,.1);color:#14211f;font:500 13px/16px -apple-system,BlinkMacSystemFont,system-ui,sans-serif;transition:transform 120ms cubic-bezier(.23,1,.32,1)}.ds-btn:hover{background:rgba(20,33,31,.11)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid #c2187a;outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "One per surface, on the right.",
+      "html": "<button class=\"ds-btn-primary\">Get started</button>",
+      "css": ".ds-btn-primary{height:28px;padding:0 12px;border:0;border-radius:6px;background:#c2187a;color:#fff;font:500 13px/16px -apple-system,BlinkMacSystemFont,system-ui,sans-serif;transition:transform 120ms cubic-bezier(.23,1,.32,1)}.ds-btn-primary:hover{background:#ad156d}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:2px solid #c2187a;outline-offset:2px}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "History, Archive, Settings, Downloads.",
+      "html": "<label class=\"ds-search\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m21 21-4.3-4.3\"/></svg><input placeholder=\"Search history\"></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:8px;background:rgba(20,33,31,.05);box-shadow:inset 0 0 0 1px rgba(20,33,31,.1);color:rgba(20,33,31,.67)}.ds-search input{flex:1;border:0;background:none;font:400 13px/16px -apple-system,system-ui,sans-serif;color:#14211f;outline:none}.ds-search:focus-within{outline:2px solid #c2187a;outline-offset:2px}"
+    },
+    {
+      "name": "Sidebar Row",
+      "kind": "nav",
+      "refersTo": "sidebar-row",
+      "description": "A tab in the sidebar; selected row in 500 on the selected fill.",
+      "html": "<div class=\"ds-rows\"><div class=\"ds-row\">Hacker News</div><div class=\"ds-row\" data-on>GitHub - electron/electron</div></div>",
+      "css": ".ds-rows{background:#e9f0ee;padding:8px;width:240px}.ds-row{height:32px;display:flex;align-items:center;padding:0 8px;border-radius:8px;color:#14211f;font:400 13px/16px -apple-system,system-ui,sans-serif}.ds-row:hover{background:rgba(20,33,31,.06)}.ds-row[data-on]{background:rgba(20,33,31,.12);font-weight:500}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "refersTo": "segmented",
+      "description": "Raised paper pill on the chosen segment.",
+      "html": "<div class=\"ds-seg\"><button data-on>Auto</button><button>Light</button><button>Dark</button></div>",
+      "css": ".ds-seg{display:inline-flex;height:28px;padding:2px;border-radius:6px;background:rgba(20,33,31,.05);box-shadow:inset 0 0 0 1px rgba(20,33,31,.1)}.ds-seg button{border:0;background:none;padding:0 10px;border-radius:5px;font:400 13px -apple-system,system-ui,sans-serif;color:#14211f}.ds-seg button[data-on]{background:#fff;font-weight:500;box-shadow:0 0 0 .5px rgba(20,33,31,.14),0 1px 2px rgba(20,33,31,.08)}"
+    },
+    {
+      "name": "The String",
+      "kind": "custom",
+      "refersTo": "thread",
+      "description": "Kite's one progress language: a 2px magenta line, only while something is in flight.",
+      "html": "<div class=\"ds-card\"><span class=\"ds-thread\"></span></div>",
+      "css": ".ds-card{position:relative;height:80px;background:#fff;border-radius:12px;box-shadow:0 0 0 .5px rgba(20,33,31,.16),0 8px 24px rgba(20,33,31,.14);overflow:hidden}.ds-thread{position:absolute;left:0;right:0;top:0;height:2px;overflow:hidden}.ds-thread::after{content:'';position:absolute;inset:0;width:38%;border-radius:2px;background:#c2187a;animation:ds-run 1.1s linear infinite}@keyframes ds-run{from{transform:translateX(-100%)}to{transform:translateX(265%)}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Calm Air",
+    "overview": "Kite is drawn like a weather chart on a still day. The window frame is one flat sheet of\ntinted chart paper (sea-glass by day, night-chart slate after dark, following the system),\nthe web page lies on it like a sheet on a chart table, and the contour lines of a calm\npressure field sit quietly behind the start page, the first run and large empty states. The\npage is the loud part; the chrome is quiet, exact and matte.\n\nThe world lends four things and only these: a tinted palette, San Francisco at Mac sizes,\ncompact density, and one signature move — the string, a 2px chart-magenta line that appears\nonly while something is in flight (a page loading, a download, the first-run steps). Layout,\nnavigation and controls stay standard macOS: a person who uses Finder and Safari should know\nwhere everything is before they notice the world.\n\nRejected by decision: the grey window with one blue accent, and the pastel gradient sidebar.\nGlass and blur are not part of the world; surfaces are paper.",
+    "keyCharacteristics": [
+      "One flat tinted shell per mode; a page card on a hairline and a soft shadow.",
+      "Four ink strengths, three weights, 13px regular body text.",
+      "Magenta only for focus, the primary action, things switched on, links, and the string.",
+      "Keyboard actions are instant; things that arrive under the pointer settle in without bounce.",
+      "The contour field never moves; the string is the only thing in the chrome that does."
+    ],
+    "rules": [
+      {
+        "name": "The Five Jobs Rule",
+        "body": "The accent does exactly five jobs: focus, primary action, on-state, link, string. Never on icons, folder glyphs, selection or hover fills, section labels or borders.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tinted Ink Rule",
+        "body": "No neutral grey anywhere: every grey is the shell's ink at a strength.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Weights Rule",
+        "body": "400 for reading, 500 for what you can press or what is selected, 600 for titles. No 550, 650, 700 or 800.",
+        "section": "typography"
+      },
+      {
+        "name": "The Matte Rule",
+        "body": "No backdrop blur. The single exception is the sidebar over a Space picture, where frosting is needed for legibility.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use the tokens: `--fs-*`, `--fw-*`, `--r-*`, `--h-*`, `--fill-*`, `--surface-*`, `--elev-*`, `--z-*`, `--t-*`, `--ease-*`.",
+      "**Do** keep keyboard actions instant: tab switches, ⌘T, menus opening.",
+      "**Do** settle things that arrive under the pointer in 180–240ms on `--ease-out` or `--ease-settle`, from `translateY(4px) scale(0.98)`; exits 140ms.",
+      "**Do** keep text at ≥ 4.5:1 and the accent at ≥ 3:1 in every Space and mode.",
+      "**Do** write one calm sentence for an empty state, saying what will appear and how."
+    ],
+    "donts": [
+      "**Don't** put the accent on icons, selection fills or borders (The Five Jobs Rule).",
+      "**Don't** add a second progress language: no spinners in the chrome, no other progress bars.",
+      "**Don't** use backdrop blur, gradient text, uppercase tracked labels, or a border under an elevation.",
+      "**Don't** animate width, height, top, left, margin or padding; never `transition: all`; never ease in; nothing bounces.",
+      "**Don't** use emoji as icons in the chrome (a Space's own emoji is the person's content)."
+    ]
+  }
+}

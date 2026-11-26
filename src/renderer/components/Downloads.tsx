@@ -2,7 +2,7 @@
 // finished, and the videos and sounds on the current page that can be saved.
 
 import { useEffect, useState } from 'react';
-import { Download, FileDown, Film, FolderOpen, Image, Link2, MoreHorizontal, Music, Pause, Play, RotateCw, Trash2, X, AlertTriangle, Radio, Zap } from 'lucide-react';
+import { Download, FileDown, Film, FolderOpen, Image, MoreHorizontal, Music, Pause, Play, RotateCw, X, AlertTriangle, Radio, Zap } from 'lucide-react';
 import * as ops from '@shared/ops';
 import { DOWNLOAD_FILTERS, downloadCounts, filterDownloads, formatBytes, needsCancelConfirm, progressOf, timeLeft, type DownloadEntry, type DownloadFilter, type HlsVariant, type MediaItem } from '@shared/downloads';
 import { bridge } from '../platform';
@@ -70,53 +70,58 @@ function Row({ d }: { d: DownloadEntry }) {
   const menu = fileMenu(d);
   if (asking && live) {
     return (
-      <div className="dl-row dl-confirm" data-state={d.state} data-testid={`download-${d.id}`} role="alertdialog" aria-label={`Cancel ${d.name}?`}>
-        <span className="dl-icon"><AlertTriangle size={17} /></span>
-        <div className="dl-main">
-          <span className="dl-name">Cancel this download?</span>
-          <span className="dl-status" data-testid="download-cancel-ask">The {formatBytes(d.received)} already saved of {d.name} will be deleted.</span>
+      <div className="list-row dl-row dl-confirm" data-state={d.state} data-testid={`download-${d.id}`} role="alertdialog" aria-label={`Cancel ${d.name}?`}>
+        <div className="list-row-main">
+          <AlertTriangle size={16} />
+          <span className="list-row-text">
+            <span className="list-row-title">Cancel this download?</span>
+            <span className="dl-ask" data-testid="download-cancel-ask">The {formatBytes(d.received)} already saved of {d.name} will be deleted.</span>
+          </span>
         </div>
-        <div className="dl-actions">
-          <button className="btn small ghost" autoFocus data-testid="download-cancel-keep" onClick={() => setAsking(false)}>Keep downloading</button>
-          {d.state === 'progressing' && d.resumable && <button className="btn small ghost" data-testid="download-cancel-pause" onClick={() => { setAsking(false); void run('pause', d.id); }}>Pause instead</button>}
-          <button className="btn small" data-testid="download-cancel-yes" onClick={() => { setAsking(false); void run('cancel', d.id); }}>Cancel download</button>
+        <div className="dl-answers">
+          <button className="btn small" autoFocus data-testid="download-cancel-keep" onClick={() => setAsking(false)}>Keep downloading</button>
+          {d.state === 'progressing' && d.resumable && <button className="btn small" data-testid="download-cancel-pause" onClick={() => { setAsking(false); void run('pause', d.id); }}>Pause instead</button>}
+          <button className="btn small danger" data-testid="download-cancel-yes" onClick={() => { setAsking(false); void run('cancel', d.id); }}>Cancel download</button>
         </div>
       </div>
     );
   }
   return (
-    <div className="dl-row" data-state={d.state} data-testid={`download-${d.id}`} onContextMenu={(e) => menu.length > 0 && openMenu(e, menu)}>
-      <span className="dl-icon">
-        <Icon size={17} />
-        {d.accelerated && <Zap size={10} className="dl-fast" aria-label="Accelerated" />}
-      </span>
-      <div className="dl-main">
-        <button className="dl-name" title={d.path || d.url} disabled={d.state !== 'completed'} onClick={() => void run('open', d.id)}>{d.name}</button>
-        <span className="dl-status" data-testid="download-status">{d.state === 'failed' && <AlertTriangle size={11} />} {statusText(d)}</span>
-        {live && d.accelerated && d.parts && d.total > 0 ? (
-          // IDM's segmented bar: each connection's range fills in its own place.
-          <span className="dl-bar dl-bar-parts" data-testid="download-parts" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p === null ? undefined : Math.round(p * 100)}>
-            {d.parts.map((x, i) => (
-              <i key={i} data-part style={{ left: `${(x.start / d.total) * 100}%`, width: `${(Math.min(x.done, x.end - x.start + 1) / d.total) * 100}%` }} />
-            ))}
+    <div className="list-row dl-row" data-state={d.state} data-testid={`download-${d.id}`} onContextMenu={(e) => menu.length > 0 && openMenu(e, menu)}>
+      <div className="list-row-main">
+        <Icon size={16} />
+        <span className="list-row-text">
+          <button className="list-row-title dl-name" title={d.state === 'completed' ? `Open ${d.path || d.name}` : d.path || d.url} disabled={d.state !== 'completed'} onClick={() => void run('open', d.id)}>{d.name}</button>
+          <span className="list-row-meta dl-status" data-testid="download-status">
+            {d.state === 'failed' && <AlertTriangle size={12} aria-hidden="true" />}
+            {d.accelerated && <span className="dl-fast" title="Downloaded over several connections at once"><Zap size={12} aria-hidden="true" /> Fast ·</span>} {statusText(d)}
           </span>
-        ) : (
-          live && (
-            <span className="dl-bar" data-unknown={p === null || undefined} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={p === null ? undefined : Math.round(p * 100)}>
-              <i style={p === null ? undefined : { transform: `scaleX(${p})` }} />
-            </span>
-          )
-        )}
+        </span>
       </div>
-      <div className="dl-actions">
-        {d.state === 'progressing' && d.resumable && <button className="icon-btn" aria-label="Pause" title="Pause" data-testid="download-pause" onClick={() => void run('pause', d.id)}><Pause size={14} /></button>}
-        {d.state === 'paused' && d.resumable && <button className="icon-btn" aria-label="Resume" title="Resume" data-testid="download-resume" onClick={() => void run('resume', d.id)}><Play size={14} /></button>}
-        {live && <button className="icon-btn" aria-label="Cancel" title="Cancel" data-testid="download-cancel" onClick={cancel}><X size={14} /></button>}
-        {(d.state === 'failed' || d.state === 'cancelled') && <button className="icon-btn" aria-label="Try again" title={d.accelerated && d.state === 'failed' ? 'Try again, from where it stopped' : 'Download again'} data-testid="download-retry" onClick={() => void run('retry', d.id)}><RotateCw size={14} /></button>}
-        {d.state === 'completed' && <button className="icon-btn" aria-label="Show in folder" title="Show in folder" data-testid="download-reveal" onClick={() => void run('reveal', d.id)}><FolderOpen size={14} /></button>}
-        {!live && <button className="icon-btn" aria-label="Remove from list" title="Remove from list (keeps the file)" data-testid="download-remove" onClick={() => void run('remove', d.id)}><Trash2 size={14} /></button>}
-        {menu.length > 0 && <button className="icon-btn" aria-label={`More actions for ${d.name}`} title="More" aria-haspopup="menu" data-testid="download-more" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openMenu({ clientX: r.left, clientY: r.bottom + 4, preventDefault: () => e.preventDefault(), stopPropagation: () => e.stopPropagation() }, menu); }}><MoreHorizontal size={14} /></button>}
+      {/* While it is in flight the row's buttons stay in view; a finished one shows them on hover. */}
+      <div className="list-row-actions" data-shown={live || undefined}>
+        {d.state === 'progressing' && d.resumable && <button className="icon-btn small" aria-label="Pause" title="Pause" data-testid="download-pause" onClick={() => void run('pause', d.id)}><Pause size={14} /></button>}
+        {d.state === 'paused' && d.resumable && <button className="icon-btn small" aria-label="Resume" title="Resume" data-testid="download-resume" onClick={() => void run('resume', d.id)}><Play size={14} /></button>}
+        {live && <button className="icon-btn small" aria-label="Cancel" title="Cancel" data-testid="download-cancel" onClick={cancel}><X size={14} /></button>}
+        {(d.state === 'failed' || d.state === 'cancelled') && <button className="icon-btn small" aria-label="Try again" title={d.accelerated && d.state === 'failed' ? 'Try again, from where it stopped' : 'Download again'} data-testid="download-retry" onClick={() => void run('retry', d.id)}><RotateCw size={14} /></button>}
+        {d.state === 'completed' && <button className="icon-btn small" aria-label="Show in folder" title="Show in folder" data-testid="download-reveal" onClick={() => void run('reveal', d.id)}><FolderOpen size={14} /></button>}
+        {!live && <button className="icon-btn small" aria-label="Remove from list" title="Remove from list (keeps the file)" data-testid="download-remove" onClick={() => void run('remove', d.id)}><X size={14} /></button>}
+        {menu.length > 0 && <button className="icon-btn small" aria-label={`More actions for ${d.name}`} title="More" aria-haspopup="menu" data-testid="download-more" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openMenu({ clientX: r.left, clientY: r.bottom + 4, preventDefault: () => e.preventDefault(), stopPropagation: () => e.stopPropagation() }, menu); }}><MoreHorizontal size={14} /></button>}
       </div>
+      {live && (
+        // The string: how far along it is, or just that it is moving when the size is unknown.
+        <span className="dl-string" role="progressbar" aria-label={`${d.name}: progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={p === null ? undefined : Math.round(p * 100)}>
+          {p === null ? <span className="thread" data-busy={d.state === 'progressing' || undefined} /> : <span className="thread" style={{ ['--p' as string]: p }} />}
+        </span>
+      )}
+      {live && d.accelerated && d.parts && d.total > 0 && (
+        // A quieter line under it: where each connection has got to in its own stretch of the file.
+        <span className="dl-parts" data-testid="download-parts" aria-hidden="true">
+          {d.parts.map((x, i) => (
+            <i key={i} style={{ left: `${(x.start / d.total) * 100}%`, width: `${(Math.min(x.done, x.end - x.start + 1) / d.total) * 100}%` }} />
+          ))}
+        </span>
+      )}
     </div>
   );
 }
@@ -137,53 +142,57 @@ function PageMedia() {
   const id = wcId ?? -1;
   const title = ops.displayTitle(tab);
   return (
-    <section className="dl-media" data-testid="page-media">
-      <header className="dl-sec-head">
-        <h3 className="look-h">On this page</h3>
+    <section className="list-group" data-testid="page-media">
+      <header className="list-head">
+        <h3 className="section-label">On this page</h3>
         <button className="btn small ghost" data-testid="media-rescan" onClick={scan}><RotateCw size={12} /> Look again</button>
       </header>
-      {items && items.length === 0 && (
-        <p className="muted dl-empty">No downloadable video or audio found yet. Start playing it, then press “Look again”. To save a picture, right-click it and choose “Save Image”.</p>
-      )}
+      {items && items.length === 0 && <p className="muted dl-note">No downloadable video or audio on this page yet. Start playing it, then look again. To save a picture, right-click it and choose Save Image.</p>}
       {items?.map((m) => {
         const v = variants[m.url];
+        const MediaIcon = m.kind === 'stream' ? Radio : m.kind === 'audio' ? Music : Film;
         return (
-          <div className="dl-row" key={m.url} data-testid="media-item">
-            <span className="dl-icon">{m.kind === 'stream' ? <Radio size={17} /> : m.kind === 'audio' ? <Music size={17} /> : <Film size={17} />}</span>
-            <div className="dl-main">
-              <span className="dl-name" title={m.url}>{m.label}</span>
-              <span className="dl-status">{m.kind === 'stream' ? 'Stream (HLS)' : m.mime || m.kind}{m.size ? ` · ${formatBytes(m.size)}` : ''}</span>
-              {typeof v === 'string' && <span className="dl-status" data-state="failed"><AlertTriangle size={11} /> {v}</span>}
-              {Array.isArray(v) && (
-                <span className="dl-qualities" data-testid="media-qualities">
-                  {(v.length ? v : [{ url: m.url, label: 'Download', height: 0, bandwidth: 0 }]).map((q) => (
-                    <button key={q.url} className="btn small" onClick={() => { bridge.downloadHls(id, q.url, title); toast(`Downloading the video${q.height ? ` in ${q.label}` : ''}`); }}>{q.label}</button>
-                  ))}
-                </span>
-              )}
+          <div className="list-row dl-row" key={m.url} data-testid="media-item">
+            <div className="list-row-main">
+              <MediaIcon size={16} />
+              <span className="list-row-text">
+                <span className="list-row-title" title={m.url}>{m.label}</span>
+                <span className="list-row-meta">{m.kind === 'stream' ? 'Stream (HLS)' : m.mime || m.kind}{m.size ? ` · ${formatBytes(m.size)}` : ''}</span>
+              </span>
             </div>
-            <div className="dl-actions">
+            <div className="list-row-trailing">
               {m.kind === 'stream' ? (
                 !Array.isArray(v) && (
                   <button className="btn small" data-testid="media-quality" onClick={async () => { const r = await bridge.hlsVariants(id, m.url); setVariants((x) => ({ ...x, [m.url]: r.error ?? r.value ?? [] })); }}>
-                    Choose quality
+                    Choose quality…
                   </button>
                 )
               ) : (
                 <button className="btn small" data-testid="media-download" onClick={() => { bridge.downloadMedia(id, m.url); toast('Download started'); }}>
-                  <Download size={13} /> Download
+                  <Download size={12} /> Download
                 </button>
               )}
             </div>
+            {typeof v === 'string' && <span className="warn dl-under" role="alert"><AlertTriangle size={12} /> {v}</span>}
+            {Array.isArray(v) && (
+              <span className="dl-answers" data-testid="media-qualities">
+                {(v.length ? v : [{ url: m.url, label: 'Download', height: 0, bandwidth: 0 }]).map((q) => (
+                  <button key={q.url} className="btn small" onClick={() => { bridge.downloadHls(id, q.url, title); toast(`Downloading the video${q.height ? ` in ${q.label}` : ''}`); }}>{q.label}</button>
+                ))}
+              </span>
+            )}
           </div>
         );
       })}
-      <p className="muted dl-note">Copy-protected (DRM) video, and sites that assemble video in the page itself such as YouTube and Netflix, can’t be saved.</p>
+      <details className="disclosure">
+        <summary>Why can’t some videos be saved?</summary>
+        <p className="muted">Copy-protected (DRM) video can’t be saved, and neither can video that a site assembles in the page itself, as YouTube and Netflix do.</p>
+      </details>
     </section>
   );
 }
 
-/** IDM's "Add URL": paste a link, Kite downloads it with this Space's cookies. */
+/** Paste a link, and Kite downloads it with this Space's cookies. */
 function AddLink() {
   const partition = useKite((st) => partitionForSpace(activeSpace(st.s)));
   const [url, setUrl] = useState('');
@@ -196,14 +205,14 @@ function AddLink() {
     toast('Download started');
   };
   return (
-    <form className="dl-add" onSubmit={(e) => { e.preventDefault(); void go(); }}>
-      <Link2 size={14} aria-hidden="true" />
-      <input className="dl-add-input" placeholder="Paste a link to download" aria-label="Link to download" value={url} data-testid="download-link" onChange={(e) => setUrl(e.target.value)} />
-      <button type="submit" className="btn small" disabled={!url.trim()} data-testid="download-link-go">Download</button>
+    <form className="inline-form" onSubmit={(e) => { e.preventDefault(); void go(); }}>
+      <input className="input" placeholder="Paste a link to download" aria-label="Link to download" value={url} data-testid="download-link" onChange={(e) => setUrl(e.target.value)} />
+      <button type="submit" className="btn" disabled={!url.trim()} data-testid="download-link-go">Download</button>
     </form>
   );
 }
 
+/** Docked at the side and not modal: a download is something you glance at while you carry on. */
 export function DownloadsPanel() {
   const list = useKite((st) => st.ui.downloads);
   const hasPage = useKite((st) => !!ops.activeTab(st.s));
@@ -212,45 +221,50 @@ export function DownloadsPanel() {
   const counts = downloadCounts(list);
   const shown = filterDownloads(list, filter);
   return (
-    <Sheet title="Downloads" subtitle="Files are saved to your Downloads folder" testId="downloads">
+    <Sheet title="Downloads" subtitle="Saved to your Downloads folder." testId="downloads" size="small" dock>
       <AddLink />
       <PageMedia />
-      {(hasPage || done) && (
-        <header className="dl-sec-head">
-          <h3 className="look-h">{hasPage ? 'Recent' : ''}</h3>
-          {done && <button className="btn small ghost" data-testid="downloads-clear" onClick={() => void run('clear')}>Clear finished</button>}
-        </header>
-      )}
-      {list.length === 0 && <p className="muted dl-empty" data-testid="downloads-empty">Nothing downloaded yet.</p>}
-      {list.length > 1 && (
-        <Segmented
-          testId="downloads-filter"
-          value={filter}
-          onChange={setFilter}
-          options={DOWNLOAD_FILTERS.map((f) => ({ value: f.id, label: <>{f.name}<span className="dl-count">{counts[f.id]}</span></> }))}
-        />
-      )}
-      {list.length > 0 && shown.length === 0 && <p className="muted dl-empty" data-testid="downloads-filter-empty">No downloads here. <button className="link" onClick={() => setFilter('all')}>Show all</button></p>}
-      <div className="dl-list">{shown.map((d) => <Row key={d.id} d={d} />)}</div>
+      <section className="list-group">
+        {(hasPage || done) && (
+          <header className="list-head">
+            <h3 className="section-label">{hasPage ? 'Recent' : ''}</h3>
+            {done && <button className="btn small ghost" data-testid="downloads-clear" onClick={() => void run('clear')}>Clear finished</button>}
+          </header>
+        )}
+        {list.length === 0 && (
+          <div className="empty" data-field data-testid="downloads-empty">
+            <div className="contour-field" aria-hidden="true" />
+            <p>Files you download are listed here. Nothing yet.</p>
+          </div>
+        )}
+        {list.length > 1 && (
+          <Segmented
+            testId="downloads-filter"
+            label="Show"
+            fill
+            value={filter}
+            onChange={setFilter}
+            options={DOWNLOAD_FILTERS.map((f) => ({ value: f.id, label: <>{f.name}<span className="badge">{counts[f.id]}</span></> }))}
+          />
+        )}
+        {list.length > 0 && shown.length === 0 && <p className="empty" data-testid="downloads-filter-empty"><span>No downloads here. <button className="link" onClick={() => setFilter('all')}>Show all</button></span></p>}
+        <div className="dl-list">{shown.map((d) => <Row key={d.id} d={d} />)}</div>
+      </section>
     </Sheet>
   );
 }
 
-/** The sidebar button: a ring fills as downloads progress. */
+/** The sidebar button. While something is downloading, the string under it shows how far along it all is. */
 export function DownloadsButton({ onClick }: { onClick: () => void }) {
   const list = useKite((st) => st.ui.downloads);
   const active = list.filter((d) => d.state === 'progressing');
   if (!list.length) return null;
   const known = active.filter((d) => d.total > 0);
-  const p = known.length ? known.reduce((a, d) => a + d.received, 0) / known.reduce((a, d) => a + d.total, 0) : active.length ? 0.15 : 0;
+  const p = known.length ? known.reduce((a, d) => a + d.received, 0) / known.reduce((a, d) => a + d.total, 0) : null;
   return (
-    <button className="icon-btn dl-btn" aria-label="Downloads" title={active.length ? `${active.length} downloading` : 'Downloads'} data-testid="btn-downloads" data-active={active.length > 0 || undefined} onClick={onClick}>
+    <button className="icon-btn dl-btn" aria-label="Downloads" title={active.length ? `${active.length} downloading` : 'Downloads'} data-testid="btn-downloads" data-busy={active.length > 0 || undefined} onClick={onClick}>
       <Download size={16} />
-      {active.length > 0 && (
-        <svg className="dl-ring" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="14" pathLength="100" strokeDasharray={`${Math.max(4, Math.round(p * 100))} 100`} />
-        </svg>
-      )}
+      {active.length > 0 && (p === null ? <span className="thread" data-busy aria-hidden="true" /> : <span className="thread" style={{ ['--p' as string]: p }} aria-hidden="true" />)}
     </button>
   );
 }

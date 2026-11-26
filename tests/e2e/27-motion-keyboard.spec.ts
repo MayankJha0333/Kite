@@ -22,6 +22,35 @@ test.describe('motion', () => {
     expect(await gliding(page)).toEqual([]);
   });
 
+  test('a row made from the keyboard is simply there; rows closing a gap settle quickly', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'a.com');
+    await newTab(page, 'b.com');
+    await page.keyboard.press(`${MOD}+t`);
+    await page.getByTestId('cb-input').fill('c.com');
+    await page.getByTestId('cb-input').press('Enter');
+    await expect(todayRows(page)).toHaveCount(3);
+    // The new row (first) does not fade or slide in.
+    const entering = await todayRows(page).first().evaluate((el) => el.getAnimations().filter((a) => a.id !== 'flip').length);
+    expect(entering).toBe(0);
+    // Closing it: the rows below move up, and are at rest well inside 300ms.
+    await page.keyboard.press(`${MOD}+w`);
+    await expect(todayRows(page)).toHaveCount(2);
+    await page.waitForTimeout(300);
+    expect(await gliding(page)).toEqual([]);
+  });
+
+  test('a keyboard-focused row shows a real ring, drawn inside the row', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'a.com');
+    await newTab(page, 'b.com');
+    await todayRows(page).first().focus();
+    await page.keyboard.press('ArrowDown');
+    const row = todayRows(page).nth(1);
+    await expect(row).toBeFocused();
+    expect(await row.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset])).toEqual(['solid', '-2px']);
+  });
+
   test('switching tabs and opening the command bar are instant', async ({ page }) => {
     await openApp(page);
     await newTab(page, 'a.com');

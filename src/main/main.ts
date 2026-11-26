@@ -4,6 +4,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  ClipboardItem,
   dialog,
   globalShortcut,
   ipcMain,
@@ -34,6 +35,8 @@ import { createNetwork } from './network';
 import { createDownloads } from './downloads';
 import { createExtensions } from './extensions';
 import { createPermissions } from './permissions';
+import { checkForUpdate } from './updates';
+import { isUpdateUrl } from '../shared/updates';
 import { DEFAULT_PARTITION, isKitePartition, partitionForSpace } from '../shared/profiles';
 import { defaultShields, sanitizeShields, siteKey } from '../shared/shields';
 import type { AppInfo, ClearWhat, Prefs, Result } from '../shared/ipc';
@@ -44,6 +47,9 @@ const isMac = process.platform === 'darwin';
 const devUrl = process.env.KITE_DEV_URL;
 const userDataOverride = process.env.KITE_USER_DATA;
 if (userDataOverride) app.setPath('userData', userDataOverride);
+// Pages see a plain Chrome user agent. The default one names Kite and Electron, and sites that
+// refuse embedded browsers (sign-in pages most of all) turn it away on those words alone.
+app.userAgentFallback = app.userAgentFallback.replace(/\s(?:Kite|kite-browser|Electron)\/\S+/g, '');
 // Tests save downloads into a throwaway folder instead of your real Downloads.
 if (process.env.KITE_TEST && process.env.KITE_DOWNLOADS) app.setPath('downloads', process.env.KITE_DOWNLOADS);
 
@@ -63,6 +69,8 @@ let littleHotkey = '';
 const pendingExternal: string[] = [];
 
 function rendererUrl(query = ''): string {
+  // Tests start on new profiles all the time; they get the first run only when they ask for it.
+  if (process.env.KITE_TEST) query += `${query ? '&' : '?'}firstrun=${process.env.KITE_FIRST_RUN ? 1 : 0}`;
   if (devUrl) return `${devUrl}${query}`;
   return `file://${join(__dirname, '../renderer/index.html')}${query}`;
 }
@@ -178,7 +186,7 @@ async function clearData(what: ClearWhat, site?: string) {
   if (site && !host) return;
   for (const ses of jars.values()) {
     if (!host) {
-      const storages = [...(what.cookies ? ['cookies' as const] : []), ...(what.storage ? (['localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage', 'filesystem', 'shadercache'] as const) : [])];
+      const storages = [...(what.cookies ? ['cookies' as const] : []), ...(what.storage ? (['localstorage', 'indexdb', 'serviceworkers', 'cachestorage', 'filesystem', 'shadercache'] as const) : [])];
       if (storages.length) await ses.clearStorageData({ storages: [...storages] });
       if (what.cache) await ses.clearCache();
       continue;
@@ -190,7 +198,7 @@ async function clearData(what: ClearWhat, site?: string) {
         await ses.cookies.remove(`http${c.secure ? 's' : ''}://${d}${c.path ?? '/'}`, c.name).catch(() => undefined);
       }
     }
-    if (what.storage) for (const origin of [`https://${host}`, `https://www.${host}`, `http://${host}`]) await ses.clearStorageData({ origin, storages: ['localstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage', 'filesystem'] }).catch(() => undefined);
+    if (what.storage) for (const origin of [`https://${host}`, `https://www.${host}`, `http://${host}`]) await ses.clearStorageData({ origin, storages: ['localstorage', 'indexdb', 'serviceworkers', 'cachestorage', 'filesystem'] }).catch(() => undefined);
     if (what.cache) await ses.clearCache();
   }
 }
@@ -227,7 +235,7 @@ function createMainWindow(): BrowserWindow {
     minHeight: 480,
     title: 'Kite',
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#16171c' : '#f3efe9',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#141c22' : '#e9f0ee',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 16 },
     autoHideMenuBar: !isMac,
@@ -549,7 +557,7 @@ function createLittleWindow(url: string): BrowserWindow | null {
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 12, y: 13 },
     autoHideMenuBar: true,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#16171c' : '#f3efe9',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#141c22' : '#e9f0ee',
     webPreferences: baseWebPreferences(),
   });
   lockKiteWindow(win);
@@ -597,6 +605,11 @@ async function savePage(wc: WebContents): Promise<string | null> {
   }
 }
 
+/** Put text on the clipboard. The write is asynchronous, so a failure is logged rather than left unhandled. */
+function copyText(text: string) {
+  void clipboard.writeText(text).catch((err) => errorLog(`copy failed: ${(err as Error).message}`));
+}
+
 /** Files Capture wrote this session: the only ones the renderer may ask to reveal. */
 const captures = new Set<string>();
 
@@ -642,12 +655,18 @@ async function capturePage(wc: WebContents, full: boolean): Promise<{ value: { p
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} at ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`;
   let path = join(app.getPath('downloads'), `Capture ${title} ${stamp}.png`);
   for (let n = 2; existsSync(path); n++) path = join(app.getPath('downloads'), `Capture ${title} ${stamp} (${n}).png`);
+  const png = img.toPNG();
   try {
-    writeFileSync(path, img.toPNG());
+    writeFileSync(path, png);
   } catch (err) {
     return { error: `Couldn’t save the capture: ${(err as Error).message}` };
   }
-  clipboard.writeImage(img);
+  // The picture is saved by now, so a clipboard that refuses it doesn’t make the capture fail.
+  try {
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)], { type: 'image/png' }) })]);
+  } catch (err) {
+    errorLog(`capture: couldn’t copy the picture: ${(err as Error).message}`);
+  }
   captures.add(path);
   return { value: { path } };
 }
@@ -760,7 +779,7 @@ function hardenWebview(contents: WebContents) {
         { label: 'Open Link in Split View', click: () => host.send('open-split', { url, sourceTabId: page.tabId }) },
         { label: 'Open Link in Little Window', click: () => createLittleWindow(url) },
         { type: 'separator' },
-        { label: 'Copy Link', click: () => clipboard.writeText(url) },
+        { label: 'Copy Link', click: () => copyText(url) },
         { label: 'Download Linked File', click: () => downloads.downloadUrl(contents, url) },
         { type: 'separator' },
       );
@@ -770,7 +789,7 @@ function hardenWebview(contents: WebContents) {
     if (params.mediaType === 'image' && isWebUrl(params.srcURL)) {
       items.push({ label: 'Open Image in New Tab', click: () => sendOpen(host, { url: params.srcURL, disposition: 'new-tab', sourceTabId: page.tabId }) });
       items.push({ label: 'Copy Image', click: () => contents.copyImageAt(params.x, params.y) });
-      items.push({ label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) });
+      items.push({ label: 'Copy Image Address', click: () => copyText(params.srcURL) });
       items.push({ label: 'Save Image', click: () => void downloads.saveImage(contents, params.srcURL, 'original') });
       items.push({
         label: 'Save Image As',
@@ -785,7 +804,7 @@ function hardenWebview(contents: WebContents) {
       const what = params.mediaType === 'video' ? 'Video' : 'Audio';
       items.push({ label: `Save ${what}`, click: () => downloads.downloadUrl(contents, params.srcURL) });
       items.push({ label: `Save ${what} As…`, click: () => downloads.downloadUrl(contents, params.srcURL, { saveAs: true }) });
-      items.push({ label: `Copy ${what} Address`, click: () => clipboard.writeText(params.srcURL) });
+      items.push({ label: `Copy ${what} Address`, click: () => copyText(params.srcURL) });
     } else if (params.mediaType === 'video' || params.mediaType === 'audio') {
       // Streamed video (no plain file address): the Downloads panel lists what can be saved.
       items.push({ label: 'Find Downloadable Video…', click: () => host.send('shortcut', 'downloadsPanel') });
@@ -965,6 +984,39 @@ function setupIpc() {
     } catch (err) {
       return { error: `Couldn’t reach the weather service: ${(err as Error).message}` };
     }
+  });
+  // An icon's pixels, so the sidebar can tell whether it would vanish on the shell (a black
+  // mark on a dark sidebar) and give it a plate. The page's own icon usually can't be read
+  // from the UI (sites don't share it), so it is fetched here, small and bounded, through the
+  // app's own session (no site cookies), and handed back as a 16px PNG.
+  const iconPixelCache = new Map<string, Promise<string | null>>();
+  handle('icon:pixels', (_e, url: string): Promise<string | null> => {
+    if (typeof url !== 'string' || !isWebUrl(url) || url.length > 2048) return Promise.resolve(null);
+    let p = iconPixelCache.get(url);
+    if (!p) {
+      p = (async () => {
+        const stop = new AbortController();
+        const timer = setTimeout(() => stop.abort(), 5000);
+        try {
+          const res = await net.fetch(url, { headers: browserHeaders('image'), signal: stop.signal, redirect: 'follow' });
+          const type = res.headers.get('content-type') ?? '';
+          if (!res.ok || !/^image\//i.test(type)) return null;
+          const buf = Buffer.from(await res.arrayBuffer());
+          if (buf.length === 0 || buf.length > 512 * 1024) return null;
+          // SVG: the UI draws it itself (it holds no scripts when used as an image).
+          if (/svg/i.test(type)) return `data:image/svg+xml;base64,${buf.toString('base64')}`;
+          const img = nativeImage.createFromBuffer(buf);
+          return img.isEmpty() ? null : img.resize({ width: 16, height: 16, quality: 'good' }).toDataURL();
+        } catch {
+          return null;
+        } finally {
+          clearTimeout(timer);
+        }
+      })();
+      iconPixelCache.set(url, p);
+      if (iconPixelCache.size > 500) iconPixelCache.delete(iconPixelCache.keys().next().value as string);
+    }
+    return p;
   });
   // A site's icon when no page has reported one (a shortcut typed by hand, a search engine):
   // read the <link rel="icon"> from its home page, else its /favicon.ico if that is an image.
@@ -1164,6 +1216,13 @@ function setupIpc() {
     packaged: app.isPackaged,
   }));
   on('app:reveal-data', () => shell.showItemInFolder(storage.file));
+  // Updates: the UI asks (once a day when the setting is on, or from "Check now") and opens
+  // the installer's page; only links to a GitHub release are ever opened.
+  // Test runs never call out to GitHub.
+  handle('update:check', () => (process.env.KITE_TEST ? { value: null } : checkForUpdate()));
+  on('update:open', (_e, url: string) => {
+    if (typeof url === 'string' && isUpdateUrl(url)) void shell.openExternal(url).catch(() => undefined);
+  });
   on('page:print', (e, id: number) => pageOf(e, id)?.print());
   // "View Page Source": the HTML as the server sent it (not the live DOM), through the Space's cookie jar.
   handle('page:source', async (_e, url: string, partition: string): Promise<Result<{ text: string; status: number; contentType: string; truncated: boolean }>> => {
@@ -1363,13 +1422,31 @@ function buildAppMenu() {
       role: 'help',
       submenu: [
         item('Keyboard Shortcuts', 'shortcutsPanel'),
-        { label: 'Copy Kite Info', click: () => clipboard.writeText(`Kite ${app.getVersion()} · Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · ${process.platform} ${process.arch}`) },
+        { label: 'Check for Updates…', click: () => void checkForUpdatesFromMenu() },
+        { label: 'Copy Kite Info', click: () => copyText(`Kite ${app.getVersion()} · Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · ${process.platform} ${process.arch}`) },
         { label: 'Reveal Kite Data', click: () => shell.showItemInFolder(storage.file) },
         { label: 'Show Error Log', click: () => { const f = join(app.getPath('userData'), 'kite-errors.log'); if (existsSync(f)) shell.showItemInFolder(f); else void dialog.showMessageBox({ type: 'info', message: 'No errors have been logged.', detail: 'Kite writes crashes and unexpected problems to kite-errors.log in its data folder.' }); } },
       ],
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+/** Help → Check for Updates…: ask now and say what was found, whatever the daily setting is. */
+async function checkForUpdatesFromMenu() {
+  const found = await checkForUpdate();
+  if (found.error) return void dialog.showMessageBox({ type: 'warning', message: 'Couldn’t check for updates', detail: found.error });
+  const update = found.value;
+  if (!update) return void dialog.showMessageBox({ type: 'info', message: 'Kite is up to date', detail: `You have Kite ${app.getVersion()}, the newest version.` });
+  const res = await dialog.showMessageBox({
+    type: 'info',
+    message: `Kite ${update.version} is available`,
+    detail: `You have ${app.getVersion()}.${update.notes ? `\n\n${update.notes}` : ''}`,
+    buttons: ['Download', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (res.response === 0) void shell.openExternal(update.downloadUrl ?? update.pageUrl).catch(() => undefined);
 }
 
 // ---- app lifecycle -------------------------------------------------------

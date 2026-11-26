@@ -8,13 +8,17 @@ import type { AppState, ID } from '@shared/types';
 import { bridge } from './platform';
 import { keepAwake } from '@shared/sleep';
 
-export type Panel = 'settings' | 'archive' | 'history' | 'boosts' | 'boost' | 'routing' | 'import' | 'space' | 'shortcuts' | 'downloads' | 'extensions' | 'welcome' | null;
+export type Panel = 'settings' | 'archive' | 'history' | 'boosts' | 'boost' | 'routing' | 'import' | 'space' | 'shortcuts' | 'downloads' | 'extensions' | 'welcome' | 'customize' | null;
 
 export interface Toast {
   id: number;
   text: string;
   actionLabel?: string;
   action?: () => void;
+  /** How long it stays, not counting time under the pointer or with the window hidden (Toasts.tsx keeps the clock). */
+  ms: number;
+  /** Goes up each time the same message is shown again: the clock starts over. */
+  shown: number;
   /** Playing its exit animation; removed a moment later. */
   leaving?: boolean;
 }
@@ -143,13 +147,12 @@ export const getUi = () => useKite.getState().ui;
 
 let toastSeq = 1;
 export function toast(text: string, actionLabel?: string, action?: () => void, ms = 4200) {
-  const id = toastSeq++;
-  // The same message again replaces the one on screen instead of stacking a copy of it.
-  setUi((u) => ({ toasts: [...u.toasts.filter((t) => t.text !== text).slice(-3), { id, text, actionLabel, action }] }));
-  // Leave cleanly: mark it leaving (it eases out), then remove it once the exit has played.
-  const exitMs = Math.round(130 / Math.max(0.25, getS()?.settings?.motionSpeed ?? 1));
-  setTimeout(() => setUi((u) => ({ toasts: u.toasts.map((t) => (t.id === id ? { ...t, leaving: true } : t)) })), Math.max(0, ms - exitMs));
-  setTimeout(() => setUi((u) => ({ toasts: u.toasts.filter((t) => t.id !== id) })), ms);
+  const shown = toastSeq++;
+  setUi((u) => {
+    // The same message again takes over the one on screen, where it is, instead of stacking a copy of it.
+    if (u.toasts.some((t) => t.text === text)) return { toasts: u.toasts.map((t) => (t.text === text ? { ...t, actionLabel, action, ms, shown, leaving: false } : t)) };
+    return { toasts: [...u.toasts.slice(-3), { id: shown, text, actionLabel, action, ms, shown }] };
+  });
 }
 
 /** Keep a tab's page alive (least-recently-used ones get unloaded). */

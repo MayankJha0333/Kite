@@ -3,7 +3,8 @@
  * Original artwork. The same shape is drawn in white on the app icon (scripts/make-icon.mjs).
  */
 export function KiteLogo({ size = 28 }: { size?: number }) {
-  const c = 'var(--tint-2, #8f8cff)';
+  // The Space's second color; outside a themed window, whatever the text color is.
+  const c = 'var(--tint-2, currentColor)';
   return (
     <svg width={size} height={size} viewBox="11 10 100 100" aria-hidden="true" className="kite-logo">
       <path d="M62 14 92 50 60 48Z" fill={c} />

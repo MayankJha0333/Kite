@@ -101,6 +101,52 @@ test.describe('archive page', () => {
     expect(s.archive).toEqual([]);
   });
 
+  test('the sheet is a dialog: named by its title, keeps Tab inside, and gives focus back', async ({ page }) => {
+    await openApp(page);
+    await page.getByTestId('btn-archive').click();
+    const sheet = page.getByRole('dialog', { name: 'Archive' });
+    await expect(sheet).toHaveAttribute('aria-modal', 'true');
+    // Its top edge is always 12% down the window, whatever is in it.
+    const top = await sheet.evaluate(async (el) => {
+      await Promise.all(el.getAnimations().map((a) => a.finished)); // measured at rest, not while it settles
+      return Math.round(el.getBoundingClientRect().top);
+    });
+    expect(top).toBe(Math.round(page.viewportSize()!.height * 0.12));
+    await expect(page.getByTestId('archive-search')).toBeFocused();
+    // Tab from the last control comes round to the first one, and back again.
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('archive-settings')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByTestId('archive-search')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('archive-page')).toHaveCount(0);
+    await expect(page.getByTestId('btn-archive')).toBeFocused();
+  });
+
+  test('Esc empties the search first, then closes the sheet', async ({ page }) => {
+    await openApp(page);
+    await page.getByTestId('btn-archive').click();
+    await page.getByTestId('archive-search').fill('nothing like this');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('archive-search')).toHaveValue('');
+    await expect(page.getByTestId('archive-page')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('archive-page')).toHaveCount(0);
+  });
+
+  test('opened again while it is still leaving, it comes back fully open and stays', async ({ page }) => {
+    await openApp(page);
+    await page.keyboard.press(`${MOD}+y`);
+    await expect(page.getByTestId('archive-page')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${MOD}+y`);
+    await expect(page.locator('.sheet-scrim')).not.toHaveAttribute('data-leaving', /.*/);
+    // The first close's timer must not take the new sheet with it.
+    await page.waitForTimeout(400);
+    await expect(page.getByTestId('archive-page')).toBeVisible();
+    await expect(page.getByTestId('archive-page')).toHaveCSS('opacity', '1');
+  });
+
   test('Esc closes the Archive; the footer button opens it', async ({ page }) => {
     await openApp(page);
     await page.getByTestId('btn-archive').click();

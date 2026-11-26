@@ -1,28 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { GRAY, GRAY_ALPHA, INDIGO, HARMONIES, SPRINGS, SWATCHES, hexToHsl, hslToHex, scaleVars, springAt, springDuration, springEasing, wheelColors } from '../../src/shared/designTokens';
-import { contrast } from '../../src/renderer/theme';
+import { HARMONIES, SPRINGS, SWATCHES, hexToHsl, hslToHex, springAt, springDuration, springEasing, wheelColors } from '../../src/shared/designTokens';
+import { createInitialState } from '../../src/shared/defaults';
+import { DEFAULT_THEME } from '../../src/shared/spaceTheme';
+import { themeVars } from '../../src/renderer/theme';
 
 describe('design tokens', () => {
-  it('scales have 12 steps and become CSS variables for light and dark', () => {
-    for (const s of [GRAY, GRAY_ALPHA, INDIGO]) expect(s).toHaveLength(12);
-    const light = scaleVars(false);
-    const dark = scaleVars(true);
-    expect(light['--gray-12']).toBe('#171717');
-    expect(dark['--gray-12']).toBe('#ededed');
-    expect(light['--gray-a3']).toBe('rgba(0,0,0,0.047)');
-    expect(dark['--gray-a3']).toBe('rgba(255,255,255,0.056)');
-    expect(Object.keys(light)).toHaveLength(36);
-  });
-
-  it('text steps of the grey scale are readable on the background steps', () => {
-    for (const mode of [0, 1] as const) {
-      expect(contrast(GRAY[11][mode], GRAY[0][mode])).toBeGreaterThan(12);
-      expect(contrast(GRAY[10][mode], GRAY[1][mode])).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-
   it('swatches are three rows of nine', () => {
     for (const row of Object.values(SWATCHES)) expect(row).toHaveLength(9);
+  });
+
+  it('the window carries no neutral grey or indigo scales: every colour comes from the Space or a Calm Air token', () => {
+    const s = createInitialState();
+    for (const dark of [false, true]) {
+      const names = Object.keys(themeVars(DEFAULT_THEME, s.settings, dark));
+      expect(names.filter((n) => /^--(gray|indigo)-/.test(n))).toEqual([]);
+      // Under forty named variables are set on the window, so a token in the stylesheet is rarely shadowed by an inline one.
+      expect(names.length).toBeLessThan(40);
+    }
   });
 });
 

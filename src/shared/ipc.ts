@@ -151,6 +151,10 @@ export interface KiteBridge {
   isDefaultBrowser(): Promise<boolean>;
   exportFile(name: string, text: string): Promise<boolean>;
   appInfo(): Promise<AppInfo>;
+  /** Ask GitHub whether a newer Kite exists: the update, null when up to date, or a readable problem. */
+  checkForUpdate(): Promise<Result<import('./updates').UpdateInfo | null>>;
+  /** Open an update's installer or its release page in the default browser (GitHub links only). */
+  openUpdate(url: string): void;
   /** Show Kite's data folder in the system file manager. */
   revealData(): void;
   /** The system print dialog for a page. */
@@ -188,6 +192,8 @@ export interface KiteBridge {
   weather(place: string): Promise<Result<import('./home').WeatherReport>>;
   /** The icon a site declares on its home page (or its /favicon.ico), for sites no page has reported yet. Only that site is contacted. */
   siteIcon(url: string): Promise<string | null>;
+  /** An icon as a small PNG (or SVG) data URL the UI may read pixels from; null when it can't be fetched. */
+  iconPixels(url: string): Promise<string | null>;
   permissions(): Promise<SitePermission[]>;
   onPermissions(cb: (v: SitePermission[]) => void): () => void;
   /** Forget remembered answers: one, a whole site's, or (no arguments) all. */

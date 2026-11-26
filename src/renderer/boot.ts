@@ -13,6 +13,8 @@ import { watchBoosts } from './boostRuntime';
 import { startPip } from './pipRuntime';
 import { startBrowser } from './browserRuntime';
 import { startSounds } from './sound';
+import { watchUpdates } from './updateRuntime';
+import { watchHome } from './components/home/firstRun';
 
 /** All shortcuts including the numbered ones (⌘1…⌘9 tabs, ⌃1…⌃9 Spaces; off Mac: Ctrl+1…9 tabs, Alt+1…9 Spaces). */
 export function fullShortcutMap(settings: Settings): Record<string, string> {
@@ -38,6 +40,8 @@ export async function boot() {
   startPip();
   startBrowser();
   startSounds();
+  watchUpdates();
+  watchHome();
   const active = ops.activeItemId(state);
   if (active) {
     const it = state.items[active];

@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { X, Undo2, Loader2, StickyNote, Columns2, Folder, FolderOpen, Volume2, VolumeX, PictureInPicture2, MoreHorizontal } from 'lucide-react';
+import { X, Undo2, StickyNote, Columns2, Folder, FolderOpen, Volume2, VolumeX, PictureInPicture2, MoreHorizontal } from 'lucide-react';
 import { toggleMute } from '../pipRuntime';
 
 const shallowEq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -25,7 +25,8 @@ interface Props {
   last?: boolean;
 }
 
-const indent = (depth: number) => 8 + depth * 14;
+/** Left padding of a row: the list's 8px, plus one icon's width for every folder it is inside. */
+const indent = (depth: number) => 8 + depth * 16;
 
 /** Arrow keys move between rows; Enter / Space act on the focused one. */
 export function rowKeys(e: React.KeyboardEvent, activate: () => void, extra?: (key: string) => boolean) {
@@ -77,7 +78,10 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
 
   if (item.kind === 'folder') return <FolderRow item={item} depth={depth} renaming={renaming} drag={drag} picked={picked} tree={treeAttrs(depth, parentId, last)} />;
 
-  const awayFromHome = item.kind === 'tab' && item.homeUrl && hostOf(item.homeUrl) !== '' && item.url !== item.homeUrl;
+  const awayFromHome = item.kind === 'tab' && !!item.homeUrl && hostOf(item.homeUrl) !== '' && item.url !== item.homeUrl;
+  const closable = (closeOnHover || active) && list !== 'favorites';
+  // What always shows at the row's end; the title keeps clear of it (see .row-title).
+  const fixedTail = (sound ? 1 : 0) + (awayFromHome ? 1 : 0);
 
   return (
     <div
@@ -93,31 +97,32 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
       data-picked={picked || undefined}
       data-kind={item.kind}
       data-asleep={asleep || undefined}
+      data-acts={closable || undefined}
       data-drop={drag.dropHint ?? undefined}
       data-testid={`row-${id}`}
       data-title={title}
-      style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px` }}
+      style={{ paddingLeft: indent(depth), ['--indent' as string]: `${indent(depth)}px`, ['--n' as string]: fixedTail || undefined }}
       onClick={(e) => clickRow(e, id, () => selectItem(id))}
       onPointerEnter={() => warmTab(id)}
       onKeyDown={(e) => rowKeys(e, () => selectItem(id))}
       onAuxClick={(e) => e.button === 1 && closeItemCmd(id)}
       onDoubleClick={(e) => !(e.metaKey || e.ctrlKey || e.shiftKey) && setUi({ renaming: id })}
       onContextMenu={(e) => openMenu(e, picked ? selectionMenu(id) : itemMenu(id))}
-      title={item.kind === 'tab' ? `${title}\n${item.url}${asleep ? '\nAsleep to save memory. Opens instantly when you click.' : ''}` : title}
+      title={item.kind === 'tab' ? `${title}\n${item.url}${awayFromHome ? '\nThis pinned tab has moved on from its page.' : ''}${asleep ? '\nAsleep to save memory. Opens instantly when you click.' : ''}` : title}
     >
-      <RowIcon item={item} />
-      {renaming ? (
-        <RenameInput id={id} initial={title} />
-      ) : (
-        <span className="row-title">
-          {awayFromHome && <span className="row-home-sep">{title}</span>}
-          {!awayFromHome && title}
+      {/* A page on its way: a still mark where its icon will be (the string on the page is what moves). */}
+      {loading ? (
+        <span className="row-spinner" role="img" aria-label="Loading">
+          <span className="row-pending" />
         </span>
+      ) : (
+        <RowIcon item={item} />
       )}
-      {loading && <Loader2 size={13} className="spin row-status" aria-label="Loading" />}
+      {renaming ? <RenameInput id={id} initial={title} /> : <span className="row-title">{title}</span>}
+      <span className="row-tail">
       {sound && (
         <button
-          className="row-sound"
+          className="row-btn row-sound"
           data-testid={`sound-${id}`}
           data-muted={sound.muted || undefined}
           title={sound.pipped ? 'Playing in a floating window — click to mute' : sound.muted ? 'Unmute' : 'Mute'}
@@ -127,35 +132,38 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
             toggleMute(sound.tab);
           }}
         >
-          {sound.muted ? <VolumeX size={13} /> : sound.pipped ? <PictureInPicture2 size={13} /> : <Volume2 size={13} />}
+          {sound.muted ? <VolumeX size={14} /> : sound.pipped ? <PictureInPicture2 size={14} /> : <Volume2 size={14} />}
         </button>
       )}
       {awayFromHome && (
         <button
-          className="row-btn"
+          className="row-btn row-home"
           title="Back to pinned page"
+          aria-label="Back to pinned page"
           data-testid={`home-${id}`}
           onClick={(e) => {
             e.stopPropagation();
             if (item.kind === 'tab' && item.homeUrl) navigateTab(id, item.homeUrl);
           }}
         >
-          <Undo2 size={13} />
+          <Undo2 size={14} />
         </button>
       )}
-      {(closeOnHover || active) && list !== 'favorites' && (
+      {closable && (
         <button
           className="row-btn row-close"
           aria-label="Close"
+          title="Close tab"
           data-testid={`close-${id}`}
           onClick={(e) => {
             e.stopPropagation();
             closeItemCmd(id);
           }}
         >
-          <X size={13} />
+          <X size={14} />
         </button>
       )}
+      </span>
     </div>
   );
 });
@@ -163,11 +171,11 @@ export const ItemRow = memo(function ItemRow({ id, list, depth, parentId, last }
 function RowIcon({ item }: { item: Item }) {
   const items = useKite((st) => st.s.items);
   if (item.kind === 'tab') return <SiteIcon url={item.url} favicon={item.favicon} title={item.title} />;
-  if (item.kind === 'note') return <StickyNote size={15} className="row-glyph" />;
+  if (item.kind === 'note') return <StickyNote size={16} className="row-glyph" />;
   if (item.kind === 'split') {
     return (
       <span className="split-icons">
-        <Columns2 size={14} className="row-glyph" />
+        <Columns2 size={16} className="row-glyph" />
         {item.panes.slice(0, 2).map((p) => {
           const t = items[p];
           return t?.kind === 'tab' ? <SiteIcon key={p} url={t.url} favicon={t.favicon} title={t.title} size={12} /> : null;
@@ -216,6 +224,7 @@ function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extrac
         aria-selected={picked}
         data-picked={picked || undefined}
         data-holds-active={holdsActive || undefined}
+        data-acts
         data-drop={drag.dropHint ?? undefined}
         data-testid={`row-${item.id}`}
         data-title={item.title}
@@ -234,9 +243,10 @@ function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extrac
         }}
         onContextMenu={menu}
       >
-        <Icon size={15} className="row-glyph folder-glyph" />
+        <Icon size={16} className="row-glyph" />
         {renaming ? <RenameInput id={item.id} initial={item.title} /> : <span className="row-title">{item.title}</span>}
         {item.collapsed && item.children.length > 0 && <span className="row-count">{item.children.length}</span>}
+        <span className="row-tail">
         <button
           className="row-btn folder-more"
           aria-label="Folder options"
@@ -248,8 +258,9 @@ function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extrac
             openMenu({ clientX: r.left, clientY: r.bottom + 4 }, itemMenu(item.id));
           }}
         >
-          <MoreHorizontal size={14} />
+          <MoreHorizontal size={16} />
         </button>
+        </span>
       </div>
       {peekId && (
         <div className="folder-children folder-peek" role="group" data-testid={`folder-peek-${item.id}`}>
@@ -260,7 +271,7 @@ function FolderRow({ item, depth, renaming, drag, picked, tree }: { item: Extrac
         // Dropping anywhere in an open folder's contents puts the tab inside it.
         <div className="folder-children" role="group" data-dnd-into={item.id} data-testid={`folder-children-${item.id}`}>
           {item.children.length === 0 && (
-            <div className="folder-empty" data-testid={`folder-empty-${item.id}`} style={{ paddingLeft: indent(depth + 1) + 22 }}>
+            <div className="folder-empty" data-testid={`folder-empty-${item.id}`} style={{ paddingLeft: indent(depth + 1) + 24 }}>
               Drop tabs here
             </div>
           )}

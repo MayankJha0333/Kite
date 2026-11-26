@@ -1,0 +1,230 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "createdAt": "2026-11-26T04:05:24.432Z",
+        "reason": "lead decision: #000 here is a mask-image alpha stop (controls.css, settings.css, sidebar.css fade masks), not a color"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "10px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:24.449Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.18)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.452Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.6)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.468Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.28)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.484Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.24)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.499Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#ff453a",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.514Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(255, 69, 58, 0.25)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.528Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.45)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.543Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(33, 33, 35, 0.85)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.557Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.3)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.571Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#212123",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.585Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.55)",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.599Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#d6d8de",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.612Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#111216",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.626Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#b9bcc6",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.639Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "7px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.653Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "18px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.667Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "11px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.681Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "4px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.695Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "1px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.709Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "7.5px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.723Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "files": [
+          "src/renderer/styles/windows.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.737Z",
+        "reason": "lead decision: the floating-video window (windows.css pip rules) sits over video, not the shell, and keeps its own dark chip palette and sizes; tests 15/16 pin these exact values"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "hsl(0 75% 62%)",
+        "files": [
+          "src/renderer/styles/settings.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.750Z",
+        "reason": "lead decision: the hue strip of the color picker must show every hue; it is a control's content, not chrome color"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "hsl(359 75% 62%)",
+        "files": [
+          "src/renderer/styles/settings.css"
+        ],
+        "createdAt": "2026-11-26T04:05:36.764Z",
+        "reason": "lead decision: the hue strip of the color picker must show every hue; it is a control's content, not chrome color"
+      }
+    ]
+  }
+}

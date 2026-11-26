@@ -1,0 +1,24 @@
+import { readFileSync } from 'node:fs';
+const decls = JSON.parse(readFileSync('decls.json', 'utf8'));
+const tally = (items, key, show = 6) => { const m = new Map(); for (const d of items) { const k = key(d); if (k == null) continue; if (!m.has(k)) m.set(k, []); m.get(k).push(d.line); } return [...m.entries()].sort((a, b) => b[1].length - a[1].length).map(([k, l]) => `${String(l.length).padStart(4)} × ${k}   @ ${l.slice(0, show).join(',')}${l.length > show ? '…' : ''}`).join('\n'); };
+const by = (p) => decls.filter((d) => (p instanceof RegExp ? p.test(d.prop) : d.prop === p));
+const sec = (t) => console.log('\n===== ' + t);
+sec('font-size'); console.log(tally(by('font-size'), (d) => d.value.replace(/calc\(([\d.]+px) \* var\(--scale\)\)/, '$1·scale')));
+const fs = by('font-size'); console.log('total', fs.length, 'scaled', fs.filter((d) => /--scale/.test(d.value)).length, 'unscaled px', fs.filter((d) => /^[\d.]+px$/.test(d.value)).length, 'other', fs.filter((d) => !/--scale/.test(d.value) && !/^[\d.]+px$/.test(d.value)).length);
+// font shorthand
+sec('font shorthand'); console.log(tally(by('font'), (d) => d.value, 10));
+sec('font-weight'); console.log(tally(by('font-weight'), (d) => d.value));
+sec('letter-spacing'); console.log(tally(by('letter-spacing'), (d) => d.value));
+sec('line-height'); console.log(tally(by('line-height'), (d) => d.value));
+sec('font-family'); console.log(tally(by('font-family'), (d) => d.value));
+sec('text-transform'); console.log(tally(by('text-transform'), (d) => d.value));
+sec('font-variant-numeric / feature'); console.log(tally(by(/font-variant|font-feature/), (d) => d.prop + ': ' + d.value));
+sec('border-radius'); console.log(tally(by(/^border(-(top|bottom)-(left|right))?-radius$/), (d) => d.value, 8));
+const br = by(/^border(-(top|bottom)-(left|right))?-radius$/); console.log('total', br.length, 'uses token', br.filter((d) => /var\(--(r-|radius)/.test(d.value)).length, 'inherit', br.filter((d) => /inherit/.test(d.value)).length);
+sec('box-shadow'); console.log(tally(by('box-shadow'), (d) => d.value, 5));
+const bs = by('box-shadow'); console.log('total', bs.length, 'token-only', bs.filter((d) => /^var\(--(shadow|elev-\d|active-shadow)\)$/.test(d.value)).length, 'none', bs.filter((d) => d.value === 'none').length);
+sec('filter: drop-shadow / text-shadow'); console.log(tally(by(/^(filter|text-shadow)$/), (d) => d.prop + ': ' + d.value));
+sec('backdrop-filter'); console.log(tally(by(/backdrop-filter/), (d) => d.prop + ': ' + d.value, 12));
+sec('z-index'); console.log(tally(by('z-index'), (d) => d.value, 14));
+sec('opacity'); console.log(tally(by('opacity'), (d) => d.value, 4));
+sec('gap'); console.log(tally(by('gap'), (d) => d.value, 3));

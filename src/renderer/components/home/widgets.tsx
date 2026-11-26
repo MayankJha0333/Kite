@@ -2,7 +2,7 @@
 // Each gets its saved data and a `set` that patches it (saved with everything else).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSun, Pause, Play, Plus, RotateCcw, Search, Snowflake, Sun, Trash2, Wind, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSun, Pause, Play, Plus, RotateCcw, Snowflake, Sun, Wind, X } from 'lucide-react';
 import type { Widget, WeatherReport } from '@shared/home';
 import { toF, weatherText } from '@shared/home';
 import { bridge } from '../../platform';
@@ -21,6 +21,7 @@ const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite
 
 // ---- Clock ----------------------------------------------------------------------
 
+/** The time (the greeting above already gives the date). Seconds and 24-hour time are chosen from the widget's menu. */
 export function ClockWidget({ data, set }: WidgetProps) {
   const h24 = bool(data.h24, false);
   const seconds = bool(data.seconds, false);
@@ -32,11 +33,9 @@ export function ClockWidget({ data, set }: WidgetProps) {
   const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: seconds ? '2-digit' : undefined, hour12: !h24 });
   return (
     <div className="wg-clock">
-      <button className="wg-clock-time" title="Click: 12 / 24-hour" onClick={() => set({ h24: !h24 })} data-testid="wg-clock-time">
+      <button className="wg-figure" title={h24 ? 'Show 12-hour time' : 'Show 24-hour time'} onClick={() => set({ h24: !h24 })} data-testid="wg-clock-time">
         {time}
       </button>
-      <div className="wg-clock-date">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-      <button className="wg-link" onClick={() => set({ seconds: !seconds })}>{seconds ? 'Hide seconds' : 'Show seconds'}</button>
     </div>
   );
 }
@@ -89,7 +88,7 @@ export function WeatherWidget({ data, set, widget }: WidgetProps) {
         <p className="muted">Which place? Only its name is sent, to open-meteo.com.</p>
         <span className="inline-form">
           <input className="input" autoFocus placeholder="City, e.g. Lisbon" aria-label="Place" value={draft} data-testid={`wg-weather-place-${widget.id}`} onChange={(e) => setDraft(e.target.value)} />
-          <button className="btn small primary" disabled={!draft.trim()}><Search size={13} /> Show</button>
+          <button className="btn" disabled={!draft.trim()}>Show</button>
         </span>
       </form>
     );
@@ -102,19 +101,22 @@ export function WeatherWidget({ data, set, widget }: WidgetProps) {
       {error && !report && (
         <div className="wg-weather-err">
           <span className="muted">{error}</span>
-          <button className="wg-link" onClick={() => set({ place: '' })}>Change place</button>
+          <button className="btn small" onClick={() => set({ place: '' })}>Change place</button>
         </div>
       )}
-      {!report && !error && <span className="muted">{busy ? 'Fetching…' : ''}</span>}
+      {!report && !error && busy && <span className="muted">Getting the forecast…</span>}
       {report && (
         <>
           <div className="wg-weather-now">
-            <Icon size={34} className="wg-weather-icon" aria-hidden="true" />
+            <Icon size={28} className="wg-weather-icon" aria-hidden="true" />
             <div className="wg-weather-main">
-              <button className="wg-weather-temp" title="Click: °C / °F" onClick={() => set({ unit: unit === 'c' ? 'f' : 'c' })} data-testid="wg-weather-temp">{deg(report.current.temp)}</button>
-              <div className="wg-weather-cond">{cur!.label} · <Wind size={11} aria-hidden="true" /> {report.current.wind} km/h</div>
+              <div className="wg-weather-top">
+                <button className="wg-figure" title={unit === 'c' ? 'Show Fahrenheit' : 'Show Celsius'} onClick={() => set({ unit: unit === 'c' ? 'f' : 'c' })} data-testid="wg-weather-temp">{deg(report.current.temp)}</button>
+                <span className="wg-sub wg-weather-wind"><Wind size={12} aria-label="Wind" /> {report.current.wind} km/h</span>
+              </div>
+              <div className="wg-sub">{cur!.label}</div>
+              <button className="wg-weather-place" title="Change place" onClick={() => set({ place: '' })} data-testid="wg-weather-placename">{report.place}</button>
             </div>
-            <button className="wg-weather-place wg-link" title="Change place" onClick={() => set({ place: '' })} data-testid="wg-weather-placename">{report.place}</button>
           </div>
           {wide && (
             <div className="wg-weather-days">
@@ -123,9 +125,9 @@ export function WeatherWidget({ data, set, widget }: WidgetProps) {
                 const DayIcon = ICONS[t.icon];
                 return (
                   <div key={d.date} className="wg-weather-day" title={t.label}>
-                    <span className="muted">{new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' })}</span>
+                    <span className="wg-weather-dow">{new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' })}</span>
                     <DayIcon size={16} aria-hidden="true" />
-                    <span>{deg(d.max)} <span className="muted">{deg(d.min)}</span></span>
+                    <span>{deg(d.max)} <span className="wg-weather-low">{deg(d.min)}</span></span>
                   </div>
                 );
               })}
@@ -140,7 +142,7 @@ export function WeatherWidget({ data, set, widget }: WidgetProps) {
 // ---- Note -----------------------------------------------------------------------
 
 export function NoteWidget({ data, set, widget }: WidgetProps) {
-  return <textarea className="wg-note" placeholder="Jot something down…" aria-label="Note" value={str(data.text)} data-testid={`wg-note-${widget.id}`} onChange={(e) => set({ text: e.target.value })} spellCheck />;
+  return <textarea className="wg-note" placeholder="Write a note" aria-label="Note" value={str(data.text)} data-testid={`wg-note-${widget.id}`} onChange={(e) => set({ text: e.target.value })} spellCheck />;
 }
 
 // ---- To-do ----------------------------------------------------------------------
@@ -168,24 +170,24 @@ export function TodoWidget({ data, set, widget }: WidgetProps) {
           setDraft('');
         }}
       >
-        <input className="input" placeholder="Add a to-do…" aria-label="New to-do" value={draft} data-testid={`wg-todo-input-${widget.id}`} onChange={(e) => setDraft(e.target.value)} />
-        <button className="icon-btn tiny" aria-label="Add" disabled={!draft.trim()}><Plus size={14} /></button>
+        <input className="input" placeholder="Add a to-do" aria-label="New to-do" value={draft} data-testid={`wg-todo-input-${widget.id}`} onChange={(e) => setDraft(e.target.value)} />
+        <button className="icon-btn" aria-label="Add to-do" disabled={!draft.trim()}><Plus size={16} /></button>
       </form>
       <ul className="wg-todo-list">
         {items.map((t) => (
           <li key={t.id} data-done={t.done || undefined} data-testid="wg-todo-item">
-            <button className="wg-todo-check" role="checkbox" aria-checked={t.done} aria-label={t.done ? 'Mark not done' : 'Mark done'} onClick={() => save(items.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))}>
-              {t.done && <Check size={12} />}
-            </button>
+            <input type="checkbox" className="checkbox" checked={t.done} aria-label={t.done ? 'Mark not done' : 'Mark done'} onChange={() => save(items.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))} />
             <span className="wg-todo-text">{t.text}</span>
-            <button className="icon-btn tiny wg-todo-x" aria-label="Remove" onClick={() => save(items.filter((x) => x.id !== t.id))}><X size={12} /></button>
+            <button className="icon-btn small wg-todo-x" aria-label={`Remove “${t.text}”`} onClick={() => save(items.filter((x) => x.id !== t.id))}><X size={14} /></button>
           </li>
         ))}
       </ul>
-      <div className="wg-todo-foot muted">
-        {items.length ? `${left} left` : 'Nothing yet'}
-        {items.some((t) => t.done) && <button className="wg-link" onClick={() => save(items.filter((t) => !t.done))}>Clear done</button>}
-      </div>
+      {items.length > 0 && (
+        <div className="wg-todo-foot">
+          <span className="muted">{left} left</span>
+          {items.some((t) => t.done) && <button className="btn small ghost" onClick={() => save(items.filter((t) => !t.done))}>Clear done</button>}
+        </div>
+      )}
     </div>
   );
 }
@@ -206,9 +208,9 @@ export function CalendarWidget({ data, set }: WidgetProps) {
   return (
     <div className="wg-cal" data-testid="wg-calendar">
       <div className="wg-cal-head">
-        <button className="icon-btn tiny" aria-label="Previous month" onClick={() => set({ offset: offset - 1 })}><ChevronLeft size={14} /></button>
+        <button className="icon-btn small" aria-label="Previous month" onClick={() => set({ offset: offset - 1 })}><ChevronLeft size={14} /></button>
         <button className="wg-cal-month" title="Back to this month" onClick={() => set({ offset: 0 })}>{first.toLocaleDateString(undefined, { month: 'long', year: offset ? 'numeric' : undefined })}</button>
-        <button className="icon-btn tiny" aria-label="Next month" onClick={() => set({ offset: offset + 1 })}><ChevronRight size={14} /></button>
+        <button className="icon-btn small" aria-label="Next month" onClick={() => set({ offset: offset + 1 })}><ChevronRight size={14} /></button>
       </div>
       <div className="wg-cal-grid">
         {names.map((n, i) => <span key={`n${i}`} className="wg-cal-dow">{n}</span>)}
@@ -233,7 +235,7 @@ export function TimerWidget({ data, set }: WidgetProps) {
       if (s === 0) {
         setEndAt(null);
         playSound('done', true);
-        toast('Time’s up — take a break.');
+        toast('Time’s up. Take a break.');
       }
     };
     tick();
@@ -261,26 +263,34 @@ export function TimerWidget({ data, set }: WidgetProps) {
   const mm = String(Math.floor(left / 60)).padStart(2, '0');
   const ss = String(left % 60).padStart(2, '0');
   const total = minutes * 60;
+  const idle = !running && paused.current === null;
   return (
     <div className="wg-timer" data-running={running || undefined} data-testid="wg-timer">
-      <div className="wg-timer-time" style={{ '--p': total ? 1 - left / total : 0 } as React.CSSProperties}>{mm}:{ss}</div>
-      <div className="wg-timer-ctl">
+      <div className="wg-timer-top">
+        <div className="wg-figure" role="timer">{mm}:{ss}</div>
         {running ? (
-          <button className="btn small" onClick={pause} aria-label="Pause"><Pause size={13} /> Pause</button>
+          <button className="icon-btn" onClick={pause} aria-label="Pause" title="Pause"><Pause size={16} /></button>
         ) : (
-          <button className="btn small primary" onClick={start} aria-label="Start" data-testid="wg-timer-start"><Play size={13} /> {paused.current !== null ? 'Resume' : 'Start'}</button>
+          <button className="icon-btn" onClick={start} aria-label={idle ? 'Start' : 'Resume'} title={idle ? 'Start' : 'Resume'} data-testid="wg-timer-start"><Play size={16} /></button>
         )}
-        <button className="icon-btn tiny" aria-label="Reset" title="Reset" onClick={reset}><RotateCcw size={13} /></button>
+        <button className="icon-btn" aria-label="Reset" title="Reset" disabled={idle} onClick={reset}><RotateCcw size={16} /></button>
       </div>
-      {!running && paused.current === null && (
-        <div className="wg-timer-presets">
-          {[5, 15, 25, 50].map((m) => (
-            <button key={m} className="wg-chip" data-on={m === minutes || undefined} onClick={() => set({ minutes: m })}>{m} min</button>
-          ))}
+      {/* The string: how far through the countdown it is. */}
+      <div className="wg-timer-track">
+        <span className="thread" style={{ '--p': total ? 1 - left / total : 0 } as React.CSSProperties} />
+      </div>
+      {idle && (
+        <div className="wg-timer-length">
+          <div className="segmented fill" role="radiogroup" aria-label="Minutes">
+            {[5, 15, 25, 50].map((m) => (
+              <button key={m} type="button" role="radio" aria-checked={m === minutes} data-on={m === minutes || undefined} onClick={() => set({ minutes: m })}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <span className="muted" aria-hidden="true">min</span>
         </div>
       )}
     </div>
   );
 }
-
-export { Trash2 as WidgetRemoveIcon };

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WebviewTag } from 'electron';
 import type { ID } from '@shared/types';
 import { parseLinkMessage } from '@shared/links';
@@ -36,6 +36,68 @@ interface Props extends SurfaceEvents {
   visible: boolean;
   /** Which cookie jar the page uses (see shared/profiles.ts). */
   partition?: string;
+}
+
+/** A load shorter than this shows no string at all: nothing flashes for an instant page. */
+const THREAD_DELAY_MS = 150;
+
+/** Where the running length of string is right now, as the two gaps (in percent) on either side of it. */
+function runAt(el: HTMLElement | null): { l: number; r: number } {
+  const width = el?.getBoundingClientRect().width ?? 0;
+  if (!el || !width) return { l: 0, r: 62 };
+  const run = getComputedStyle(el, '::after');
+  const x = new DOMMatrixReadOnly(run.transform).m41;
+  const len = parseFloat(run.width) || width * 0.38;
+  const pct = (v: number) => Math.round(Math.max(0, Math.min(96, (v / width) * 100)) * 10) / 10;
+  return { l: pct(x), r: pct(width - x - len) };
+}
+
+/**
+ * The string along the top edge of a page while it loads (foundations.css `.thread`).
+ * A webview does not report how far along a load is, so it never pretends to: a length of
+ * string runs across until the page has loaded, then pulls taut from wherever it is to
+ * both ends and lets go (page.css). It is gone whenever `loading` is false, so it cannot
+ * be left behind by a failed load, a crash or a hidden tab.
+ */
+export function PageThread({ loading }: { loading: boolean }) {
+  const [phase, setPhase] = useState<'idle' | 'busy' | 'done'>('idle');
+  const shown = useRef(phase);
+  shown.current = phase;
+  const line = useRef<HTMLSpanElement | null>(null);
+  const from = useRef({ l: 0, r: 62 });
+
+  useEffect(() => {
+    if (loading) {
+      const t = setTimeout(() => setPhase('busy'), THREAD_DELAY_MS);
+      return () => clearTimeout(t);
+    }
+    // Only a string that was showing gets to finish.
+    if (shown.current !== 'busy') return setPhase('idle');
+    from.current = runAt(line.current);
+    setPhase('done');
+  }, [loading]);
+
+  // The finish normally ends itself (animationend below); this is for a tab that was in
+  // the background, where animations do not run.
+  useEffect(() => {
+    if (phase !== 'done') return;
+    const t = setTimeout(() => setPhase('idle'), 1500);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  if (phase === 'idle') return null;
+  const done = phase === 'done';
+  return (
+    <div className="page-thread" data-done={done || undefined} data-testid="page-thread" aria-hidden="true">
+      <span
+        ref={line}
+        className="thread"
+        data-busy={done ? undefined : true}
+        style={done ? ({ '--thread-l': `${from.current.l}%`, '--thread-r': `${from.current.r}%` } as React.CSSProperties) : undefined}
+        onAnimationEnd={(e) => e.animationName === 'fade-out' && setPhase('idle')}
+      />
+    </div>
+  );
 }
 
 /** A web page. Real <webview> in the app; a simulated page in test mode. */
@@ -163,6 +225,8 @@ function ElectronSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITIO
     wv.addEventListener('render-process-gone', onGone);
     return () => {
       unregister();
+      // Taken away mid-load (closed, or moved to another cookie jar): it is no longer loading.
+      evRef.current.onLoading(false);
       if (wcId !== null) bridge.unregisterPage(wcId);
       wv.removeEventListener('dom-ready', onReady);
       wv.removeEventListener('did-navigate', onNavigate);
@@ -359,6 +423,7 @@ function SimulatedSurface({ id, initialUrl, visible, partition = DEFAULT_PARTITI
     render();
     return () => {
       unregister();
+      evRef.current.onLoading(false);
       frame.removeEventListener('load', onLoad);
     };
   }, [id]);

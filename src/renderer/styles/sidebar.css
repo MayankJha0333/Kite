@@ -1,0 +1,1008 @@
+/* Sidebar: shell, toolbar, address field, Favorites, section labels, rows, folders, Spaces
+   bar, drag ghost.
+
+   The geometry everything hangs on: rows start 10px in from the window edge and their
+   icons 8px further, so every icon in the sidebar (toolbar, favicons, glyphs, footer)
+   shares one left edge at x=18. Rows, tiles and the address field never animate their
+   hover or selection: the fill is there the moment the pointer is. */
+
+/* ---- shell --------------------------------------------------------------- */
+
+.sidebar {
+  position: relative;
+  z-index: var(--z-raised);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 6px 6px 8px;
+  /* Showing and hiding the sidebar: it slides, the page takes the room at once. */
+  transition: transform var(--t-move) var(--ease-out), opacity var(--t-move) var(--ease-out);
+}
+
+.app[data-side='right'] .sidebar {
+  padding: 0 8px 6px 6px;
+}
+
+.app[data-collapsed] .sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(calc(-100% - 12px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app[data-side='right'][data-collapsed] .sidebar {
+  left: auto;
+  right: 0;
+  transform: translateX(calc(100% + 12px));
+}
+
+/* Leaving is quicker than arriving. */
+.app[data-collapsed]:not([data-sidebar-peek]) .sidebar {
+  transition: transform var(--t-exit) var(--ease-out), opacity var(--t-exit) var(--ease-out);
+}
+
+/* The hidden sidebar, brought out by the pointer at the window's edge: a floating sheet of
+   the shell's own paper over the page. Its 6px inset is the one App.tsx gives the window
+   buttons. */
+.app[data-sidebar-peek] .sidebar {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+  z-index: var(--z-sidebar);
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  border-radius: var(--r-xl);
+  background: var(--chrome-mid);
+  box-shadow: var(--elev-3);
+  transition: transform var(--t-settle) var(--ease-out), opacity var(--t-pop) var(--ease-out);
+}
+
+.app[data-side='right'][data-sidebar-peek] .sidebar {
+  left: auto;
+  right: 6px;
+}
+
+.edge-hotzone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  z-index: calc(var(--z-sticky) + 1);
+  /* Must receive the pointer even where the strip around the page drags the window. */
+  -webkit-app-region: no-drag;
+}
+
+.app[data-side='right'] .edge-hotzone {
+  left: auto;
+  right: 0;
+}
+
+.sidebar-peek-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sticky);
+}
+
+/* A picture behind the window: the frame shows it, the sidebar frosts it so text stays
+   legible. The one place Kite blurs anything. */
+.app[data-backdrop] .sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--wash);
+  -webkit-backdrop-filter: blur(28px) saturate(1.25);
+  backdrop-filter: blur(28px) saturate(1.25);
+  pointer-events: none;
+}
+
+/* Small windows: the sidebar gives way to the page instead of taking over a third of it. */
+@media (max-width: 900px) {
+  .app:not([data-collapsed]) .sidebar {
+    max-width: max(200px, 30vw);
+  }
+}
+
+.sb-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  cursor: col-resize;
+  z-index: var(--z-raised);
+}
+
+.app[data-side='right'] .sb-resizer {
+  right: auto;
+  left: -4px;
+}
+
+/* The keyboard ring is drawn inside rows, tiles, labels and Space icons: they sit edge to
+   edge in lists that scroll, where a ring drawn outside would be clipped. It is spelled out
+   in full because rows other than the selected one are reached with the arrow keys, not
+   Tab, and the shared ring in foundations.css only covers what Tab can reach. */
+.app :is(.row, .row-btn, .fav, .space-header, .space-dot, .sb-clear, .sb-pin-toggle):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---- toolbar ------------------------------------------------------------- */
+
+/* 44px tall, so its buttons sit on the window buttons' center line (y=22). */
+.sb-top {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 44px;
+  padding: 0 6px;
+}
+
+/* macOS: room for the three window buttons, which end 68px in. */
+.sb-top[data-lights] {
+  padding-left: 68px;
+}
+
+.sb-top-btns {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+}
+
+/* The sidebar switch sits by the window buttons, navigation at the far end. */
+.sb-top-btns .icon-btn:first-child {
+  margin-right: auto;
+}
+
+/* ---- address field ------------------------------------------------------- */
+
+/* One height whether it holds an address or its placeholder. */
+.url-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: var(--h-lg);
+  margin: 0 2px;
+  padding: 0 6px 0 8px;
+  border: 0;
+  border-radius: var(--r-md);
+  background-color: var(--fill-field);
+  color: var(--ink-3);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+  text-align: left;
+  cursor: text;
+}
+
+.url-lock {
+  flex: none;
+}
+
+.url-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The domain in full ink, the rest of the address quieter. */
+.url-host {
+  color: var(--ink);
+}
+
+.url-path {
+  color: var(--ink-3);
+}
+
+/* Trailing chips: what Shields blocked on this page, and the zoom when it is not 100%.
+   The figure itself is the shared .badge. */
+.url-shield {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 3px;
+  height: var(--h-xs);
+  padding: 0 2px;
+  border-radius: var(--h-xs);
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.url-shield:hover {
+  background-color: var(--fill-hover);
+  color: var(--ink);
+}
+
+.url-shield:active {
+  background-color: var(--fill-press);
+}
+
+/* Site controls, and the wand shown while a Boost is changing this site. */
+.url-sec,
+.url-boost {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--h-xs);
+  height: var(--h-xs);
+  border-radius: var(--r-xs);
+  color: var(--ink-2);
+  cursor: default;
+}
+
+.url-sec:hover,
+.url-boost:hover {
+  background-color: var(--fill-hover);
+  color: var(--ink);
+}
+
+.url-sec:active,
+.url-boost:active {
+  background-color: var(--fill-press);
+}
+
+/* A page that is not secure says so up front, in the one red. */
+.url-sec[data-level='insecure'],
+.url-sec[data-level='broken'] {
+  margin-left: -2px;
+  color: var(--danger);
+}
+
+/* ---- the list ------------------------------------------------------------ */
+
+/* No scrollbar is drawn, so nothing shifts when a list grows past the window. Rows fade
+   out under the address field and above the footer instead of being cut off. */
+.sb-scroll {
+  /* The offset parent of every row: flip.ts measures where rows rest from here. */
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 2px 16px;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 16px), transparent);
+}
+
+.sb-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.sb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sb-section[aria-label='Today'] {
+  flex: 1;
+}
+
+/* ---- Favorites ----------------------------------------------------------- */
+
+.favorites-zone {
+  margin-bottom: 8px;
+  border-radius: var(--r-md);
+}
+
+.favorites-zone[data-over]:not([data-empty]) {
+  background-color: var(--fill-hover);
+}
+
+.favorites {
+  display: grid;
+  gap: 6px;
+}
+
+/* A tile is a row's taller cousin: the same fills, the same radius, the icon centered. */
+.fav {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: calc(var(--row-h) + 8px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background-color: var(--fill-field);
+  cursor: default;
+}
+
+.fav:hover {
+  background-color: var(--fill-hover);
+}
+
+.fav:active {
+  background-color: var(--fill-press);
+}
+
+.fav[data-active] {
+  background-color: var(--fill-selected);
+}
+
+.fav[data-dragging] {
+  opacity: 0.4;
+}
+
+/* Where a dragged tile will land: a line in the gap beside this one. */
+.fav[data-drop='before']::before,
+.fav[data-drop='after']::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: var(--r-xs);
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.fav[data-drop='before']::before {
+  left: -4px;
+}
+
+.fav[data-drop='after']::after {
+  right: -4px;
+}
+
+/* No Favorites yet: no empty box. While a tab is being dragged a drop slot lies over the
+   Space name for the moment of the drag, so nothing in the list moves. */
+.favorites-zone[data-empty] {
+  position: relative;
+  z-index: var(--z-raised);
+  height: 0;
+  margin: 0;
+}
+
+.favorites-empty,
+.pin-slot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-raised);
+  display: flex;
+  align-items: center;
+  height: var(--row-h);
+  padding: 0 8px;
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--t-exit) var(--ease-out), visibility 0s var(--t-exit);
+}
+
+body.dragging .favorites-empty,
+body.dragging .pin-slot {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--t-pop) var(--ease-out), visibility 0s;
+}
+
+.favorites-zone[data-over] .favorites-empty,
+.list-end[data-over] .pin-slot {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+/* ---- section labels ------------------------------------------------------ */
+
+/* The Space's name heads its list, and "Today" heads the tabs that tidy themselves: two
+   quiet labels, as in a Finder sidebar. What each can do waits at its right end until
+   the pointer or the keyboard is on it. */
+.space-header,
+.sb-head {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  height: var(--h-sm);
+  padding: 0 0 0 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-micro);
+}
+
+.space-header {
+  margin-bottom: 2px;
+  border-radius: var(--r-sm);
+  cursor: default;
+  user-select: none;
+}
+
+.sb-head {
+  margin: 12px 0 2px;
+}
+
+.sb-head .section-label {
+  flex: 1;
+}
+
+.space-icon {
+  flex: none;
+  font-size: var(--fs-small);
+  line-height: 1;
+}
+
+.space-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.space-more,
+.sb-pin-toggle,
+.sb-clear {
+  flex: none;
+  opacity: 0;
+}
+
+.space-header:hover .space-more,
+.space-header:hover .sb-pin-toggle,
+.space-header:focus-within .space-more,
+.space-header:focus-within .sb-pin-toggle,
+.space-header:focus-visible .space-more,
+.sb-head:hover .sb-clear,
+.sb-clear:focus-visible,
+/* Folded away, the Pinned count stays in view: it is the only sign the tabs exist. */
+.sb-pin-toggle[aria-expanded='false'] {
+  opacity: 1;
+}
+
+/* Text buttons in a label row: Clear, and the Pinned section's fold. */
+.sb-pin-toggle,
+.sb-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--h-xs);
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background-color: transparent;
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.sb-pin-toggle:hover,
+.sb-clear:hover {
+  background-color: var(--fill-hover);
+  color: var(--ink);
+}
+
+.sb-pin-toggle:active,
+.sb-clear:active {
+  background-color: var(--fill-press);
+}
+
+.space-rename {
+  font-weight: var(--fw-semibold);
+}
+
+/* ---- rows ---------------------------------------------------------------- */
+
+/* One anatomy for every row: 8px, a 16px icon, 8px, the title. Indentation inside a
+   folder is set by ItemRow (one 16px step per level). */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  width: 100%;
+  height: var(--row-h);
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-md);
+  background-color: transparent;
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+  text-align: left;
+  cursor: default;
+}
+
+.row:hover {
+  background-color: var(--fill-hover);
+}
+
+/* Pressed, unless the press is on one of the row's own buttons. */
+.row:active:not(:has(.row-btn:active)) {
+  background-color: var(--fill-press);
+}
+
+.row[data-active] {
+  background-color: var(--fill-selected);
+  font-weight: var(--fw-medium);
+}
+
+/* While Settings is open, the sidebar's selected tab isn't what you're looking at. */
+.app[data-page] .row[data-active]:not(:hover) {
+  background-color: transparent;
+  font-weight: var(--fw-regular);
+}
+
+/* Picked rows (⌘-click / ⇧-click): selected, with an edge so they tell apart from the tab
+   on screen. */
+.row[data-picked] {
+  background-color: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.row[data-dragging] {
+  opacity: 0.4;
+}
+
+.row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Room for what always shows at the row's end (the speaker, the way back to the pinned
+     page): --n of them, 24px each, hanging 4px into the row's padding. */
+  padding-right: max(0px, calc(var(--n, 0) * 24px - 4px));
+}
+
+/* What shows only when the row is pointed at, focused or selected (Close, a folder's
+   "…") lies over the end of the title, which fades out under it. The title itself never
+   moves or re-truncates. */
+.row[data-acts]:is(:hover, :focus-within, [data-active]) .row-title {
+  mask-image: linear-gradient(to left, transparent calc(var(--n, 0) * 24px + 20px), #000 calc(var(--n, 0) * 24px + 34px));
+}
+
+.row-glyph,
+.row-spinner {
+  flex: none;
+  color: var(--ink-2);
+}
+
+/* A page on its way: a still ring stands where the favicon will be. Nothing in the chrome
+   spins; the string along the page is the one thing that moves while a page loads. */
+.row-spinner {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+
+.row-pending {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--ink-4);
+  border-radius: 50%;
+}
+
+.split-icons {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 3px;
+}
+
+.row-count {
+  flex: none;
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.row-tail {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* A button inside a row: 20px to look at, 24px to hit. */
+.row-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: default;
+}
+
+.row-btn::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: var(--r-xs);
+}
+
+.row-btn > svg {
+  position: relative;
+}
+
+.row-btn:hover {
+  color: var(--ink);
+}
+
+.row-btn:hover::before {
+  background-color: var(--fill-hover);
+}
+
+.row-btn:active::before {
+  background-color: var(--fill-press);
+}
+
+.row-close,
+.folder-more {
+  display: none;
+}
+
+.row:hover .row-close,
+.row:focus-within .row-close,
+.row[data-active] .row-close,
+.row:hover .folder-more,
+.row:focus-within .folder-more {
+  display: grid;
+}
+
+/* While a row is being renamed its end belongs to the text field. */
+.row:has(.rename) .row-tail,
+.row:has(.rename) .row-count {
+  display: none;
+}
+
+/* Muted is its own glyph; it also steps back a level. */
+.row-sound[data-muted] {
+  color: var(--ink-3);
+}
+
+/* A folder's count steps aside for its "…". */
+.folder-row:is(:hover, :focus-within) .row-count {
+  visibility: hidden;
+}
+
+.folder-row[data-holds-active] {
+  font-weight: var(--fw-medium);
+}
+
+.folder-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 1px;
+}
+
+.folder-empty {
+  display: flex;
+  align-items: center;
+  height: var(--row-h);
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+}
+
+/* "New Tab" is a row like any other; its shortcut is always in view, because the row is
+   also where the shortcut is learned. */
+.row.new-tab {
+  color: var(--ink-2);
+}
+
+.row.new-tab:hover,
+.row.new-tab[data-active] {
+  color: var(--ink);
+}
+
+.rename {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-xs);
+  margin: 0 -4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--r-xs);
+  outline: 2px solid var(--accent);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  user-select: text;
+}
+
+/* ---- site icons ---------------------------------------------------------- */
+
+.site-icon {
+  flex: none;
+  border-radius: var(--r-xs);
+  object-fit: contain;
+}
+
+/* An icon too dark to see on a dark shell (or too light on a light one) sits on a small
+   plate of the ink color. The icon itself is never recolored. (SiteIcon.tsx measures it.) */
+.app[data-theme='dark'] .site-icon[data-tone='dark'],
+.app[data-theme='light'] .site-icon[data-tone='light'] {
+  padding: 1px;
+  background-color: color-mix(in srgb, var(--ink) 92%, transparent);
+}
+
+/* No icon at all: the site's first letter on one neutral tile. */
+.site-icon.letter {
+  display: inline-grid;
+  place-items: center;
+  background-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  color: var(--ink-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+}
+
+.kite-logo {
+  display: block;
+}
+
+/* ---- dragging ------------------------------------------------------------ */
+
+/* Where the dragged row will land: a line at the level it will sit at. It follows the
+   pointer, so it is simply there; nothing draws in. */
+.row[data-drop='before']::before,
+.row[data-drop='after']::after,
+.row[data-drop='into-start']::after {
+  content: '';
+  position: absolute;
+  left: var(--indent, 8px);
+  right: 8px;
+  height: 2px;
+  border-radius: var(--r-xs);
+  background: var(--ink);
+  pointer-events: none;
+  z-index: var(--z-raised);
+}
+
+.row[data-drop='before']::before {
+  top: -1.5px;
+}
+
+.row[data-drop='after']::after {
+  bottom: -1.5px;
+}
+
+.row[data-drop='into-start']::after {
+  left: var(--child-indent, 24px);
+  bottom: -1.5px;
+}
+
+/* "Into" a folder: the folder takes the selected fill, and so does everything in it. */
+.row[data-drop='into'],
+.row[data-drop='into-start'] {
+  background-color: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.folder[data-drop-target] > .folder-children {
+  border-radius: var(--r-md);
+  background-color: var(--fill-hover);
+}
+
+/* Mid-drag the pointer is carrying something: rows under it do not answer as if pointed at. */
+body.dragging .row:not([data-active], [data-picked], [data-drop^='into']):hover {
+  background-color: transparent;
+}
+
+body.dragging .row:not([data-active]) :is(.row-close, .folder-more) {
+  display: none;
+}
+
+/* The end of a list is a drop target too. */
+.list-end {
+  position: relative;
+  min-height: 6px;
+  border-radius: var(--r-md);
+}
+
+.list-end.grow {
+  flex: 1;
+  min-height: 40px;
+}
+
+.list-end[data-over]::before {
+  content: '';
+  position: absolute;
+  top: -1.5px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  border-radius: var(--r-xs);
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.list-end[data-empty][data-over] {
+  background-color: var(--fill-selected);
+}
+
+.list-end[data-empty][data-over]::before {
+  content: none;
+}
+
+/* One quiet line where a list has never been used; it teaches the next step and then goes
+   for good. */
+.hint {
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  text-wrap: pretty;
+}
+
+.list-end[data-over] .hint {
+  color: var(--ink);
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: var(--z-drag);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px;
+  height: var(--row-h);
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translate(10px, 8px);
+}
+
+/* Several rows in hand: how many. */
+.drag-ghost[data-count]::after {
+  content: attr(data-count);
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--h-sm);
+  background: var(--ink);
+  color: var(--surface-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- footer -------------------------------------------------------------- */
+
+.sb-footer {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+  height: 36px;
+  padding: 0 6px;
+}
+
+.space-bar {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* A Space in the switcher: its own icon at full strength. The one you are in takes the
+   selected fill, like the selected row above. The keyboard ring is drawn inside the
+   button, because the bar scrolls sideways and would clip one drawn outside. */
+.space-dot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background-color: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-title);
+  line-height: 1;
+  cursor: default;
+}
+
+.space-dot:hover {
+  background-color: var(--fill-hover);
+  color: var(--ink);
+}
+
+.space-dot:active {
+  background-color: var(--fill-press);
+}
+
+.space-dot[data-active] {
+  background-color: var(--fill-selected);
+}
+
+.space-dot-wrap {
+  border-radius: var(--r-sm);
+}
+
+/* A tab held over a Space, about to be dropped into it. */
+.space-dot-wrap[data-over] .space-dot {
+  background-color: var(--fill-selected);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* A Space picked up to be moved along the bar. */
+.space-dot[data-reordering] {
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+  cursor: grabbing;
+}
+
+/* ---- changing Space ------------------------------------------------------ */
+
+.space-pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* The list arrives from the side its Space sits on in the switcher. */
+.space-pane[data-dir='next'] {
+  animation: slide-next var(--t-move) var(--ease-out);
+}
+
+.space-pane[data-dir='prev'] {
+  animation: slide-prev var(--t-move) var(--ease-out);
+}
+
+@keyframes slide-next {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes slide-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+/* Rows move with FLIP (renderer/flip.ts): a row that is pinned, unpinned, dropped or left
+   behind by a closed neighbour glides to its place. Nothing re-animates when a Space's
+   whole list mounts: the pane's own slide carries that. */

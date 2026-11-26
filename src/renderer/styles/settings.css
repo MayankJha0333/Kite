@@ -1,0 +1,1038 @@
+/* Kite pages shell, Settings, Shields, the theme editor and Customize. */
+
+/* ==== Kite page ================================================================
+   A full page inside the page area (Settings): the sidebar stays usable beside it. */
+.kite-page {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-raised);
+  overflow: hidden;
+  background: var(--card);
+  color: var(--ink);
+  container-type: inline-size;
+  /* Opacity only: a whole page that slid or grew would be the loudest thing in the window. */
+  animation: fade-in calc(var(--dur, 220ms) * 1.1) var(--ease-out);
+}
+
+.kite-page[data-leaving] {
+  animation: fade-out var(--t-exit) var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+.page-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: var(--z-raised);
+}
+
+/* ==== Settings: the toolbar ====================================================
+   Tabs in the middle, search on the right, as in a Mac settings window. The left and
+   right columns are the same width, so the tabs sit over the centered column below. */
+.settings {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.settings-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* The padding gives the keyboard ring of a tab room inside the scrolling strip. */
+.settings-tabs {
+  grid-column: 2;
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  margin: -4px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.settings-tab {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 6px 10px 5px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: default;
+}
+
+.settings-tab-icon {
+  display: grid;
+  place-items: center;
+  height: 18px;
+}
+
+.settings-tab-label {
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-micro);
+  white-space: nowrap;
+}
+
+.settings-tab:hover {
+  background: var(--fill-hover);
+  color: var(--ink);
+}
+
+.settings-tab:active {
+  background: var(--fill-press);
+}
+
+.settings-tab[data-on] {
+  background: var(--fill-selected);
+  color: var(--ink);
+}
+
+/* The right-hand margin keeps the field clear of the page's close button. */
+.settings-search {
+  grid-column: 3;
+  justify-self: end;
+  width: min(200px, 100%);
+  min-width: 0;
+  margin-right: 40px;
+}
+
+.settings-search .search-field {
+  width: 100%;
+}
+
+/* A narrower page: the tabs move to the left and keep their labels, and the search field
+   gives up its width first. */
+@container (max-width: 860px) {
+  .settings-bar {
+    grid-template-columns: minmax(0, auto) minmax(144px, 1fr);
+  }
+
+  .settings-tabs {
+    grid-column: 1;
+  }
+
+  .settings-search {
+    grid-column: 2;
+  }
+}
+
+/* Narrower still: the field moves under the tabs rather than squeezing them, and tabs that
+   no longer fit scroll sideways under a soft edge. Nothing turns into a bare icon. */
+@container (max-width: 560px) {
+  .settings-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-tabs {
+    margin-right: 32px; /* the close button */
+    padding-right: 20px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+
+  .settings-tab {
+    min-width: 0;
+  }
+
+  .settings-search {
+    grid-column: 1;
+    width: 100%;
+    margin-right: 0;
+  }
+}
+
+/* ==== Settings: the page =======================================================
+   One centered column. The gutter is kept on both sides whether or not the tab scrolls,
+   so the column does not step sideways from one tab to the next. */
+.settings-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  scroll-padding-top: 16px;
+}
+
+.settings-body {
+  width: 100%;
+  max-width: 708px; /* a 660px column and its padding */
+  margin: 0 auto;
+  padding: 20px 24px 64px;
+}
+
+/* The first group sits closer to the page title than groups sit to each other. */
+.settings-page-title + .settings-section > .set-group:first-child,
+.settings-page-title + .settings-section > div:first-child > .set-group:first-child {
+  margin-top: 16px;
+}
+
+.settings-page-title + .settings-section > .set-group-desc {
+  margin-top: 8px;
+}
+
+@container (max-width: 560px) {
+  .settings-body {
+    padding-inline: 16px;
+  }
+}
+
+.settings-page-title {
+  margin: 0;
+  font-size: var(--fs-large);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-large);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The nudge at the top of General until Kite is the default browser. */
+.settings-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 10px 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+}
+
+/* The mark here is an icon, so it takes the ink: the accent stays off icons. */
+.settings-banner > .kite-logo {
+  --tint-2: var(--ink-2);
+  flex: none;
+}
+
+.settings-banner-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.settings-banner-text b {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-body);
+}
+
+/* ==== Groups and rows ==========================================================
+   A group: its title, one line about it, and a list of rows on raised paper. More space
+   above a title than under it, so a title belongs to the rows that follow. */
+.set-group {
+  min-width: 0;
+  margin-top: 28px;
+}
+
+.set-group-head {
+  padding-bottom: 8px;
+}
+
+.set-group-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-title);
+}
+
+.set-group-desc {
+  max-width: 68ch;
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.set-card {
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+}
+
+/* Hairlines between rows, inset to the text like a Mac list. Drawn as a background so a
+   row can be a label, a button or a plain div without growing a border box. */
+.set-card > * + *,
+.adb-group > * + * {
+  background-image: linear-gradient(var(--line), var(--line));
+  background-repeat: no-repeat;
+  background-position: 12px 0;
+  background-size: calc(100% - 24px) 1px;
+}
+
+.set-row {
+  display: flex;
+  flex-wrap: wrap; /* a control that no longer fits beside its label drops below it, never over it */
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.set-row[data-stack] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding-block: 10px 12px;
+}
+
+/* A setting that depends on the switch above it. */
+.set-row[data-sub] {
+  padding-left: 28px;
+}
+
+.set-row-text {
+  display: flex;
+  flex: 1 1 200px; /* the label keeps at least this much room before the control wraps under it */
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.set-row-title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+}
+
+.set-row-value {
+  margin-left: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-row-desc {
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  overflow-wrap: anywhere;
+}
+
+.set-row-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.set-row[data-stack] .set-row-control {
+  flex-direction: column;
+  align-items: stretch;
+  max-width: none;
+}
+
+.set-row-control > .slider {
+  width: 180px;
+}
+
+.set-row-control > .select {
+  max-width: 100%;
+}
+
+.set-row-control > .input {
+  width: 240px;
+}
+
+/* A slider's value, or what a button just found, beside the control. */
+.set-value {
+  flex: none;
+  min-width: 5ch;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-small);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* What a button just found ("Kite is up to date."), beside it. */
+.set-status {
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  text-align: right;
+}
+
+/* Who a group changes, after its title: this Space, or all of them. */
+.set-scope {
+  margin-left: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-regular);
+}
+
+/* A row you tick: the box first, then what it stands for. */
+.set-check {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+/* A row that opens another panel. */
+.set-link {
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.set-link:hover {
+  background-color: var(--fill-hover);
+}
+
+.set-link:active {
+  background-color: var(--fill-press);
+}
+
+.app .set-link:focus-visible,
+.app .adb-group-head:focus-visible {
+  outline-offset: -2px;
+}
+
+.set-link-chevron {
+  flex: none;
+  color: var(--ink-4);
+}
+
+.set-empty {
+  padding: 12px;
+}
+
+/* A line under a group: who made it, what else to know. */
+.set-note {
+  margin: 8px 0 0;
+}
+
+/* More groups, shown only when asked for. */
+.set-more {
+  margin-top: 20px;
+}
+
+.set-more > summary ~ .set-group {
+  margin-top: 28px;
+}
+
+.set-more > summary + .set-group {
+  margin-top: 12px;
+}
+
+.set-more[open] > summary ~ * {
+  animation: fade-in var(--t-pop) var(--ease-out);
+}
+
+/* Settings search: the matching row is marked for a moment, then lets go. */
+.settings [data-hit] {
+  animation: hit-fade calc(var(--t-settle) * 2.5) var(--ease-out);
+}
+
+@keyframes hit-fade {
+  from {
+    background-color: var(--fill-selected);
+  }
+}
+
+/* ==== Shortcuts ================================================================ */
+.key-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.key-tools > .search-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.key-list {
+  margin-top: 12px;
+}
+
+.key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.key-label {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.key-caps {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  min-width: 64px;
+  margin-right: 4px;
+}
+
+.key-btn {
+  min-width: 88px; /* "Record" and "Press keys…" take the same room, so nothing shifts */
+}
+
+/* Recording: the button holds the keyboard, and says so with the focus ring's own color. */
+.app .key-btn[data-recording] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--accent);
+}
+
+/* The reset button keeps its place when it is not shown, so the Record buttons line up. */
+.key-reset[data-idle] {
+  visibility: hidden;
+}
+
+.key-warn {
+  flex-basis: 100%;
+}
+
+/* ==== Privacy: site permissions, Shields ======================================= */
+.perm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 12px;
+  font-size: var(--fs-body);
+}
+
+.perm-row b {
+  font-weight: var(--fw-medium);
+}
+
+.perm-row span {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-2);
+}
+
+.adb-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+}
+
+.shields-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.adb-search {
+  padding: 8px 12px;
+}
+
+.adb-group-head {
+  width: 100%;
+  border: 0;
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.adb-group-head:hover {
+  background-color: var(--fill-hover);
+}
+
+.adb-group-head:active {
+  background-color: var(--fill-press);
+}
+
+.adb-chev {
+  flex: none;
+  color: var(--ink-4);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+[aria-expanded='true'] > .adb-chev {
+  transform: rotate(90deg);
+}
+
+.adb-meta .warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adb-url {
+  overflow: hidden;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; /* an address the user typed: code */
+  font-size: var(--fs-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adb-add {
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.adb-add > .input:first-child {
+  flex: 2 1 200px;
+}
+
+.adb-add > .adb-name {
+  flex: 1 1 120px;
+}
+
+.adb-rules {
+  width: 100%;
+  min-height: 140px;
+  white-space: pre;
+}
+
+.adb-rules-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==== About ==================================================================== */
+.about-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.about-id .set-row-title {
+  font-weight: var(--fw-medium);
+}
+
+.about-path {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; /* a file path: code */
+  font-size: var(--fs-micro);
+  user-select: text;
+}
+
+/* ==== The theme editor =========================================================
+   Sections under one another: a label, then the choices. The same markup in Settings,
+   the Space editor, Customize and the Welcome tour. */
+.theme-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Inside a Settings group it is the group's one row. */
+.set-card > .theme-controls {
+  padding: 12px;
+}
+
+.te-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.te-sec[data-inline] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+/* What "Custom…", "Picture…" or "Gradient…" opens takes the full width under its row. */
+.te-sec[data-inline] > .te-custom {
+  flex-basis: 100%;
+}
+
+/* Color: the row of swatches, then "Custom…". */
+.te-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* The Space's own color on "Custom…", when it is not one of the swatches in the row. */
+.swatch-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.te-label {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-body);
+}
+
+/* What opens in place under a row: your own color, the pictures, the gradients. */
+.te-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--fill-field);
+  animation: fade-in var(--t-pop) var(--ease-out);
+}
+
+.te-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--h-md);
+}
+
+.te-line > :is(.slider, .hue) {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.te-sub {
+  flex: none;
+  width: 64px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.te-value {
+  flex: none;
+  width: 5ch;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-small);
+  text-align: right;
+}
+
+.te-wells {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.te-well {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.te-more > summary ~ * {
+  margin-top: 12px;
+}
+
+.te-more[open] > summary ~ * {
+  animation: fade-in var(--t-pop) var(--ease-out);
+}
+
+/* Swatches. The chosen one wears a ring of the ink, not the accent: the accent would fight
+   the color it is naming. */
+.swatch-rows {
+  display: grid;
+  gap: 6px;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swatch {
+  flex: none;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.swatch[data-on]:not(:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* A native color well, drawn as a swatch. */
+.color-well {
+  flex: none;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+}
+
+.color-well::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-well::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* The hue strip: every hue, left to right. Not a .slider: its track is the choice itself. */
+.hue {
+  appearance: none;
+  height: var(--h-sm);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.hue::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: var(--r-xs);
+  background: linear-gradient(to right in hsl longer hue, hsl(0 75% 62%), hsl(359 75% 62%));
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.hue::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -4px;
+  border: 2px solid var(--surface-1);
+  border-radius: 50%;
+  background: var(--hue-thumb, var(--surface-1));
+  box-shadow: var(--elev-1);
+}
+
+.app .hue:focus-visible {
+  outline: none;
+}
+
+.hue:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Tiles: a background, a picture, a gradient or a pattern, each with its name under it. */
+.tile-row {
+  display: grid;
+  grid-template-columns: repeat(3, 76px);
+  gap: 8px;
+}
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px 8px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.tile-img {
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--r-md);
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.tile-name {
+  overflow: hidden;
+  font-size: var(--fs-micro);
+  line-height: var(--lh-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tile:hover {
+  color: var(--ink);
+}
+
+.tile:active .tile-img {
+  opacity: 0.85;
+}
+
+.tile:is([data-on], [data-open]) {
+  color: var(--ink);
+}
+
+.tile[data-on] .tile-img {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.tile[data-on] .tile-name {
+  font-weight: var(--fw-medium);
+}
+
+/* A tile with no picture of its own yet: "Picture…", "Gradient…", and the slot that takes a
+   file of yours (the file input inside that one holds the focus). */
+.tile-add {
+  display: grid;
+  place-items: center;
+  background: var(--fill-field);
+}
+
+/* Inside an opened well the well is the field, so the slot is paper. */
+.te-custom .tile-add {
+  background: var(--surface-1);
+}
+
+.tile:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tile[data-busy] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Your own gradient: its colors in a row, each removable once there are more than two. */
+.grad {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grad-stops {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--h-md);
+}
+
+.grad-stop {
+  position: relative;
+  display: inline-flex;
+}
+
+.grad-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-1);
+  box-shadow: var(--elev-1);
+  color: var(--ink-2);
+  opacity: 0;
+}
+
+.grad-stop:hover .grad-remove,
+.grad-remove:focus-visible {
+  opacity: 1;
+}
+
+/* ==== Customize ================================================================
+   The quick "make it mine" panel. It sits in the corner like a popover, so it takes the
+   popover's paper and depth rather than a sheet's. Names on the left, controls on the
+   right, all on one grid. */
+.sheet:has(> .sheet-body > .cz) {
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+}
+
+.cz {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cz-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: var(--h-md);
+}
+
+.cz-row[data-switch] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.cz-label {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+
+.cz .theme-controls {
+  gap: 12px;
+}
+
+.cz .tile-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cz .divider {
+  margin: 4px 0;
+}

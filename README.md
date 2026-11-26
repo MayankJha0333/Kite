@@ -33,8 +33,10 @@ from Arc.
 
 Open the `.dmg` and drag Kite into Applications. The build is not signed with an Apple
 Developer ID, so the first time you open it: right-click **Kite.app → Open → Open**.
-Kite has no automatic updates; new versions appear on the
-[releases page](https://github.com/MayankJha0333/M-Arc/releases).
+Kite checks GitHub's list of releases once a day and tells you when a newer version is out
+(Settings → General → Updates, or Help → Check for Updates…); nothing about you or your
+browsing is sent. It hands you the installer; it can't replace itself until builds are signed.
+All versions are on the [releases page](https://github.com/MayankJha0333/M-Arc/releases).
 
 ## Screenshots
 
@@ -52,10 +54,10 @@ Kite has no automatic updates; new versions appear on the
 
 ## Run it
 
-You need **Node.js 20 or newer** (`node -v`).
+You need **Node.js 22.12 or newer** (`node -v`).
 
 ```bash
-npm install        # once — downloads Electron for your Mac
+npm install        # once (Electron itself downloads the first time you run Kite)
 npm run dev        # run with live reload while you change code
 npm start          # build and run the real app
 npm run dist       # make Kite.dmg + Kite.zip in release/ (Apple Silicon and Intel)
@@ -77,8 +79,9 @@ cookies or history.
 
 | Feature | What you get |
 |---|---|
+| **First run** | A new profile opens on three short steps beside the real sidebar: what stays on your Mac, what Favorites, Pinned and Today are (tick a few starter Favorites), ⌘T, then light/dark and a look. Coming from Arc? One link brings your Spaces and pinned tabs across |
 | **Sidebar tabs** | Vertical tabs, newest on top. Close + Undo, ⌘⇧T reopen, rename, duplicate, middle-click close, ⌘1…⌘9, ⌃Tab, resizable or hidden sidebar (slides out from the edge) |
-| **Home page** | Every new tab: a greeting, a big search box with a search-engine chip, your Favorites as site tiles (add, edit, remove right there), frequently visited sites if you turn them on, and widgets you place anywhere — Clock, Weather, Note, To-do, Calendar, Focus timer. Drag widgets by their title, resize from their menu, and pick the Space's background picture from the + button. Everything is saved with your data; only the Weather widget uses the network (the place name you type goes to open-meteo.com, nothing else) |
+| **Home page** | Every new tab: a greeting, a big search box with a search-engine chip, your Favorites as site tiles (add, edit, remove right there), frequently visited sites if you turn them on, and widgets on the page's column grid — Clock, Weather, Note, To-do, Calendar, Focus timer. Drag widgets by their title, resize them from their menu, and pick the Space's background from Customize. Everything is saved with your data; only the Weather widget uses the network (the place name you type goes to open-meteo.com, nothing else) |
 | **Favorites** | Icon grid at the top, shared by every Space |
 | **Pinned tabs** | Remember their home page; “back to pinned page”; closing keeps them and resets them; Reset All Tabs in This Space; Collapse / Expand Pinned Section keeps only the open one in view |
 | **Folders** | Nested, drag and drop, collapse/expand all, ungroup; deleting moves contents to the Archive (with Undo) |
@@ -87,7 +90,7 @@ cookies or history.
 | **Site icons** | Every place that names a site shows its real icon: pages report theirs, history remembers it, and a site you have not opened yet is asked once for the icon it declares on its home page before falling back to a letter |
 | **History** | ⌘⇧H: every page you visited, grouped by day; search, reopen (⌘-click for the background), forget one, clear the last hour / today / week / all (with Undo) |
 | **Pages** | Find in page with match counts (⌘F), zoom with a level badge in the address bar (⌘+ / ⌘− / ⌘0), print (⌘P), Save Page As… (⌘⇧S), View Page Source, Capture (⌘⇧2) and Capture Full Page (⌘⇧1) to Downloads and the clipboard, Clear Cookies / Cache and Refresh, developer tools for a page; a page whose process dies says so and offers Try again |
-| **Spaces** | Name, emoji and a theme edited the way Arc does it: 27 swatches or a colour wheel, intensity, grain, light/dark/auto, or a background: one of 11 built-in pictures, a picture of your own (uploaded, kept on this computer), or a gradient you make (2–4 colours and an angle). The background paints the window frame, frosts the sidebar and fills the home page; all live on the window. Kite starts on a dark indigo-to-teal gradient; ⌃1…⌃9, ⌘⌥←/→, two-finger swipe; drop tabs on a Space icon to move them |
+| **Spaces** | Name, emoji and a theme edited the way Arc does it: 27 swatches or a colour wheel, intensity, grain, light/dark/auto, or a background: one of 11 built-in pictures, a picture of your own (uploaded, kept on this computer), or a gradient you make (2–4 colours and an angle). The background paints the window frame, frosts the sidebar and fills the home page; all live on the window. Kite starts on "Calm Air": a quiet sea-glass shell by day and night-chart slate after dark, following the system's light or dark, with one magenta accent; ⌃1…⌃9, ⌘⌥←/→, two-finger swipe; drop tabs on a Space icon to move them |
 | **Command bar** | ⌘T: fuzzy search over open tabs (switch instead of duplicating), notes, history, 40 actions and Spaces; Google search by default (DuckDuckGo, Bing, Brave, Kagi or your own in Settings); the connection to the address you're typing opens before you press Enter |
 | **Split View** | 2–4 pages side by side or stacked, resizable; ⌘⇧=, drag a tab onto the page, or from a link's menu |
 | **Peek** | Links from pinned tabs to other sites (and shift-click) open in a floating preview; Open / Split / Esc |
@@ -96,8 +99,8 @@ cookies or history.
 | **Link routing** | Rules for links from other apps: site → Space or little window; try-a-link preview |
 | **Video pop-out** | Switch tabs or apps while a video plays and it floats in a window you can drag and resize anywhere — on top of every app, even full-screen ones; come back and it returns to the page. Its controls: Close and Minimize top-left, Back to tab, play/pause, ±10 s and a seek slider you can drag back; drag the video to move it, drag an edge or corner to resize. Minimize turns it into a mini player (sound keeps playing) with its own slider. Speaker icon on playing tabs (click to mute); ⌘⇧P by hand; switches in Settings |
 | **Notes** | Rich text in the sidebar: headings, lists, to-dos, quotes, code, links; Markdown export |
-| **Customise** | Sidebar side, spacing, text size, sidebar width, corners, page margin, favorites per row, reduce motion, every shortcut re-recordable |
-| **Shields** | Ad and tracker blocking (EasyList, EasyPrivacy and more, downloaded and built off the main thread), cookie-banner and annoyance lists, your own rules and lists, per-site exceptions, tracking-parameter removal, referrer and search-query hiding, WebRTC leak protection, Brave-style fingerprinting protection, cross-site cookie blocking, tracking-redirect and AMP skipping, Global Privacy Control |
+| **Customize** | The sliders button at the bottom of the sidebar: light/dark, colors, density, corners, page margin, sidebar side and motion as named steps; Settings has the rest (text size, sidebar width, favorites per row, reduce motion, every shortcut re-recordable) |
+| **Shields** | Ad and tracker blocking (EasyList, EasyPrivacy and more, downloaded and built off the main thread), cookie notices hidden by default, annoyance lists, your own rules and lists, per-site exceptions, tracking-parameter removal, referrer and search-query hiding, WebRTC leak protection, Brave-style fingerprinting protection, cross-site cookie blocking, tracking-redirect and AMP skipping, Global Privacy Control |
 | **Downloads** | Up to 16 connections per file (IDM-style, 8 by default) with per-part progress, pause/resume that survives quitting, Retry, Add link, cancel, open and reveal; images saved converted; videos (plain files and unprotected HLS streams) saved in the quality you pick; programs always ask first |
 | **Extensions** | Chrome extensions from the Web Store, a .crx/.zip or an unpacked folder; what each one can do is shown before it's added; on/off, remove, popup and options pages |
 | **Site controls** | The address bar's site popover: connection security, what Shields blocked (by host), remembered permissions, erase this site's cookies and data |
@@ -105,8 +108,8 @@ cookies or history.
 
 **Left out on purpose:** accounts and sync, AI features, Easels, Live Folders,
 passwords and autofill (use your system's password manager), private windows (use a
-Space with separate logins), auto-updates (Kite never phones home; new versions are
-plain downloads). See [LAUNCH.md](LAUNCH.md) for the full list of known limitations.
+Space with separate logins). The one request Kite makes about itself is the daily update
+check, and it can be switched off. See [LAUNCH.md](LAUNCH.md) for the full list of known limitations.
 
 ### Privacy and safety
 
@@ -161,9 +164,9 @@ What runs:
 
 | Check | Where |
 |---|---|
-| Type check, 216 logic tests | every system |
-| 154 UI tests (simulated pages) | every system |
-| 23 tests in the real app (Electron), incl. security attacks and a real playing video | every system |
+| Type check, 388 logic tests | every system |
+| 336 UI tests (simulated pages), including a layout sweep that fails on overlapping or clipped text | every system |
+| 48 tests in the real app (Electron 45), incl. security attacks and a real playing video | every system |
 | Floating video on the real desktop: switches to another app for real, checks the window is a panel over full-screen apps, ignores the mouse, Kite's controls cover it, play/pause, drag and resize (no crash), mini player, show video, back, close, crash reports | **macOS only** — don't touch the mouse for about a minute |
 
 On macOS, allow **Screen Recording** for your terminal (System Settings → Privacy & Security) to get screenshots of the floating video in the report.

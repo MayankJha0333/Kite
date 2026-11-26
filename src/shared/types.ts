@@ -201,6 +201,8 @@ export interface Settings {
   askWhereToSave: boolean;
   /** Connections per download (IDM-style acceleration); 1 = off. */
   downloadConnections: number;
+  /** Ask GitHub once a day whether a newer Kite exists (see shared/updates.ts). */
+  checkForUpdates: boolean;
 }
 
 export interface AppState {

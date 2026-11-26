@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Search, X } from 'lucide-react';
 import { setUi, useKite } from '../store';
 import { playSound } from '../sound';
 
-/** A centered panel used for Settings, Archive, Boosts, the Space editor… */
+// The sheet (Archive, History, Boosts, the Space editor…) and the shared controls that
+// have behavior of their own: search field, segmented control, switch, slider.
+
 /** Esc closes the panel, except while a shortcut is being recorded. */
 function useEscToClose(close: () => void) {
   useEffect(() => {
@@ -18,15 +20,15 @@ function useEscToClose(close: () => void) {
   }, [close]);
 }
 
-/** How long a panel's exit takes (0 when motion is reduced). */
+/** How long a panel's exit takes: the stylesheet's --t-exit (0 when motion is reduced). */
 function exitMs(): number {
   const { s } = useKite.getState();
   const reduce = s.settings.reduceMotion || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  return reduce ? 0 : Math.round(120 / (s.settings.motionSpeed || 1));
+  return reduce ? 0 : Math.round(140 / (s.settings.motionSpeed || 1));
 }
 
 /**
- * Close with a short exit animation (faster than the entrance, easing in).
+ * Close with a short exit animation (faster than the entrance).
  *
  * Panels in `ui.panel`: the panel leaves the state at once and is drawn a little
  * longer as `ui.leaving`, so opening another panel (or the same one again) during
@@ -76,18 +78,67 @@ export function Page({ title, children, testId }: { title: string; children: Rea
   );
 }
 
-export function Sheet({ title, subtitle, children, onClose, testId, wide, footer }: { title: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; onClose?: () => void; testId?: string; wide?: boolean; footer?: React.ReactNode }) {
+const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Keeps keyboard focus where a sheet needs it. On opening, focus moves into the sheet
+ * (unless something inside asked for it already); on closing it goes back to whatever
+ * had it before. A modal sheet also keeps Tab from walking out into the window behind.
+ */
+function useSheetFocus(ref: React.RefObject<HTMLElement>, modal: boolean) {
+  // Noted while rendering: by the time effects run, a field inside may already have taken focus.
+  const [before] = useState(() => document.activeElement as HTMLElement | null);
+  useLayoutEffect(() => {
+    const sheet = ref.current;
+    if (!sheet) return;
+    if (!sheet.contains(document.activeElement)) sheet.focus({ preventScroll: true });
+    return () => {
+      // Only when focus would otherwise be lost: if it has moved on by itself, leave it.
+      const lost = !document.activeElement || document.activeElement === document.body || sheet.contains(document.activeElement);
+      if (lost && before && before !== document.body && before.isConnected) before.focus({ preventScroll: true });
+    };
+  }, [ref, before]);
+  useEffect(() => {
+    const sheet = ref.current;
+    if (!sheet || !modal) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const stops = [...sheet.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (!stops.length) return e.preventDefault();
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      const at = document.activeElement;
+      if (e.shiftKey ? at === first || at === sheet : at === last) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
+    sheet.addEventListener('keydown', key);
+    return () => sheet.removeEventListener('keydown', key);
+  }, [ref, modal]);
+}
+
+/**
+ * The one sheet. Its top edge is always in the same place, it comes in three widths, its
+ * body scrolls by itself, and its footer is right-aligned with the primary button last.
+ * Esc or a click outside closes it.
+ */
+export function Sheet({ title, subtitle, children, onClose, testId, size, wide, footer, dock }: { title: React.ReactNode; subtitle?: React.ReactNode; children: React.ReactNode; onClose?: () => void; testId?: string; /** 440, 560 (the default) or 720 wide. */ size?: 'small' | 'medium' | 'large'; /** The old way to ask for the large size. */ wide?: boolean; footer?: React.ReactNode; /** Sits at the side without dimming the window, so the page stays usable behind it. */ dock?: boolean }) {
   const [leaving, close] = useLeave(onClose);
   useEscToClose(close);
+  const ref = useRef<HTMLElement>(null);
+  useSheetFocus(ref, !dock);
+  const titleId = useId();
+  const width = size ?? (wide ? 'large' : 'medium');
   return (
-    <div className="sheet-scrim" data-leaving={leaving || undefined} onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <section className="sheet" data-wide={wide || undefined} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} data-testid={testId}>
+    <div className="sheet-scrim" data-dock={dock || undefined} data-leaving={leaving || undefined} onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <section ref={ref} className="sheet" data-size={width === 'medium' ? undefined : width} role="dialog" aria-modal={dock ? undefined : 'true'} aria-labelledby={titleId} tabIndex={-1} data-testid={testId}>
         <header className="sheet-head">
           <div>
-            <h2 className="sheet-title">{title}</h2>
+            <h2 className="sheet-title" id={titleId}>{title}</h2>
             {subtitle && <p className="sheet-sub">{subtitle}</p>}
           </div>
-          <button className="icon-btn" aria-label="Close" data-testid="sheet-close" onClick={close}>
+          <button className="icon-btn" aria-label="Close" title="Close (esc)" data-testid="sheet-close" onClick={close}>
             <X size={16} />
           </button>
         </header>
@@ -110,11 +161,55 @@ export function Field({ label, hint, children, inline }: { label: string; hint?:
   );
 }
 
-export function Segmented<T extends string>({ value, options, onChange, testId }: { value: T; options: { value: T; label: React.ReactNode }[]; onChange: (v: T) => void; testId?: string }) {
+/** The one search field: a magnifier, the input, and a clear button while there is text. */
+export function SearchField({ value, onChange, placeholder, label, testId, autoFocus }: { value: string; onChange: (v: string) => void; placeholder: string; /** Read out by screen readers; the placeholder when left out. */ label?: string; testId?: string; autoFocus?: boolean }) {
+  const input = useRef<HTMLInputElement>(null);
   return (
-    <div className="segmented" role="radiogroup" data-testid={testId}>
-      {options.map((o) => (
-        <button key={o.value} role="radio" aria-checked={value === o.value} data-on={value === o.value || undefined} data-testid={testId ? `${testId}-${o.value}` : undefined} onClick={(e) => { e.preventDefault(); onChange(o.value); }}>
+    <label className="search-field">
+      <Search size={14} aria-hidden="true" />
+      <input
+        ref={input}
+        type="search"
+        autoFocus={autoFocus}
+        placeholder={placeholder}
+        aria-label={label ?? placeholder}
+        value={value}
+        data-testid={testId}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          // Esc empties the field first; only an empty field lets it close the sheet.
+          if (e.key === 'Escape' && value) {
+            e.stopPropagation();
+            e.preventDefault();
+            onChange('');
+          }
+        }}
+      />
+      {value && (
+        <button type="button" className="icon-btn small" aria-label="Clear search" onClick={() => { onChange(''); input.current?.focus(); }}>
+          <X size={14} />
+        </button>
+      )}
+    </label>
+  );
+}
+
+/** One choice out of a few. A single tab stop; the arrow keys move the choice, as in a native radio group. */
+export function Segmented<T extends string>({ value, options, onChange, testId, label, fill }: { value: T; options: { value: T; label: React.ReactNode }[]; onChange: (v: T) => void; testId?: string; label?: string; /** Take the full width, every segment the same size. */ fill?: boolean }) {
+  const group = useRef<HTMLDivElement>(null);
+  const chosen = options.findIndex((o) => o.value === value);
+  const step = (e: React.KeyboardEvent, i: number) => {
+    const by = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!by) return;
+    e.preventDefault();
+    const next = (i + by + options.length) % options.length;
+    onChange(options[next].value);
+    group.current?.querySelectorAll<HTMLButtonElement>('button')[next]?.focus();
+  };
+  return (
+    <div ref={group} className={fill ? 'segmented fill' : 'segmented'} role="radiogroup" aria-label={label} data-testid={testId}>
+      {options.map((o, i) => (
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} tabIndex={i === Math.max(chosen, 0) ? 0 : -1} data-on={value === o.value || undefined} data-testid={testId ? `${testId}-${o.value}` : undefined} onKeyDown={(e) => step(e, i)} onClick={(e) => { e.preventDefault(); onChange(o.value); }}>
           {o.label}
         </button>
       ))}
@@ -124,10 +219,16 @@ export function Segmented<T extends string>({ value, options, onChange, testId }
 
 export function Toggle({ checked, onChange, testId, label }: { checked: boolean; onChange: (v: boolean) => void; testId?: string; label?: string }) {
   return (
-    <button role="switch" aria-checked={checked} aria-label={label} className="toggle" data-on={checked || undefined} data-testid={testId} onClick={(e) => { e.preventDefault(); playSound('toggle'); onChange(!checked); }}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} className="toggle" data-on={checked || undefined} data-testid={testId} onClick={(e) => { e.preventDefault(); playSound('toggle'); onChange(!checked); }}>
       <span className="toggle-knob" />
     </button>
   );
+}
+
+/** The one slider: a native range input, so the arrow keys, Home and End work. It tells the stylesheet how full it is. */
+export function Slider({ value, min = 0, max = 100, step, onChange, label, testId, disabled }: { value: number; min?: number; max?: number; step?: number; onChange: (v: number) => void; label: string; testId?: string; disabled?: boolean }) {
+  const part = max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+  return <input type="range" className="slider" aria-label={label} min={min} max={max} step={step} value={value} disabled={disabled} data-testid={testId} style={{ ['--p' as string]: part }} onChange={(e) => onChange(Number(e.target.value))} />;
 }
 
 /** A titled card of settings rows. */

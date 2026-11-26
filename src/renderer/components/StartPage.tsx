@@ -1,19 +1,21 @@
 // The home page: what a new tab shows (and what Kite shows with nothing open).
 //
-// Top to bottom: a quiet greeting, the search box (with the engine you search with,
-// switchable in place), your shortcuts (Favorites, plus the sites you visit most) and
-// the widgets you've placed. A "+" in the corner adds widgets and shortcuts and sets
-// the scene behind it all. Everything is saved with the rest of Kite's data.
+// One centered column, top to bottom: a quiet greeting, the search field (with the engine
+// you search with, switchable in place), your Favorites, the sites you visit most if you
+// ask for them, and the widgets you've placed. "Customize" in the corner (or a right-click
+// on the page) adds widgets and shortcuts and sets the picture behind it all.
+//
+// It is simply there the moment a new tab opens: nothing on it animates in.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, CornerDownLeft, Plus } from 'lucide-react';
+import { CornerDownLeft, Plus, Search } from 'lucide-react';
 import { formatShortcut } from '@shared/shortcuts';
-import type { HistoryEntry, ID, Item } from '@shared/types';
+import type { ID, Item } from '@shared/types';
 import * as ops from '@shared/ops';
 import { displayUrl, hostOf, isNewTabUrl, normalizeInput } from '@shared/url';
 import { SEARCH_ENGINES } from '@shared/defaults';
 import { updateSettings } from '@shared/settings';
-import { WIDGET_KINDS, addWidget } from '@shared/home';
+import { BAR_HINT_USES, WIDGET_KINDS, addWidget, frequentSites } from '@shared/home';
 import { BACKDROPS, backdropById, backdropPatch } from '@shared/backdrops';
 import { setSpaceTheme } from '@shared/spaces';
 import { activeSpace } from '@shared/tree';
@@ -23,10 +25,9 @@ import { gradientLuma, gradientPatch, starterGradient } from '@shared/spaceTheme
 import { act, setUi, toast, useKite, type ContextMenuItem } from '../store';
 import { navigateTab, openUrl, preconnectSoon, selectItem, undoable } from '../commands';
 import { isMac, now } from '../platform';
-import { KiteLogo } from './KiteLogo';
 import { SiteIcon } from './SiteIcon';
 import { openMenu } from './ContextMenu';
-import { WidgetLayer, measureArea } from './home/WidgetLayer';
+import { WidgetLayer } from './home/WidgetLayer';
 
 const MAX_TILES = 8;
 const MAX_SUGGESTIONS = 6;
@@ -59,15 +60,6 @@ function greeting(hour: number): string {
   return 'Good evening';
 }
 
-/** Sites you visit most, skipping ones already in Favorites. */
-function frequentSites(history: HistoryEntry[], skip: Set<string>): HistoryEntry[] {
-  return [...history]
-    .filter((h) => /^https?:/i.test(h.url) && !skip.has(hostOf(h.url)))
-    .sort((a, b) => b.visits - a.visits || b.lastVisitAt - a.lastVisitAt)
-    .filter((h, i, all) => all.findIndex((x) => hostOf(x.url) === hostOf(h.url)) === i)
-    .slice(0, MAX_TILES);
-}
-
 const engineName = (template: string) => SEARCH_ENGINES.find((e) => e.template === template)?.label ?? (hostOf(template.replace('%s', 'x')).split('.')[0] || 'Custom');
 
 export function StartPage({ tabId }: { tabId?: ID }) {
@@ -85,10 +77,25 @@ export function StartPage({ tabId }: { tabId?: ID }) {
   const [editing, setEditing] = useState<null | { id?: ID; name: string; url: string }>(null);
   const input = useRef<HTMLInputElement>(null);
   const [today] = useState(() => new Date());
+  // The field is focused the moment the page appears, so the caret is all it shows then.
+  // The focus ring is for someone who came to it with the Tab key.
+  const [ring, setRing] = useState(false);
+  const tabbed = useRef(false);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => void (tabbed.current = e.key === 'Tab');
+    const pointer = () => void (tabbed.current = false);
+    window.addEventListener('keydown', key, true);
+    window.addEventListener('pointerdown', pointer, true);
+    return () => {
+      window.removeEventListener('keydown', key, true);
+      window.removeEventListener('pointerdown', pointer, true);
+    };
+  }, []);
 
   // Ready to type the moment it appears, and when New Tab or the address bar is clicked again.
   useEffect(() => {
-    const focus = () => input.current?.focus();
+    // (Not from under the first run: while it is open the keyboard belongs to it.)
+    const focus = () => useKite.getState().ui.panel !== 'welcome' && input.current?.focus();
     const t = window.setTimeout(focus, 0);
     window.addEventListener('kite:focus-start', focus);
     return () => {
@@ -98,7 +105,7 @@ export function StartPage({ tabId }: { tabId?: ID }) {
   }, []);
 
   const favorites = useMemo(() => favIds.map((id) => items[id]).filter((it): it is TabItem => it?.kind === 'tab').slice(0, MAX_TILES * 2), [favIds, items]);
-  const frequent = useMemo(() => (home.showFrequent ? frequentSites(history, new Set(favorites.map((f) => hostOf(f.url)))) : []), [history, favorites, home.showFrequent]);
+  const frequent = useMemo(() => (home.showFrequent ? frequentSites(history, new Set(favorites.map((f) => hostOf(f.url))), MAX_TILES) : []), [history, favorites, home.showFrequent]);
   const matches = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return [];
@@ -164,51 +171,58 @@ export function StartPage({ tabId }: { tabId?: ID }) {
     toast(editing.id ? 'Shortcut updated' : 'Added to Favorites');
   };
 
-  /** The "+" in the corner: widgets, shortcuts, the scene, what the page shows. */
+  /** Customize: widgets, shortcuts, the picture behind the page, what the page shows. */
+  const customizeItems = (): ContextMenuItem[] => [
+    {
+      label: 'Add Widget',
+      testId: 'home-add-widget',
+      submenu: WIDGET_KINDS.map((k) => ({
+        label: k.name,
+        hint: k.blurb,
+        testId: `home-widget-${k.id}`,
+        onSelect: () => {
+          const id = act((d) => addWidget(d.home, k.id));
+          if (!id) toast('That’s plenty of widgets for one page. Remove one to add another.');
+        },
+      })),
+    },
+    { label: 'Add Shortcut…', testId: 'home-add-shortcut', onSelect: () => setEditing({ name: '', url: '' }) },
+    { separator: true, label: '' },
+    {
+      label: 'Background',
+      testId: 'home-background',
+      submenu: [
+        { label: 'Space Colors', hint: plain ? '✓' : undefined, testId: 'home-bg-none', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(null))) },
+        { label: 'Gradient', hint: theme.gradient ? '✓' : undefined, testId: 'home-bg-gradient', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, gradientPatch(starterGradient(theme)))) },
+        { separator: true, label: '' },
+        ...BACKDROPS.map((b) => ({ label: b.name, hint: b.id === backdrop ? '✓' : undefined, testId: `home-bg-${b.id}`, onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(b.id))) })),
+        { separator: true, label: '' },
+        { label: 'Edit Theme…', onSelect: () => setUi({ panel: 'settings', panelArg: 'spaces' }) },
+      ],
+    },
+    { label: home.showGreeting ? 'Hide Greeting' : 'Show Greeting', onSelect: () => act((d) => void (d.home.showGreeting = !d.home.showGreeting)) },
+    { label: home.showFrequent ? 'Hide Frequently Visited' : 'Show Frequently Visited', testId: 'home-toggle-frequent', onSelect: () => act((d) => void (d.home.showFrequent = !d.home.showFrequent)) },
+    { label: home.showHints ? 'Hide Shortcut Hints' : 'Show Shortcut Hints', onSelect: () => act((d) => void (d.home.showHints = !d.home.showHints)) },
+    { separator: true, label: '' },
+    { label: 'Remove All Widgets', danger: true, disabled: !home.widgets.length, onSelect: () => undoable('Widgets removed', (d) => void (d.home.widgets = [])) },
+  ];
+
   const customize = (e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const items: ContextMenuItem[] = [
-      {
-        label: 'Add Widget',
-        testId: 'home-add-widget',
-        submenu: WIDGET_KINDS.map((k) => ({
-          label: k.name,
-          hint: k.blurb,
-          testId: `home-widget-${k.id}`,
-          onSelect: () => {
-            const id = act((d) => addWidget(d.home, k.id, measureArea()));
-            if (!id) toast('That’s plenty of widgets for one page. Remove one to add another.');
-          },
-        })),
-      },
-      { label: 'Add Shortcut…', testId: 'home-add-shortcut', onSelect: () => setEditing({ name: '', url: '' }) },
-      { separator: true, label: '' },
-      {
-        label: 'Background',
-        testId: 'home-background',
-        submenu: [
-          { label: 'Space Colours', hint: plain ? '✓' : undefined, testId: 'home-bg-none', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(null))) },
-          { label: 'Gradient', hint: theme.gradient ? '✓' : undefined, testId: 'home-bg-gradient', onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, gradientPatch(starterGradient(theme)))) },
-          { separator: true, label: '' },
-          ...BACKDROPS.map((b) => ({ label: b.name, hint: b.id === backdrop ? '✓' : undefined, testId: `home-bg-${b.id}`, onSelect: () => act((d) => setSpaceTheme(d, d.activeSpaceId, backdropPatch(b.id))) })),
-          { separator: true, label: '' },
-          { label: 'Edit Theme…', onSelect: () => setUi({ panel: 'settings', panelArg: 'spaces' }) },
-        ],
-      },
-      { label: home.showGreeting ? 'Hide Greeting' : 'Show Greeting', onSelect: () => act((d) => void (d.home.showGreeting = !d.home.showGreeting)) },
-      { label: home.showFrequent ? 'Hide Frequently Visited' : 'Show Frequently Visited', testId: 'home-toggle-frequent', onSelect: () => act((d) => void (d.home.showFrequent = !d.home.showFrequent)) },
-      { label: home.showHints ? 'Hide Shortcut Hints' : 'Show Shortcut Hints', onSelect: () => act((d) => void (d.home.showHints = !d.home.showHints)) },
-      { separator: true, label: '' },
-      { label: 'Remove All Widgets', danger: true, disabled: !home.widgets.length, onSelect: () => undoable('Widgets removed', (d) => void (d.home.widgets = [])) },
-    ];
-    openMenu({ clientX: r.right - 240, clientY: r.top - 8 }, items);
+    openMenu({ clientX: r.left, clientY: r.bottom + 4 }, customizeItems());
+  };
+
+  /** A right-click on the page itself (not on a tile, a widget or a field) opens the same menu. */
+  const pageMenu = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, input, textarea, a, .widget, .start-suggest, .shortcut-editor')) return;
+    openMenu(e, customizeItems());
   };
 
   const pickEngine = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    openMenu({ clientX: r.left, clientY: r.bottom + 6 }, [
+    openMenu({ clientX: r.left, clientY: r.bottom + 4 }, [
       ...SEARCH_ENGINES.map((en) => ({
         label: en.label,
         hint: en.template === engine ? '✓' : undefined,
@@ -224,8 +238,6 @@ export function StartPage({ tabId }: { tabId?: ID }) {
     ]);
   };
 
-  const hasTiles = favorites.length > 0 || frequent.length > 0;
-  let tileIndex = 0;
 
   // The Space's background behind the whole page: a built-in picture, your own, or your gradient at full strength.
   const builtIn = backdropById(backdrop);
@@ -239,91 +251,98 @@ export function StartPage({ tabId }: { tabId?: ID }) {
         : null;
   const tone = bg ? bg.tone : undefined;
 
+  const barKeys = formatShortcut(sc.commandBar, isMac);
+
   return (
-    <>
-    <div className="start" data-testid={tabId ? 'start-page' : 'empty-state'} data-backdrop={bg ? bg.id : undefined} data-tone={tone}>
-      {bg && <div className="start-bg" aria-hidden="true" data-testid="start-bg" style={{ backgroundImage: bg.image }} />}
-      <div className="start-inner">
-        {home.showGreeting && (
-          <header className="start-hello">
-            <h1 className="start-greet">{greeting(today.getHours())}</h1>
-            <p className="start-date">{today.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          </header>
-        )}
-
-        <div className="start-box" data-open={matches.length > 0 || undefined}>
-          <label className="start-search" data-testid={tabId ? undefined : 'empty-search'}>
-            <span className="start-brand" aria-hidden="true">
-              <KiteLogo size={22} />
-            </span>
-            <input
-              ref={input}
-              className="start-input"
-              data-testid="start-input"
-              placeholder="Search or enter address"
-              aria-label="Search or enter address"
-              autoComplete="off"
-              spellCheck={false}
-              value={q}
-              role="combobox"
-              aria-expanded={matches.length > 0}
-              aria-controls="start-suggest"
-              aria-activedescendant={sel >= 0 ? `start-sug-${sel}` : undefined}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setSel(-1);
-                preconnectSoon(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown' && matches.length) {
-                  e.preventDefault();
-                  setSel((i) => (i + 1) % matches.length);
-                } else if (e.key === 'ArrowUp' && matches.length) {
-                  e.preventDefault();
-                  setSel((i) => (i <= 0 ? matches.length - 1 : i - 1));
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  go(sel >= 0 ? matches[sel].url : q);
-                } else if (e.key === 'Escape' && q) {
-                  e.stopPropagation();
-                  setQ('');
-                  setSel(-1);
-                }
-              }}
-            />
-            <kbd className="start-kbd" data-typing={q ? true : undefined}>
-              {q ? <CornerDownLeft size={12} /> : formatShortcut(sc.commandBar, isMac)}
-            </kbd>
-            <button className="start-engine" type="button" title="Search engine" aria-label={`Search engine: ${engineName(engine)}`} data-testid="home-engine" onClick={pickEngine}>
-              <SiteIcon url={engine.replace('%s', '')} title={engineName(engine)} size={14} />
-              <span>{engineName(engine)}</span>
-              <ChevronDown size={12} aria-hidden="true" />
-            </button>
-          </label>
-          {matches.length > 0 && (
-            <ul className="start-suggest" id="start-suggest" role="listbox" data-testid="start-suggest">
-              {matches.map((h, i) => (
-                <li key={h.url} id={`start-sug-${i}`} role="option" aria-selected={i === sel} data-on={i === sel || undefined} onMouseDown={(e) => { e.preventDefault(); go(h.url); }} onMouseEnter={() => setSel(i)}>
-                  <SiteIcon url={h.url} title={h.title} size={16} />
-                  <span className="start-sug-title">{siteName(h.url, h.title)}</span>
-                  <span className="start-sug-url">{displayUrl(h.url)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+    <div className="start" data-testid={tabId ? 'start-page' : 'empty-state'} data-backdrop={bg ? bg.id : undefined} data-tone={tone} onContextMenu={pageMenu}>
+      {/* The chart's contour lines on the plain page; a Space's picture or gradient takes their place. */}
+      {bg ? <div className="start-bg" aria-hidden="true" data-testid="start-bg" style={{ backgroundImage: bg.image }} /> : <div className="contour-field" aria-hidden="true" />}
+      <div className="start-scroll">
+        <div className="start-top">
+          <button className="btn small ghost start-customize" aria-haspopup="menu" title="Add a widget or shortcut, change the background" data-testid="home-customize" onClick={customize}>
+            Customize
+          </button>
         </div>
+        <div className="start-inner">
+          {home.showGreeting && (
+            <header className="start-hello">
+              <h1 className="start-greet">{greeting(today.getHours())}</h1>
+              <p className="start-date">{today.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            </header>
+          )}
 
-        {/* Stays in place (just hidden) while suggestions show, so the page doesn't jump. */}
-        <div className="start-sections" data-hidden={matches.length > 0 || undefined} aria-hidden={matches.length > 0 || undefined}>
+          <div className="start-box">
+            <label className="start-search" data-ring={ring || undefined} data-testid={tabId ? undefined : 'empty-search'}>
+              <Search size={16} className="start-search-icon" aria-hidden="true" />
+              <input
+                ref={input}
+                className="start-input"
+                data-testid="start-input"
+                placeholder="Search or enter address"
+                aria-label="Search or enter address"
+                autoComplete="off"
+                spellCheck={false}
+                value={q}
+                role="combobox"
+                aria-expanded={matches.length > 0}
+                aria-controls="start-suggest"
+                aria-activedescendant={sel >= 0 ? `start-sug-${sel}` : undefined}
+                onFocus={() => setRing(tabbed.current)}
+                onBlur={() => setRing(false)}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setSel(-1);
+                  preconnectSoon(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown' && matches.length) {
+                    e.preventDefault();
+                    setSel((i) => (i + 1) % matches.length);
+                  } else if (e.key === 'ArrowUp' && matches.length) {
+                    e.preventDefault();
+                    setSel((i) => (i <= 0 ? matches.length - 1 : i - 1));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    go(sel >= 0 ? matches[sel].url : q);
+                  } else if (e.key === 'Escape' && q) {
+                    e.stopPropagation();
+                    setQ('');
+                    setSel(-1);
+                  }
+                }}
+              />
+              {q && (
+                <kbd className="kbd" aria-hidden="true">
+                  <CornerDownLeft size={11} />
+                </kbd>
+              )}
+              <button className="select start-engine" type="button" aria-haspopup="menu" title="Search engine" aria-label={`Search engine: ${engineName(engine)}`} data-testid="home-engine" onClick={pickEngine}>
+                <SiteIcon url={engine.replace('%s', '')} title={engineName(engine)} size={14} />
+                <span>{engineName(engine)}</span>
+              </button>
+            </label>
+            {matches.length > 0 && (
+              <ul className="start-suggest" id="start-suggest" role="listbox" data-testid="start-suggest">
+                {matches.map((h, i) => (
+                  <li key={h.url} id={`start-sug-${i}`} role="option" aria-selected={i === sel} data-on={i === sel || undefined} onMouseDown={(e) => { e.preventDefault(); go(h.url); }} onMouseEnter={() => setSel(i)}>
+                    <SiteIcon url={h.url} title={h.title} size={16} />
+                    <span className="start-sug-title">{siteName(h.url, h.title)}</span>
+                    <span className="start-sug-url">{displayUrl(h.url)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <section className="start-sec" aria-label="Favorites">
-            {(favorites.length > 0 || frequent.length > 0) && <h2 className="start-sec-h">Favorites</h2>}
+            <h2 className="section-label">Favorites</h2>
             <div className="start-grid" data-testid="start-favorites">
               {favorites.map((f) => (
-                <Tile key={f.id} url={f.url} title={f.customTitle ?? f.title} favicon={f.favicon} index={tileIndex++} testId="start-favorite" onOpen={() => openFavorite(f.id)} onMenu={(e) => favoriteMenu(e, f)} />
+                <Tile key={f.id} url={f.url} title={f.customTitle ?? f.title} favicon={f.favicon} testId="start-favorite" onOpen={() => openFavorite(f.id)} onMenu={(e) => favoriteMenu(e, f)} />
               ))}
-              <button className="start-tile start-tile-add" data-testid="start-add-shortcut" title="Add a shortcut" style={{ '--i': tileIndex } as React.CSSProperties} onClick={() => setEditing({ name: '', url: '' })}>
-                <span className="start-tile-icon"><Plus size={22} /></span>
-                <span className="start-tile-name">{favorites.length ? 'Add' : 'Add shortcut'}</span>
+              <button className="start-tile start-tile-add" data-testid="start-add-shortcut" title="Add a site to Favorites" onClick={() => setEditing({ name: '', url: '' })}>
+                <span className="start-tile-plate"><Plus size={16} /></span>
+                <span className="start-tile-name">Add</span>
               </button>
             </div>
             {editing && (
@@ -334,52 +353,56 @@ export function StartPage({ tabId }: { tabId?: ID }) {
                   e.preventDefault();
                   saveShortcut();
                 }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Escape') return;
+                  e.stopPropagation();
+                  setEditing(null);
+                }}
               >
-                <input className="input" placeholder="Address, e.g. example.com" aria-label="Address" autoFocus value={editing.url} data-testid="shortcut-url" onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
+                <input className="input" placeholder="Address, like example.com" aria-label="Address" autoFocus value={editing.url} data-testid="shortcut-url" onChange={(e) => setEditing({ ...editing, url: e.target.value })} />
                 <input className="input" placeholder="Name (optional)" aria-label="Name" value={editing.name} data-testid="shortcut-name" onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                <button type="button" className="btn small" onClick={() => setEditing(null)}>Cancel</button>
-                <button className="btn small primary" data-testid="shortcut-save" disabled={!editing.url.trim()}>{editing.id ? 'Save' : 'Add'}</button>
+                <button type="button" className="btn" onClick={() => setEditing(null)}>Cancel</button>
+                <button className="btn primary" data-testid="shortcut-save" disabled={!editing.url.trim()}>{editing.id ? 'Save' : 'Add'}</button>
               </form>
             )}
+            {/* A new person is reminded of the one habit until they have used it a few times. */}
+            {home.barUses < BAR_HINT_USES && barKeys && (
+              <p className="start-hint" data-testid="start-hint">Press {barKeys} anywhere to open a page or find a tab.</p>
+            )}
           </section>
-          {hasTiles && frequent.length > 0 && (
+          {frequent.length > 0 && (
             <section className="start-sec" aria-label="Frequently visited">
-              <h2 className="start-sec-h">Frequently visited</h2>
+              <h2 className="section-label">Frequently visited</h2>
               <div className="start-grid" data-testid="start-sites">
                 {frequent.map((h) => (
-                  <Tile key={h.url} url={h.url} title={h.title} index={tileIndex++} testId="start-site" onOpen={() => go(h.url)} />
+                  <Tile key={h.url} url={h.url} title={h.title} favicon={h.favicon} testId="start-site" onOpen={() => go(h.url)} />
                 ))}
               </div>
             </section>
           )}
+
+          <WidgetLayer editable />
         </div>
+
+        {home.showHints && (
+          <footer className="start-foot">
+            <span><kbd className="kbd">{formatShortcut(sc.newNote, isMac)}</kbd> New note</span>
+            <span><kbd className="kbd">{formatShortcut(sc.toggleSidebar, isMac)}</kbd> Hide sidebar</span>
+            <span><kbd className="kbd">{formatShortcut(sc.settings, isMac)}</kbd> Settings</span>
+          </footer>
+        )}
       </div>
-
-      <WidgetLayer editable />
-
-      {home.showHints && (
-        <footer className="start-foot">
-          <span><kbd>{formatShortcut(sc.newNote, isMac)}</kbd> New note</span>
-          <span><kbd>{formatShortcut(sc.toggleSidebar, isMac)}</kbd> Hide sidebar</span>
-          <span><kbd>{formatShortcut(sc.settings, isMac)}</kbd> Settings</span>
-        </footer>
-      )}
-
-      <button className="home-fab" aria-label="Customize home page" title="Add a widget or shortcut, change the background" data-testid="home-customize" onClick={customize}>
-        <Plus size={20} />
-      </button>
     </div>
-    </>
   );
 }
 
-/** A bookmark tile: the site's icon on a soft square, its name underneath. */
-function Tile({ url, title, favicon, index, testId, onOpen, onMenu }: { url: string; title?: string; favicon?: string; index: number; testId: string; onOpen: () => void; onMenu?: (e: React.MouseEvent) => void }) {
+/** A site as a tile: its icon on a small plate, its name underneath. */
+function Tile({ url, title, favicon, testId, onOpen, onMenu }: { url: string; title?: string; favicon?: string; testId: string; onOpen: () => void; onMenu?: (e: React.MouseEvent) => void }) {
   const name = siteName(url, title);
   return (
-    <button className="start-tile" data-testid={testId} title={`${name}\n${displayUrl(url)}`} style={{ '--i': index } as React.CSSProperties} onClick={onOpen} onPointerEnter={() => preconnectSoon(url)} onContextMenu={onMenu}>
-      <span className="start-tile-icon">
-        <SiteIcon url={url} favicon={favicon} title={title} size={26} />
+    <button className="start-tile" data-testid={testId} title={`${name}\n${displayUrl(url)}`} onClick={onOpen} onPointerEnter={() => preconnectSoon(url)} onContextMenu={onMenu}>
+      <span className="start-tile-plate">
+        <SiteIcon url={url} favicon={favicon} title={title} size={28} />
       </span>
       <span className="start-tile-name">{name}</span>
     </button>

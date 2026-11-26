@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import type { ID, Space } from '@shared/types';
 import { ARCHIVE_CHOICES } from '@shared/defaults';
 import { createSpace, deleteSpace, updateSpace, moveSpace } from '@shared/spaces';
@@ -11,12 +11,18 @@ import { openMenu } from './ContextMenu';
 import { DropZone } from '../dnd';
 import { Sheet, Field, Toggle } from './Sheet';
 import { ThemeControls } from './ThemeEditor';
+import { mix } from '../theme';
 import { backdropById } from '@shared/backdrops';
 import { backdropUrl } from '../backdrops';
 import { now } from '../platform';
 
+/**
+ * The Space's name, as the label over its list. Its menu ("…") and the fold for its pinned
+ * tabs wait at the right end until the header is pointed at or focused.
+ */
 export function SpaceHeader({ space }: { space: Space }) {
   const renaming = useKite((st) => st.ui.renamingSpace === space.id);
+  const folded = !!space.pinnedCollapsed;
   return (
     <div
       className="space-header"
@@ -34,15 +40,28 @@ export function SpaceHeader({ space }: { space: Space }) {
       }}
       onContextMenu={(e) => !renaming && openMenu(e, spaceMenu(space.id))}
       onDoubleClick={(e) => {
-        if ((e.target as HTMLElement).closest('.space-more, input')) return;
+        if ((e.target as HTMLElement).closest('button, input')) return;
         setUi({ menu: null, renamingSpace: space.id });
       }}
     >
       <span className="space-icon">{space.icon}</span>
       {renaming ? <SpaceNameInput space={space} /> : <span className="space-name" data-testid="space-name">{space.name}</span>}
       {space.isolated && !renaming && <span className="space-badge" title="This Space has its own logins and cookies" data-testid="space-isolated-badge">Separate logins</span>}
+      {!renaming && space.pinned.length > 0 && (
+        <button
+          className="sb-pin-toggle"
+          data-testid="pinned-toggle"
+          aria-expanded={!folded}
+          aria-label={folded ? 'Expand Pinned Section' : 'Collapse Pinned Section'}
+          title={folded ? 'Expand Pinned Section' : 'Collapse Pinned Section'}
+          onClick={() => act((d) => togglePinnedSection(d, space.id))}
+        >
+          {folded && <span>{space.pinned.length} pinned</span>}
+          {folded ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+        </button>
+      )}
       {!renaming && (
-        <button className="icon-btn space-more" aria-label="Space menu" data-testid="space-menu" onClick={(e) => openMenu(e, spaceMenu(space.id))}>
+        <button className="icon-btn small space-more" aria-label="Space menu" title="Space menu" data-testid="space-menu" onClick={(e) => openMenu(e, spaceMenu(space.id))}>
           <MoreHorizontal size={16} />
         </button>
       )}
@@ -105,37 +124,42 @@ export function deleteSpaceCmd(id: ID) {
   undoable(`Deleted Space “${sp.name}”`, (d) => void deleteSpace(d, id, now()));
 }
 
+/**
+ * The Space's menu. What people reach for stays at the top level (rename, edit, a new
+ * folder, fold the pinned tabs); the housekeeping lives one step away under "More".
+ */
 export function spaceMenu(id: ID): ContextMenuItem[] {
   const s = getS();
   const i = s.spaces.findIndex((x) => x.id === id);
   const sp = s.spaces[i];
   const others = s.spaces.filter((x) => x.id !== id);
-  return [
-    { label: 'Rename Space', testId: 'menu-rename-space', onSelect: () => setUi({ renamingSpace: id, menu: null }) },
-    { label: 'Change Space Icon…', testId: 'menu-space-icon', onSelect: () => openSpaceEditor(id) },
-    { label: 'Edit Theme Color…', testId: 'menu-edit-space', onSelect: () => openSpaceEditor(id) },
-    { separator: true, label: '' },
-    { label: 'New Folder', testId: 'menu-new-folder', onSelect: actions.newFolder },
-    { label: 'Collapse All Folders', testId: 'menu-collapse-all', onSelect: actions.collapseFolders },
-    { label: 'Expand All Folders', testId: 'menu-expand-all', onSelect: actions.expandFolders },
-    { label: sp?.pinnedCollapsed ? 'Expand Pinned Section' : 'Collapse Pinned Section', testId: 'menu-pinned-toggle', onSelect: () => act((d) => togglePinnedSection(d, id)) },
-    { label: 'Reset All Tabs in This Space', testId: 'menu-reset-space', onSelect: () => { if (getS().activeSpaceId !== id) switchSpaceCmd(id); resetSpaceTabsCmd(); } },
-    { separator: true, label: '' },
-    {
-      label: 'Turn into Folder',
-      testId: 'menu-space-to-folder',
-      disabled: others.length === 0,
-      submenu: others.map((o) => ({
-        label: `${o.icon}  in ${o.name}`,
+  // One entry per Space this one could become a folder in: no third level of menus.
+  const intoFolder: ContextMenuItem[] = others.length
+    ? others.map((o) => ({
+        label: `Turn into Folder in ${o.name}`,
         testId: `menu-space-to-folder-${o.id}`,
         onSelect: () => {
           undoable(`“${sp?.name}” is now a folder in ${o.name}`, (d) => void spaceToFolder(d, id, o.id, now()));
           switchSpaceCmd(getS().activeSpaceId);
         },
-      })),
-    },
+      }))
+    : [{ label: 'Turn into Folder', testId: 'menu-space-to-folder', disabled: true }];
+  const more: ContextMenuItem[] = [
+    { label: 'Collapse All Folders', testId: 'menu-collapse-all', onSelect: actions.collapseFolders },
+    { label: 'Expand All Folders', testId: 'menu-expand-all', onSelect: actions.expandFolders },
+    { label: 'Reset All Tabs in This Space', testId: 'menu-reset-space', onSelect: () => { if (getS().activeSpaceId !== id) switchSpaceCmd(id); resetSpaceTabsCmd(); } },
+    { separator: true, label: '' },
     { label: 'Move Left', disabled: i <= 0, testId: 'menu-space-left', onSelect: () => act((d) => moveSpace(d, id, i - 1)) },
     { label: 'Move Right', disabled: i >= s.spaces.length - 1, testId: 'menu-space-right', onSelect: () => act((d) => moveSpace(d, id, i + 1)) },
+    ...intoFolder,
+  ];
+  return [
+    { label: 'Rename Space', testId: 'menu-rename-space', onSelect: () => setUi({ renamingSpace: id, menu: null }) },
+    { label: 'Edit Space…', testId: 'menu-edit-space', onSelect: () => openSpaceEditor(id) },
+    { separator: true, label: '' },
+    { label: 'New Folder', testId: 'menu-new-folder', onSelect: actions.newFolder },
+    { label: sp?.pinnedCollapsed ? 'Expand Pinned Section' : 'Collapse Pinned Section', testId: 'menu-pinned-toggle', onSelect: () => act((d) => togglePinnedSection(d, id)) },
+    { label: 'More', testId: 'menu-more', submenu: more },
     { separator: true, label: '' },
     { label: 'Delete Space…', danger: true, disabled: s.spaces.length <= 1, testId: 'menu-delete-space', onSelect: () => deleteSpaceCmd(id) },
   ];
@@ -201,7 +225,7 @@ export function SpaceBar() {
             data-reordering={reordering === sp.id || undefined}
             data-testid={`space-${sp.id}`}
             data-name={sp.name}
-            title={`${sp.name} — drag to reorder`}
+            title={sp.id === activeId ? `${sp.name} (this Space)` : `Switch to ${sp.name}`}
             onPointerDown={(e) => startReorder(e, sp.id)}
             onClick={() => !justDragged.current && switchSpaceCmd(sp.id)}
             onDoubleClick={() => openSpaceEditor(sp.id)}
@@ -211,8 +235,8 @@ export function SpaceBar() {
           </button>
         </DropZone>
       ))}
-      <button className="space-dot space-add" aria-label="New Space" title="New Space" data-testid="btn-new-space" onClick={newSpaceCmd}>
-        <Plus size={14} />
+      <button className="space-dot" aria-label="New Space" title="New Space" data-testid="btn-new-space" onClick={newSpaceCmd}>
+        <Plus size={16} />
       </button>
     </div>
   );
@@ -260,7 +284,7 @@ export function SpaceEditor({ id }: { id: ID }) {
         </>
       }
     >
-      <div className="space-preview" data-tone={t.backdrop ? backdropById(t.backdrop)?.tone : undefined} style={{ background: t.backdrop ? `center / cover url("${backdropUrl(t.backdrop)}")` : t.gradient ? `linear-gradient(${t.gradient.angle}deg, ${t.gradient.colors.join(', ')})` : `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})` }}>
+      <div className="space-preview" data-tone={t.backdrop ? backdropById(t.backdrop)?.tone : undefined} style={{ background: t.backdrop ? `center / cover url("${backdropUrl(t.backdrop)}")` : t.gradient ? `linear-gradient(${t.gradient.angle}deg, ${t.gradient.colors.join(', ')})` : mix(t.mode === 'dark' ? '#0a0f16' : '#fafcfc', t.colors[0], 0.3) }}>
         <span className="space-preview-icon">{space.icon}</span>
         <span className="space-preview-name">{space.name}</span>
       </div>

@@ -118,7 +118,8 @@ test('little window: opens as its own window and hands its page to the main wind
   await little.waitForSelector('[data-testid=little]');
   await little.getByTestId('little-input').fill(site.url('/'));
   await little.getByTestId('little-input').press('Enter');
-  await expect(little.getByTestId('little-url')).toContainText('Kite Test Home', { timeout: 15000 });
+  // The bar shows the address; the page's title is in its tooltip once the page has loaded.
+  await expect(little.getByTestId('little-url')).toHaveAttribute('title', /Kite Test Home/, { timeout: 15000 });
   const closed = little.waitForEvent('close');
   // The window closes as a result of this click, so don't wait on the click itself.
   await little.getByTestId('little-open-main').click({ noWaitAfter: true }).catch(() => undefined);
@@ -152,7 +153,8 @@ test('routing: a link handed to Kite at launch opens in a little window (default
   const { app } = await launch(undefined, [link]);
   await expect.poll(() => app.windows().length, { timeout: 15000 }).toBe(2);
   const little = app.windows().find((w) => w.url().includes('mode=little'))!;
-  await expect(little.getByTestId('little-url')).toContainText('Page Two', { timeout: 15000 });
+  await expect(little.getByTestId('little-url')).toContainText('127.0.0.1/two', { timeout: 15000 });
+  await expect(little.getByTestId('little-url')).toHaveAttribute('title', /Page Two/, { timeout: 15000 });
   await app.close();
 });
 

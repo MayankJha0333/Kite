@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { archiveItem, clearToday, findStale, groupArchive, restoreArchived, runAutoArchive, archiveAfterFor, deleteArchived, clearArchive } from '@shared/archive';
+import { dayLabel, startOfDay } from '@shared/history';
 import { newTab, pinItem, addFavorite, select } from '@shared/ops';
 import { createSpace, updateSpace } from '@shared/spaces';
 import { HOUR, DAY } from '@shared/defaults';
@@ -136,5 +137,17 @@ describe('archive', () => {
     expect(groups.map((g) => g.label).slice(0, 2)).toEqual(['Today', 'Yesterday']);
     expect(groups).toHaveLength(3);
     expect(groupArchive(entries, now, 'bet')).toEqual([{ label: 'Yesterday', items: [entries[1]] }]);
+  });
+
+  it('labels older days exactly as History does: the weekday and the month in full', () => {
+    const now = new Date(2026, 10, 25, 15).getTime();
+    const old = new Date(2026, 10, 23, 9).getTime();
+    const lastYear = new Date(2025, 11, 31, 9).getTime();
+    const e = (id: string, t: number) => ({ id, title: id, url: `https://${id}.com`, kind: 'tab' as const, spaceId: 's', archivedAt: t, reason: 'auto' as const });
+    const labels = groupArchive([e('a', old), e('b', lastYear)], now).map((g) => g.label);
+    expect(labels).toEqual([dayLabel(startOfDay(old), now), dayLabel(startOfDay(lastYear), now)]);
+    expect(labels[0]).toBe(new Date(old).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }));
+    // A day in another year says which year.
+    expect(labels[1]).toContain('2025');
   });
 });

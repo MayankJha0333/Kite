@@ -2,7 +2,7 @@
 // Lives at kite://source/<url>, so it is a tab like any other (webviews refuse view-source:).
 
 import { useEffect, useMemo, useState } from 'react';
-import { Code2, RotateCw, Copy, WrapText } from 'lucide-react';
+import { RotateCw, Copy, WrapText } from 'lucide-react';
 import { bridge } from '../platform';
 import { toast } from '../store';
 import { displayUrl } from '@shared/url';
@@ -38,26 +38,27 @@ export function SourceView({ url, partition }: { url: string; partition: string 
   return (
     <div className="source" data-testid="source-view" data-wrap={wrap || undefined}>
       <header className="source-head">
-        <Code2 size={15} className="muted" />
         <span className="source-title">
           Source of <b>{displayUrl(url)}</b>
-          {data && <span className="muted"> · {lines.length.toLocaleString()} lines · {data.status}{data.contentType ? ` · ${data.contentType.split(';')[0]}` : ''}</span>}
+          {data && <> · {lines.length.toLocaleString()} lines · {data.status}{data.contentType ? ` · ${data.contentType.split(';')[0]}` : ''}</>}
         </span>
-        <span className="spacer" />
-        <button className="btn small ghost" data-on={wrap || undefined} title="Wrap long lines" onClick={() => setWrap((w) => !w)}><WrapText size={13} /> Wrap</button>
-        <button className="btn small ghost" title="Copy the source" disabled={!data} onClick={async () => { try { await navigator.clipboard.writeText(data!.text); toast('Source copied'); } catch { toast('Couldn’t copy'); } }}><Copy size={13} /> Copy</button>
-        <button className="btn small ghost" title="Fetch again" onClick={() => { cache.delete(url); setSeq((n) => n + 1); }}><RotateCw size={13} /> Reload</button>
+        <span className="source-actions">
+          <button className="icon-btn" aria-pressed={wrap} aria-label="Wrap long lines" title="Wrap long lines" onClick={() => setWrap((w) => !w)}><WrapText size={16} /></button>
+          <button className="icon-btn" aria-label="Copy the source" title="Copy the source" disabled={!data} onClick={async () => { try { await navigator.clipboard.writeText(data!.text); toast('Source copied'); } catch { toast('Couldn’t copy'); } }}><Copy size={16} /></button>
+          <button className="icon-btn" aria-label="Fetch the source again" title="Fetch the source again" onClick={() => { cache.delete(url); setSeq((n) => n + 1); }}><RotateCw size={16} /></button>
+        </span>
       </header>
       {error && (
-        <div className="empty-list" role="alert" data-testid="source-error">
-          <span className="empty-state-title">Couldn’t show the source</span>
-          <span className="empty-state-text">{error}</span>
+        <div className="empty" data-field role="alert" data-testid="source-error">
+          <div className="contour-field" aria-hidden="true" />
+          <p>Kite couldn’t fetch this page’s source: {error}</p>
+          <button className="btn" onClick={() => { cache.delete(url); setSeq((n) => n + 1); }}>Try again</button>
         </div>
       )}
-      {!error && !data && <div className="source-wait muted">Fetching…</div>}
+      {!error && !data && <div className="source-wait muted">Fetching the source…</div>}
+      {data?.truncated && <p className="notice">This page is larger than 4 MB; only the first part is shown.</p>}
       {data && (
         <div className="source-scroll">
-          {data.truncated && <p className="source-note">This page is larger than 4 MB; only the first part is shown.</p>}
           <table className="source-table" data-testid="source-text">
             <tbody>
               {lines.map((l, i) => (

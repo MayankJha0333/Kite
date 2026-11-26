@@ -9,6 +9,7 @@ async function openAdblock(page: Page) {
   await page.keyboard.press(`${MOD}+Comma`);
   await page.getByTestId('settings-privacy').click();
   await expect(page.getByTestId('adblock-page')).toBeVisible();
+  await page.getByTestId('shields-advanced').click();
 }
 
 test.describe('Settings → Ad blocking', () => {
@@ -16,9 +17,8 @@ test.describe('Settings → Ad blocking', () => {
     await openApp(page);
     await page.keyboard.press(`${MOD}+Comma`);
     await page.getByTestId('settings-privacy').click();
-    await expect(page.getByTestId('privacy-open-adblock')).toContainText('On');
-    await page.getByTestId('privacy-open-adblock').click();
     await expect(page.getByTestId('adblock-page')).toBeVisible();
+    for (const g of ['ads', 'privacy']) await page.getByTestId(`shields-group-${g}`).locator('.adb-group-head').click();
     await expect(page.getByTestId('shields-enabled')).toHaveAttribute('aria-checked', 'true');
     for (const id of ['adguard-base', 'ubo', 'easyprivacy']) await expect(page.getByTestId(`shields-list-${id}`)).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('shields-list-easylist')).toHaveAttribute('aria-checked', 'false');

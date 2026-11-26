@@ -97,9 +97,11 @@ test.describe('folders', () => {
     await page.keyboard.press(`${MOD}+Alt+f`);
     await page.getByTestId('rename-input').press('Enter');
     await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-more').click();
     await page.getByTestId('menu-collapse-all').click();
     await expect(page.locator('.folder[data-collapsed]')).toHaveCount(2);
     await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-more').click();
     await page.getByTestId('menu-expand-all').click();
     await expect(page.locator('.folder[data-collapsed]')).toHaveCount(0);
   });
@@ -165,3 +167,31 @@ test.describe('drag and drop', () => {
     await expect(page.locator('.row[data-active]')).toHaveAttribute('data-title', 'b.com');
   });
 });
+
+test.describe('folders: look', () => {
+  test('a folder is a neutral row: its glyph is not the accent, and rows inside step in by one icon', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'a.com');
+    await todayRows(page).first().click({ button: 'right' });
+    await page.getByTestId('menu-move-folder').click();
+    await page.getByTestId('menu-new-folder-with').click();
+    await page.keyboard.press('Enter');
+    const folder = page.locator('.folder').first();
+    await expect(folder.locator('.folder-children .row')).toHaveCount(1);
+    const colors = await page.getByTestId('app').evaluate((app) => {
+      const probe = document.createElement('i');
+      app.appendChild(probe);
+      const read = (v: string) => ((probe.style.color = `var(${v})`), getComputedStyle(probe).color);
+      const out = { accent: read('--accent'), ink2: read('--ink-2') };
+      probe.remove();
+      return out;
+    });
+    const glyph = await folder.locator('.folder-row .row-glyph').evaluate((el) => getComputedStyle(el).color);
+    expect(glyph).toBe(colors.ink2);
+    expect(glyph).not.toBe(colors.accent);
+    const parent = (await folder.locator('.folder-row .row-glyph').boundingBox())!;
+    const child = (await folder.locator('.folder-children .row .site-icon').boundingBox())!;
+    expect(Math.round(child.x - parent.x)).toBe(16);
+  });
+});
+

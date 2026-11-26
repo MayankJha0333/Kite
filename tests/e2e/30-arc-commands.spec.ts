@@ -57,6 +57,7 @@ test.describe('Arc sidebar commands', () => {
       await expect(page.getByTestId('url-pill')).toContainText('page-2');
     }
     await page.getByTestId('space-menu').click();
+    await page.getByTestId('menu-more').click();
     await page.getByTestId('menu-reset-space').click();
     await expect(page.getByTestId('toast')).toContainText('2 tabs back on their pinned page');
     const s = await savedState(page);
@@ -116,5 +117,113 @@ test.describe('Arc page commands', () => {
     expect(c.filter((x) => x === 'capture')).toHaveLength(1);
     expect(c.filter((x) => x === 'captureFull')).toHaveLength(1);
     expect(c.some((x) => x.startsWith('reveal:/tmp/Capture'))).toBe(true);
+  });
+});
+
+// The menus on sidebar items are drawn by Kite, to the measure of a macOS menu, and have to
+// behave like one: short, steerable from the keyboard, and gone the moment they are used.
+test.describe('sidebar menus', () => {
+  const labels = (page: Page, menu = 'context-menu') => page.locator(`[data-testid=${menu}] .menu-item > span:first-child`).allTextContents();
+  const highlighted = (page: Page, menu = 'context-menu') => page.locator(`[data-testid=${menu}] .menu-item.focus > span:first-child`);
+
+  async function openTabMenu(page: Page) {
+    await openApp(page);
+    await newTab(page, 'a.com');
+    await newTab(page, 'b.com');
+    await page.locator('[data-testid=today-list] [data-testid^=row-]:not([data-active])').first().click({ button: 'right' });
+    await expect(page.getByTestId('context-menu')).toBeVisible();
+  }
+
+  test('the tab menu is short: open, organize, copy, close, and the rest under More', async ({ page }) => {
+    await openTabMenu(page);
+    expect(await labels(page)).toEqual(['Open in Split View', 'Pin', 'Add to Favorites', 'Move to Folder', 'Copy URL', 'More', 'Close']);
+    await page.getByTestId('menu-more').hover();
+    await expect(page.getByTestId('context-submenu')).toBeVisible();
+    expect(await labels(page, 'context-submenu')).toEqual(['Always Open a.com in Home', 'Copy as Markdown Link', 'Duplicate', 'Rename', 'Put to Sleep']);
+    // It is on screen in one frame: nothing animates it in.
+    expect(await page.getByTestId('context-menu').evaluate((el) => el.getAnimations().length)).toBe(0);
+  });
+
+  test('arrows, Home and End, typing a name, → into a submenu and ← back out, Enter, Esc', async ({ page }) => {
+    await openTabMenu(page);
+    await page.keyboard.press('ArrowDown');
+    await expect(highlighted(page)).toHaveText('Open in Split View');
+    await page.keyboard.press('ArrowUp');
+    await expect(highlighted(page)).toHaveText('Close');
+    await page.keyboard.press('Home');
+    await expect(highlighted(page)).toHaveText('Open in Split View');
+    await page.keyboard.type('mo');
+    await expect(highlighted(page)).toHaveText('Move to Folder');
+    await page.keyboard.type('r');
+    await expect(highlighted(page)).toHaveText('More');
+    await page.keyboard.press('ArrowRight');
+    await expect(highlighted(page, 'context-submenu')).toHaveText('Always Open a.com in Home');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.getByTestId('context-submenu')).toHaveCount(0);
+    await expect(highlighted(page)).toHaveText('More');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowDown');
+    await expect(highlighted(page, 'context-submenu')).toHaveText('Copy as Markdown Link');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('context-menu')).toHaveCount(0);
+    await expect(page.getByTestId('toast').filter({ hasText: 'Copied as Markdown link' })).toBeVisible();
+    // Esc closes the whole menu, from a submenu too.
+    await page.locator('[data-testid=today-list] [data-testid^=row-]:not([data-active])').first().click({ button: 'right' });
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByTestId('context-submenu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('context-menu')).toHaveCount(0);
+    await expect(page.getByTestId('context-submenu')).toHaveCount(0);
+    // And it really goes: the fading copy is taken away once the fade is over.
+    await expect(page.locator('.menu')).toHaveCount(0);
+  });
+
+  test('“Always Open <site> in <Space>” makes a link-routing rule in one step, once, and can be undone', async ({ page }) => {
+    await openTabMenu(page);
+    await page.getByTestId('menu-more').click();
+    await page.getByTestId('menu-route-here').click();
+    await expect(page.getByTestId('toast').filter({ hasText: 'Links to a.com now open in Home' })).toBeVisible();
+    let s = await savedState(page);
+    expect(s.routes).toHaveLength(1);
+    expect(s.routes[0]).toMatchObject({ matchType: 'host', value: 'a.com', enabled: true, target: { type: 'space', spaceId: s.spaces[0].id } });
+    // Asking again, from the command bar this time, points the same rule here instead of adding another.
+    await page.locator('[data-testid=today-list] [data-testid^=row-]:not([data-active])').first().click();
+    await runAction(page, 'Always Open This Site in This Space');
+    s = await savedState(page);
+    expect(s.routes).toHaveLength(1);
+    await page.getByTestId('toast').filter({ hasText: 'Links to a.com' }).getByRole('button', { name: 'Undo' }).click();
+    // Undo takes back the last time it was asked, which changed nothing: the rule stays.
+    expect((await savedState(page)).routes).toHaveLength(1);
+  });
+});
+
+test.describe('toasts', () => {
+  test('one message shown twice stays one toast; it waits under the pointer and can be dismissed', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'a.com');
+    await runAction(page, 'Copy URL');
+    const toast = page.getByTestId('toast').filter({ hasText: 'Copied URL' });
+    await expect(toast).toBeVisible();
+    await expect(page.locator('.toasts')).toHaveAttribute('role', 'status');
+    await toast.evaluate((el) => el.setAttribute('data-first', ''));
+    await runAction(page, 'Copy URL');
+    // The same toast, in place: it was not taken away and put back.
+    await expect(page.getByTestId('toast')).toHaveCount(1);
+    await expect(toast).toHaveAttribute('data-first', '');
+    // Under the pointer it stays well past its 4.2 seconds…
+    await toast.hover();
+    await page.waitForTimeout(5000);
+    await expect(toast).toBeVisible();
+    // …and when the pointer leaves, its clock carries on from where it stopped.
+    await page.mouse.move(5, 5);
+    await page.waitForTimeout(800);
+    await expect(toast).toBeVisible();
+    await expect(toast).toHaveCount(0, { timeout: 6000 });
+    await runAction(page, 'Copy URL');
+    await toast.hover();
+    await toast.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(toast).toHaveCount(0);
   });
 });

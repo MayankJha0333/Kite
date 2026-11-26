@@ -1,0 +1,1629 @@
+/* Shared controls, sheets, and the list panels built on them (Archive, History, Downloads,
+   Boosts, Link routing, Extensions, Import from Arc). Loaded right after foundations.css, so
+   a surface may place a control but should never need to redraw one.
+
+   There is exactly one of each control. The class names, their modifiers and the markup each
+   expects are listed in the redesign's controls-contract.md; keep the two in step.
+
+   How the states work, for every control here:
+   - Hover and pressed fills appear at once (a fill that fades in reads as lag); only the way
+     out eases, over --t-fast.
+   - A free-standing button gives a little when pressed (scale 0.97). Rows never do.
+   - Keyboard focus is the real outline from foundations.css. Text fields and the search
+     field draw it tight against the field, as macOS does.
+   - Disabled is 45% strength and takes no pointer. */
+
+/* ==== Button ================================================================== */
+
+/* The fill is the button's own color; hover and pressed are a second, tinted layer on top
+   (background-image), so every variant shares one hover and one pressed rule. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--h-md);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background-color: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-body);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: default;
+  user-select: none;
+  /* letting go follows the user's motion feel; going in (below) is always quick */
+  transition: transform var(--press-dur, var(--t-fast)) var(--press-ease, var(--ease-out));
+}
+
+.btn > svg {
+  flex: none;
+}
+
+.btn:hover {
+  background-image: linear-gradient(var(--fill-hover), var(--fill-hover));
+}
+
+.btn:active {
+  background-image: linear-gradient(var(--fill-press), var(--fill-press));
+  transform: scale(0.97);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+/* The one accent button of a surface. */
+.btn.primary {
+  background-color: var(--accent);
+  box-shadow: none;
+  color: var(--accent-ink);
+}
+
+/* No fill until the pointer is over it. */
+.btn.ghost {
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--ink-2);
+}
+
+.btn.ghost:hover {
+  color: var(--ink);
+}
+
+/* Destructive: red text on the neutral button. (.danger-solid is the old name.) */
+.btn.danger,
+.btn.danger-solid {
+  color: var(--danger);
+}
+
+.btn.danger:hover,
+.btn.danger-solid:hover {
+  background-image: linear-gradient(var(--danger-soft), var(--danger-soft));
+}
+
+.btn.small {
+  height: var(--h-sm);
+  padding: 0 8px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* A file picker is a label around a hidden input; the label shows the input's focus. */
+.btn:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ==== Icon button ============================================================= */
+
+.icon-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background-color: transparent;
+  color: var(--ink-2);
+  cursor: default;
+  transition: transform var(--press-dur, var(--t-fast)) var(--press-ease, var(--ease-out)), background-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+}
+
+.icon-btn:hover {
+  background-color: var(--fill-hover);
+  color: var(--ink);
+  transition-duration: var(--press-dur, var(--t-fast)), var(--t-instant), var(--t-instant);
+}
+
+.icon-btn:active {
+  background-color: var(--fill-press);
+  transform: scale(0.97);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+/* Held down: a toolbar button whose panel is open, a pressed toggle button. */
+.icon-btn[data-active],
+.icon-btn[aria-pressed='true'] {
+  background-color: var(--fill-press);
+  color: var(--ink);
+}
+
+.icon-btn:disabled {
+  color: var(--ink-4);
+  pointer-events: none;
+}
+
+/* Inside a row or a field: 20px to look at, still 24px to hit. (.tiny is the old name.) */
+.icon-btn.small,
+.icon-btn.tiny {
+  width: var(--h-xs);
+  height: var(--h-xs);
+  border-radius: var(--r-xs);
+}
+
+.icon-btn.small::after,
+.icon-btn.tiny::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+
+/* ==== Text field ============================================================== */
+
+.input {
+  width: 100%;
+  height: var(--h-md);
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+}
+
+.input::placeholder {
+  color: var(--ink-3);
+}
+
+.input:hover {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+/* The ring sits against the field; the hairline keeps its color. */
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.input[aria-invalid='true'] {
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.input[aria-invalid='true']:focus-visible {
+  outline-color: var(--danger);
+}
+
+.input:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+textarea.input {
+  display: block;
+  height: auto;
+  min-height: 88px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+
+/* Code you type (a Boost's CSS or script): the one place a field is monospaced. */
+.input.code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: var(--fs-small);
+  line-height: var(--lh-body);
+}
+
+/* ==== Select (pop-up button) ================================================== */
+
+/* A native <select class="select">, or a <button class="select"> that opens a menu.
+   (select.input is the old name.) The two small arrows are drawn from the ink color, so
+   they follow the theme, and both forms get the same ones. */
+.select,
+select.input {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: var(--h-md);
+  padding: 0 24px 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background-color: var(--fill-field);
+  background-image: conic-gradient(from 135deg at 50% 0, var(--ink-3) 90deg, transparent 0), conic-gradient(from -45deg at 50% 100%, var(--ink-3) 90deg, transparent 0);
+  background-repeat: no-repeat;
+  background-size: 8px 4px;
+  background-position: right 8px top calc(50% - 4px), right 8px top calc(50% + 4px);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+  text-align: left;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.select:hover,
+select.input:hover {
+  background-color: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.select:active,
+select.input:active {
+  background-color: var(--fill-press);
+}
+
+.select:focus-visible,
+select.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.select:disabled,
+select.input:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==== Search field ============================================================ */
+
+/* A well with a magnifier, the input, and (while there is text) a clear button. The focus
+   ring belongs to the well, so it follows the rounded corners. */
+.search-field {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  height: var(--h-lg);
+  padding: 0 6px 0 8px;
+  border-radius: var(--r-md);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-3);
+}
+
+.search-field > svg {
+  flex: none;
+}
+
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+}
+
+.search-field input::placeholder {
+  color: var(--ink-3);
+}
+
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-field input:focus-visible {
+  outline: none;
+}
+
+.search-field:hover {
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.search-field:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+/* ==== Segmented control ======================================================= */
+
+/* A track of buttons; the chosen one is a raised paper pill. Choosing is instant: the pill
+   does not slide, because a selection that travels reads as the control thinking.
+   .fill stretches the track and gives every segment the same width. */
+.segmented {
+  display: inline-flex;
+  flex: none;
+  max-width: 100%;
+  height: var(--h-md);
+  padding: 2px;
+  border-radius: var(--r-sm);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.segmented.fill {
+  display: flex;
+  width: 100%;
+}
+
+.segmented > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-body);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.segmented.fill > button {
+  flex: 1 1 0;
+}
+
+.segmented > button:hover {
+  color: var(--ink);
+}
+
+.segmented > button:active {
+  background: var(--fill-hover);
+}
+
+.segmented > button:is([data-on], [aria-checked='true'], [aria-selected='true'], [aria-pressed='true']) {
+  background: var(--pill);
+  box-shadow: var(--elev-1);
+  color: var(--ink);
+}
+
+.segmented > button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==== Switch ================================================================== */
+
+/* The knob is paper by day; at night paper would be darker than the track, so it takes the
+   ink color instead. The slider's knob follows the same rule. */
+.toggle,
+.slider,
+.range {
+  --_knob: var(--surface-1);
+}
+
+.app[data-theme='dark'] :is(.toggle, .slider, .range) {
+  --_knob: var(--ink);
+}
+
+.toggle {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  /* any radius of at least half the height makes it fully round */
+  border-radius: var(--h-sm);
+  background-color: var(--line-strong);
+  cursor: default;
+  transition: background-color var(--t-fast) var(--ease-out);
+}
+
+/* 22px tall to look at, 24px to hit. */
+.toggle::before {
+  content: '';
+  position: absolute;
+  inset: -1px 0;
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--_knob);
+  box-shadow: var(--elev-1);
+  transition: transform var(--t-fast) var(--ease-out), scale var(--t-fast) var(--ease-out);
+}
+
+.toggle:is([data-on], [aria-checked='true']) {
+  background-color: var(--accent);
+}
+
+.toggle:is([data-on], [aria-checked='true']) .toggle-knob {
+  transform: translateX(14px);
+}
+
+.toggle:hover {
+  background-image: linear-gradient(var(--fill-hover), var(--fill-hover));
+}
+
+.toggle:active .toggle-knob {
+  scale: 0.92;
+}
+
+.toggle:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==== Slider ================================================================== */
+
+/* A native range input, so arrow keys, Home and End work. The part left of the knob is
+   filled from --p (0 to 1). The Slider component sets --p; a bare input gets it from its
+   own value, min and max attributes, which React keeps current. (.range is the old name.) */
+.slider,
+.range {
+  --p: calc((attr(value type(<number>), 50) - attr(min type(<number>), 0)) / (attr(max type(<number>), 100) - attr(min type(<number>), 0)));
+  --_fill: calc(8px + var(--p, 0) * (100% - 16px));
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: var(--h-sm);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.slider::-webkit-slider-runnable-track,
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--r-xs);
+  background: linear-gradient(to right, var(--accent) var(--_fill), var(--line-strong) var(--_fill));
+}
+
+.slider::-webkit-slider-thumb,
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--_knob);
+  box-shadow: var(--elev-1);
+}
+
+/* The ring goes around the knob, where the eye already is. */
+.slider:focus-visible,
+.range:focus-visible {
+  outline: none;
+}
+
+.slider:focus-visible::-webkit-slider-thumb,
+.range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.slider:disabled,
+.range:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==== Checkbox ================================================================ */
+
+.checkbox {
+  appearance: none;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: var(--r-xs);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  cursor: default;
+}
+
+/* 16px to look at, 24px to hit. */
+.checkbox::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.checkbox:hover {
+  background: var(--fill-press);
+}
+
+.checkbox:checked,
+.checkbox:indeterminate {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+/* The tick: two sides of a small box, turned. */
+.checkbox:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  margin-top: -2px;
+  border: solid var(--accent-ink);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox:indeterminate::after {
+  content: '';
+  width: 8px;
+  height: 1.5px;
+  background: var(--accent-ink);
+}
+
+.checkbox:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==== Labels, key caps, tags, counts ========================================== */
+
+/* The small heading over a group of rows. (.look-h is the old name.) */
+.section-label,
+.look-h {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-micro);
+}
+
+/* A key cap, for shortcuts shown in running text or beside an action. */
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-xs);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-2);
+  font-family: var(--font);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Several caps that make one shortcut stay on one line. */
+.keys {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* A tag: a short value, optionally with a button that removes it. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: var(--h-xs);
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.chip code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Code quoted in chrome text: a selector, a file path. Monospace because it is code. */
+.chip code,
+.notice code,
+.section-label code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-regular);
+  overflow-wrap: anywhere;
+}
+
+.chip > button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-right: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.chip > button::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.chip > button:hover {
+  background: var(--fill-press);
+  color: var(--ink);
+}
+
+/* A count beside a label. The digits never shift as the number changes. */
+.badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: var(--h-sm);
+  background: var(--fill-press);
+  color: var(--ink-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inside a segment the count is just the number. */
+.segmented .badge {
+  min-width: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink-3);
+  font-weight: var(--fw-regular);
+}
+
+.divider {
+  flex: none;
+  height: 1px;
+  margin: 4px 0;
+  border: 0;
+  background: var(--line);
+}
+
+.divider[data-vertical] {
+  align-self: stretch;
+  width: 1px;
+  height: auto;
+  margin: 0 4px;
+}
+
+/* ==== List row ================================================================ */
+
+/* One row of a list: History, Archive, Downloads, Extensions, Boosts, Link routing.
+   .list-row-main is the row's own action (a button) or plain content (a div); the buttons
+   in .list-row-actions show while the pointer or the keyboard is in the row;
+   .list-row-trailing is for things that always show (a switch, a size). */
+.list-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding-right: 6px;
+  border-radius: var(--r-md);
+}
+
+.list-row:hover {
+  background: var(--fill-hover);
+}
+
+.list-row:has(> .list-row-main:active) {
+  background: var(--fill-press);
+}
+
+.list-row[data-on] {
+  background: var(--fill-selected);
+}
+
+.list-row-main {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 4px 2px 8px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+/* Inside a row the ring is drawn inward, so a neighbor never clips it. */
+.list-row-main:focus-visible {
+  outline-offset: -2px;
+}
+
+.list-row-main > svg {
+  flex: none;
+  color: var(--ink-2);
+}
+
+.list-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.list-row-title,
+.list-row-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.list-row-title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+}
+
+.list-row-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Inside .list-row-main, at its right end: a time, a size. */
+.list-row-aside {
+  flex: none;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.list-row-actions,
+.list-row-trailing {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+}
+
+.list-row-trailing {
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.list-row-actions {
+  opacity: 0;
+}
+
+.list-row:hover > .list-row-actions,
+.list-row:focus-within > .list-row-actions,
+.list-row-actions[data-shown] {
+  opacity: 1;
+}
+
+/* No pointer to hover with: the actions are simply there. */
+@media (hover: none) {
+  .list-row-actions {
+    opacity: 1;
+  }
+}
+
+/* Rows under one small heading (a day in History, a section in Downloads). */
+.list-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-group > .section-label {
+  padding: 0 8px 4px;
+}
+
+/* A group's heading with one quiet action at its right end. */
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--h-sm);
+  padding: 0 0 4px 8px;
+}
+
+/* "Show more", centered under a long list. */
+.list-more {
+  display: flex;
+  justify-content: center;
+}
+
+/* ==== Empty state ============================================================= */
+
+/* One sentence that says what will appear here and how, and at most one button.
+   With data-field it fills a large area and lies on the contour field (put a
+   .contour-field element inside it, first). (.empty-list is the old name.) */
+.empty,
+.empty-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--ink-2);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.empty > p,
+.empty-list > :is(p, span) {
+  max-width: 44ch;
+  margin: 0;
+}
+
+.empty[data-field] {
+  flex: 1 0 auto;
+  min-height: 240px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.empty[data-field] > .contour-field {
+  z-index: -1;
+}
+
+/* Old markup that some pages still carry: a title line and a help line. */
+.empty-state-title {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+/* ==== Small shared pieces ===================================================== */
+
+/* A labeled control in a sheet: the label above, or beside it with data-inline. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field[data-inline] {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-small);
+}
+
+.field-hint {
+  color: var(--ink-3);
+  font-weight: var(--fw-regular);
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.field-row > .field:first-child {
+  flex: 1;
+}
+
+/* A switch or a tick with its label on one line. */
+.field-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+
+/* A field and the button that submits it, side by side. */
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-form > .input,
+.inline-form > .search-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.muted {
+  color: var(--ink-3);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+/* A link inside chrome text. Often a <button>, so it is reset to plain text first. */
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* A short caution under a field. */
+.warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--warn);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.warn > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* A boxed line that explains or reports something inside a sheet. .danger is an error:
+   it names the problem and the way out. (.import-error is the old name for that one.) */
+.notice,
+.import-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: var(--fill-field);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  user-select: text;
+}
+
+.notice > svg,
+.import-error > svg {
+  flex: none;
+}
+
+.notice.danger,
+.import-error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* A question the panel answers only when asked: a closed line of text that opens. */
+.disclosure > summary {
+  width: fit-content;
+  border-radius: var(--r-xs);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  cursor: default;
+}
+
+.disclosure > summary:hover {
+  color: var(--ink);
+}
+
+.disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+}
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure > summary::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin: 0 4px 0 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.disclosure[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.disclosure > summary ~ * {
+  margin: 8px 0 0;
+}
+
+/* Anything switched off by a setting above it. */
+[data-off] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ==== Sheets ================================================================== */
+
+/* One sheet. Its top edge is always 12% down the window, so the title never jumps from one
+   sheet to the next; it never grows past the window, its body scrolls instead. The dim is
+   light on purpose: the page stays readable behind it. */
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sheet);
+  display: grid;
+  /* one fixed cell, so nothing inside the sheet (a long title) can widen or move it */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  justify-items: center;
+  align-items: start;
+  padding: 12vh 24px 24px;
+  background: var(--scrim);
+  animation: fade-in var(--t-settle) var(--ease-out);
+}
+
+/* Three widths: 440 (data-size="small"), 560, 720 (data-size="large"). */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: 100%;
+  border-radius: var(--r-xl);
+  background: var(--surface-3);
+  box-shadow: var(--elev-3);
+  transform-origin: center;
+  animation: arrive var(--t-settle) var(--ease-settle);
+  user-select: text;
+}
+
+.sheet[data-size='small'] {
+  width: min(440px, 100%);
+}
+
+.sheet[data-size='large'] {
+  width: min(720px, 100%);
+}
+
+/* The sheet itself takes focus when nothing inside asks for it; that needs no ring. */
+.sheet:focus {
+  outline: none;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex: none;
+  gap: 12px;
+  padding: 16px 14px 4px 20px;
+}
+
+.sheet-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-title);
+}
+
+.sheet-title > svg {
+  flex: none;
+  color: var(--ink-2);
+}
+
+.sheet-sub {
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-small);
+}
+
+/* The body scrolls by itself, and its children keep their height while it does. What
+   scrolls up under the title fades out over the last few pixels instead of being cut. */
+.sheet-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 12px 20px 20px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  mask-image: linear-gradient(to bottom, transparent, #000 8px);
+}
+
+.sheet-body > * {
+  flex-shrink: 0;
+}
+
+/* Right-aligned, the primary button last. Put a .spacer after anything that belongs on
+   the left (a count, or the destructive action as a red .btn.danger.ghost). */
+.sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  /* tall enough for its largest button, so swapping what is in it never moves the body */
+  min-height: 56px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+}
+
+/* A text button at the left edge lines its words up with the body, not its own padding. */
+.sheet-foot > .btn.ghost:first-child {
+  margin-left: -14px;
+}
+
+.sheet-foot .muted {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The sheet's own buttons are the larger size. */
+.sheet-foot > .btn:not(.small) {
+  height: var(--h-lg);
+  padding: 0 14px;
+}
+
+/* A docked sheet: at the top corner, nothing dimmed, the window stays usable behind it.
+   340 wide unless it asks for one of the sheet sizes. */
+.sheet-scrim[data-dock] {
+  justify-items: end;
+  padding: 12px;
+  background: transparent;
+  pointer-events: none;
+  animation: none;
+}
+
+/* It keeps clear of the sidebar: on the other side when the sidebar is on the right. */
+.app[data-side='right'] .sheet-scrim[data-dock] {
+  justify-items: start;
+}
+
+.sheet-scrim[data-dock] > .sheet {
+  pointer-events: auto;
+}
+
+.sheet-scrim[data-dock] > .sheet:not([data-size]) {
+  width: min(340px, 100%);
+}
+
+/* Leaving is quicker than arriving, and travels no further. */
+.sheet-scrim[data-leaving] {
+  animation: fade-out var(--t-exit) var(--ease-out) forwards;
+}
+
+.sheet-scrim[data-leaving] .sheet {
+  animation: leave var(--t-exit) var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+/* ==== Downloads =============================================================== */
+
+/* The sidebar button: while something is coming down, the string runs under the icon. */
+.dl-btn > .thread {
+  position: absolute;
+  right: 4px;
+  bottom: 1px;
+  left: 4px;
+}
+
+.dl-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.dl-list:empty {
+  display: none;
+}
+
+/* A download row can grow a second line under itself: the string, a question, a choice. */
+.dl-row {
+  flex-wrap: wrap;
+}
+
+/* The file's name opens the file once it has arrived. */
+.dl-name {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.dl-name:not(:disabled):hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dl-status > svg,
+.dl-fast > svg {
+  vertical-align: -2px;
+}
+
+.dl-row[data-state='failed'] .dl-status {
+  color: var(--danger);
+}
+
+/* The string, on a hairline that shows how far there is to go. Paused, it is no longer in
+   flight, so it loses its color. */
+.dl-string,
+.dl-parts {
+  width: calc(100% - 40px);
+  margin: 0 8px 6px 32px;
+}
+
+.dl-string {
+  overflow: hidden;
+  border-radius: var(--thread-w);
+  background: var(--line);
+}
+
+.dl-row[data-state='paused'] .thread {
+  --thread: var(--ink-3);
+}
+
+/* Each connection's own stretch of the file, as a fainter line just under the string. */
+.dl-parts {
+  position: relative;
+  height: var(--thread-w);
+  margin-top: -3px;
+}
+
+.dl-parts > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--ink-4);
+}
+
+/* Asking before a cancel: the row itself turns into the question. */
+.dl-confirm,
+.dl-confirm:hover {
+  background: var(--fill-field);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.dl-ask {
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  overflow-wrap: anywhere;
+}
+
+/* What sits under a row's text: the answers to a question, the qualities of a stream, a problem. */
+.dl-answers,
+.dl-under {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 8px 8px 32px;
+}
+
+.dl-note {
+  margin: 0;
+  padding: 0 8px 8px;
+}
+
+/* ==== Boosts ================================================================== */
+
+/* The elements a Boost hides, as tags, then the button that picks another. */
+.zap-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Shown over the page while you pick an element to hide. */
+.zap-hint {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--elev-2);
+  color: var(--ink);
+  translate: -50% 0;
+  pointer-events: none;
+  animation: arrive var(--t-pop) var(--ease-out);
+}
+
+/* ==== Link routing ============================================================ */
+
+/* One rule, read left to right: how it matches, what it matches, where it goes. */
+.route-row {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr) auto 168px auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+/* Rules are a form, not a list to pick from, so they line up with the fields around them. */
+.routes > .list-head {
+  padding-left: 0;
+}
+
+.route-row > .select {
+  width: 100%;
+}
+
+/* A rule that is switched off stays editable, but steps back. */
+.route-row:not([data-enabled]) > :is(.select, .input, .route-arrow) {
+  opacity: 0.45;
+}
+
+.route-arrow {
+  color: var(--ink-4);
+}
+
+.route-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.route-add {
+  padding-top: 6px;
+}
+
+.route-result {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.route-result b {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+/* ==== Extensions ============================================================== */
+
+.ext-add,
+.ext-review {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The question asked before anything is installed. */
+.ext-ask {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-title);
+}
+
+.ext-review > p {
+  margin: 0;
+}
+
+.ext-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 8px 0;
+}
+
+.ext-cols ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: var(--lh-title);
+}
+
+.ext-limits {
+  color: var(--ink-2);
+}
+
+.ext-sites {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* An extension row can grow a second line under itself: the question before removing it. */
+.ext-row {
+  flex-wrap: wrap;
+}
+
+.ext-row:not([data-enabled]) > .list-row-main {
+  opacity: 0.45;
+}
+
+.ext-problem,
+.ext-limit-note {
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+.ext-problem > svg,
+.ext-limit-note > svg {
+  vertical-align: -2px;
+}
+
+.ext-problem {
+  color: var(--danger);
+}
+
+.ext-limit-note {
+  color: var(--ink-3);
+}
+
+.ext-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 8px 8px 32px;
+}
+
+.ext-confirm > .muted {
+  margin-right: auto;
+}
+
+/* ==== Import from Arc ========================================================= */
+
+/* A Space left out of the import steps back. */
+.import-space:not([data-picked]) :is(.import-swatch, .list-row-text) {
+  opacity: 0.45;
+}
+
+/* The Space's own icon on its own colors: the user's content, shown as they will see it. */
+.import-swatch {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--h-sm);
+  height: var(--h-sm);
+  border-radius: var(--r-sm);
+  background: var(--fill-press);
+  font-size: var(--fs-body);
+}
+
+.import-skipped {
+  margin: 0;
+  padding: 6px 8px 0;
+}
+
+/* ==== Still here, owned elsewhere ==============================================
+   Pieces of the Space editor that were written into this file before it was split by
+   surface. They are kept working on the tokens; their owners move them into
+   their own files as they restyle them. (The theme editor's, Customize's, Shields' and
+   site permissions' pieces now live in settings.css.) */
+
+/* The Space editor. */
+.space-preview {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 104px;
+  padding: 16px 18px;
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.space-preview-icon {
+  font-size: var(--fs-display);
+}
+
+.space-preview-name {
+  font-family: var(--font);
+  font-size: var(--fs-large);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-large);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 4px;
+}
+
+.emoji {
+  height: var(--h-lg);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  font-size: var(--fs-title);
+}
+
+.emoji:hover {
+  background: var(--fill-hover);
+}
+
+.emoji[data-on] {
+  background: var(--fill-selected);
+}
+
+.emoji-input {
+  height: var(--h-lg);
+  padding: 0;
+  text-align: center;
+}
+
+.space-isolated {
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--r-lg);
+  background: var(--fill-hover);
+}
+
+.space-isolated > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.space-badge {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  background: var(--fill-press);
+  color: var(--ink-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+

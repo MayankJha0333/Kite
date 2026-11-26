@@ -52,7 +52,7 @@ export const FILTER_LISTS: readonly FilterListDef[] = [
   { id: 'ubo-privacy', group: 'privacy', name: 'uBlock privacy', desc: 'Extra tracker rules from uBlock Origin', url: `${UBO}/privacy.txt`, on: false },
   { id: 'adguard-url-tracking', group: 'privacy', name: 'AdGuard URL Tracking', desc: 'Removes tracking parts from links (utm_, fbclid, gclid…)', url: `${AG}/17.txt`, on: false, hidden: true },
   { id: 'adguard-social', group: 'social', name: 'AdGuard Social Media', desc: 'Like and Share buttons, embedded feeds', url: `${AG}/4.txt`, on: false },
-  { id: 'adguard-cookies', group: 'annoyances', name: 'Cookie notices', desc: 'Hides cookie-consent banners', url: `${AG}/18.txt`, on: false },
+  { id: 'adguard-cookies', group: 'annoyances', name: 'Cookie notices', desc: 'Hides cookie-consent banners', url: `${AG}/18.txt`, on: true },
   { id: 'adguard-popups', group: 'annoyances', name: 'Pop-ups', desc: 'Newsletter and sign-up pop-ups', url: `${AG}/19.txt`, on: false },
   { id: 'adguard-app-banners', group: 'annoyances', name: 'Mobile app banners', desc: '“Get our app” banners', url: `${AG}/20.txt`, on: false },
   { id: 'adguard-widgets', group: 'annoyances', name: 'Widgets', desc: 'Chat bubbles and support widgets', url: `${AG}/22.txt`, on: false },

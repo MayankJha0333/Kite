@@ -15,7 +15,7 @@ test.describe('history page', () => {
     // Search narrows it.
     await page.getByTestId('history-search').fill('alpha');
     await expect(rows).toHaveCount(1);
-    await expect(page.getByTestId('history-count')).toHaveText('1 page match');
+    await expect(page.getByTestId('history-count')).toHaveText('1 page matches');
     // Opening one makes a new tab and closes the page.
     await rows.first().getByTestId('history-open').click();
     await expect(page.getByTestId('history-page')).toHaveCount(0);
@@ -66,6 +66,42 @@ test.describe('find in page', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('find-bar')).toHaveCount(0);
   });
+
+  test('opens at once in the page’s corner, keeps the last search selected, and says “No matches” in the text only', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'https://words.com');
+    await page.keyboard.press(`${MOD}+f`);
+    const bar = page.getByTestId('find-bar');
+    // Opened from the keyboard: it is simply there.
+    expect(await bar.evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
+    const card = (await page.getByTestId('page-card').boundingBox())!;
+    const box = (await bar.boundingBox())!;
+    expect(Math.round(card.x + card.width - box.x - box.width)).toBe(8);
+    expect(Math.round(box.y - card.y)).toBe(8); // under the string, never over it
+    await page.getByTestId('find-input').fill('zzzqqq');
+    await expect(page.getByTestId('find-count')).toHaveText('No matches');
+    // The count turns red; the field does not.
+    const [count, field, danger] = await bar.evaluate((el) => {
+      const probe = document.createElement('i');
+      probe.style.color = 'var(--danger)';
+      el.append(probe);
+      const out = [getComputedStyle(el.querySelector('.find-count')!).color, getComputedStyle(el.querySelector('input')!).color, getComputedStyle(probe).color];
+      probe.remove();
+      return out;
+    });
+    expect(count).toBe(danger);
+    expect(field).not.toBe(danger);
+    await page.getByTestId('find-input').fill('link');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${MOD}+f`);
+    await expect(page.getByTestId('find-input')).toHaveValue('link');
+    await expect(page.getByTestId('find-count')).toHaveText(/1 of \d+/);
+    expect(await page.getByTestId('find-input').evaluate((el: HTMLInputElement) => el.selectionEnd! - el.selectionStart!)).toBe(4);
+    for (const name of ['Previous match', 'Next match', 'Close find']) {
+      const b = (await bar.getByRole('button', { name }).boundingBox())!;
+      expect([b.width, b.height]).toEqual([24, 24]);
+    }
+  });
 });
 
 test.describe('zoom', () => {
@@ -83,6 +119,27 @@ test.describe('zoom', () => {
     await expect(page.getByTestId('url-zoom')).toHaveText('83%');
     await page.keyboard.press(`${MOD}+0`);
     await expect(page.getByTestId('url-zoom')).toHaveCount(0);
+  });
+
+  test('the site popover has the zoom control too, and hangs under the address field', async ({ page }) => {
+    await openApp(page);
+    await newTab(page, 'https://zoom.com');
+    await page.getByTestId('url-security').click();
+    const info = page.getByTestId('site-info');
+    await expect(page.getByTestId('site-info-zoom')).toHaveText('100%');
+    await info.getByRole('button', { name: 'Zoom in' }).click();
+    await expect(page.getByTestId('site-info-zoom')).toHaveText('120%');
+    await expect(page.getByTestId('url-zoom')).toHaveText('120%');
+    await info.getByRole('button', { name: 'Zoom out' }).click();
+    await info.getByRole('button', { name: 'Zoom out' }).click();
+    await expect(page.getByTestId('site-info-zoom')).toHaveText('83%');
+    await page.getByTestId('site-info-zoom').click();
+    await expect(page.getByTestId('url-zoom')).toHaveCount(0);
+    const field = (await page.getByTestId('url-pill').boundingBox())!;
+    const box = (await info.boundingBox())!;
+    expect(Math.round(box.y - field.y - field.height)).toBe(6);
+    expect(Math.round(box.x)).toBe(Math.round(field.x));
+    expect(Math.round(box.width)).toBe(320);
   });
 });
 

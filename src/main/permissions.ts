@@ -23,6 +23,12 @@ export const PERMISSION_LABELS: Record<string, string> = {
   usb: 'use USB devices',
   'storage-access': 'use its saved data on other sites',
   'top-level-storage-access': 'use its saved data on other sites',
+  // A website reaching this computer or your home network (a printer, a router, an app on
+  // localhost). Electron 45 knows these but keeps Chromium's check switched off, so nothing
+  // asks yet; when it is switched on, sites get a question here instead of a silent “no”.
+  'local-network': 'connect to devices on your local network',
+  'local-network-access': 'connect to devices on your local network',
+  'loopback-network': 'connect to apps on this computer',
 };
 
 export interface PermissionDeps {

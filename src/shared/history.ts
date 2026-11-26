@@ -10,13 +10,13 @@ export interface HistoryGroup {
   items: HistoryEntry[];
 }
 
-const startOfDay = (t: number) => {
+export const startOfDay = (t: number) => {
   const d = new Date(t);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 };
 
-/** Day label like the Archive uses: Today, Yesterday, then dates. */
+/** The one day label, for History and the Archive: Today, Yesterday, then "Monday, November 23" (with the year once it is not this one). */
 export function dayLabel(day: number, now: number): string {
   const today = startOfDay(now);
   if (day === today) return 'Today';

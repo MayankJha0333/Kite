@@ -1,9 +1,9 @@
 // Turns a Space theme + settings into CSS variables for the whole window.
 
 import type { Settings, SpaceTheme } from '@shared/types';
-import { scaleVars, SPRINGS, springDuration, springEasing } from '@shared/designTokens';
+import { hexToHsl, hslToHex, SPRINGS, springDuration, springEasing } from '@shared/designTokens';
 import { backdropUrl } from './backdrops';
-import { DEFAULT_PATTERN_STRENGTH, type PatternId } from '@shared/spaceTheme';
+import { CALM_AIR, DEFAULT_PATTERN_STRENGTH, type PatternId } from '@shared/spaceTheme';
 
 type RGB = [number, number, number];
 
@@ -43,36 +43,82 @@ export function resolveDark(theme: SpaceTheme, systemDark: boolean): boolean {
 }
 
 /** Kite's own text: one face everywhere (web pages keep their fonts). */
-const FONT = "'Figtree', ui-sans-serif, system-ui, sans-serif";
+const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Figtree', ui-sans-serif, system-ui, sans-serif";
 
-/** Animation feels you can pick instead of the default. */
+/** How things arrive and travel by default: the stylesheet's --ease-out, at the same length as before. */
+const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
+const DUR = 220;
+
+/**
+ * Animation feels you can pick instead of the default: the curve and length (--ease, --dur)
+ * that sheets, panels, the sidebar and a change of Space move with. None of them goes past
+ * its resting place: a sheet or a menu that overshoots reads as a wobble, so the bounce of
+ * "Bouncy" and "Spring" lives only in the press (below).
+ */
 export const FEEL: Partial<Record<Settings['motionFeel'], { ease: string; ms: number }>> = {
   smooth: { ease: 'cubic-bezier(0.32, 0.72, 0, 1)', ms: 300 },
   snappy: { ease: 'cubic-bezier(0.2, 0, 0, 1)', ms: 130 },
-  bouncy: { ease: 'cubic-bezier(0.34, 1.45, 0.64, 1)', ms: 320 },
-  // A real spring (response + damping), drawn as a CSS linear() curve.
+  bouncy: { ease: EASE, ms: 320 },
+  // A real spring (response + damping), drawn as a CSS linear() curve. It is damped enough
+  // to pass its resting place by under half a percent, which no one can see.
   spring: { ease: springEasing(SPRINGS.default), ms: springDuration(SPRINGS.default) },
 };
 
-/** Release after a press: a small spring bounce, used by rows, favourites and buttons. */
-const PRESS = { ease: springEasing(SPRINGS.press), ms: springDuration(SPRINGS.press) };
-
-const ROW: Record<Settings['density'], number> = { compact: 30, comfortable: 36, roomy: 42 };
+/**
+ * Letting go of something you pressed (--press-ease, --press-dur). "Bouncy" and "Spring"
+ * give it a small bounce; every other feel settles straight back.
+ */
+const PRESS: Partial<Record<Settings['motionFeel'], { ease: string; ms: number }>> = {
+  bouncy: { ease: 'cubic-bezier(0.34, 1.45, 0.64, 1)', ms: 320 },
+  spring: { ease: springEasing(SPRINGS.press), ms: springDuration(SPRINGS.press) },
+};
 
 const rgba = (hex: string, a: number) => {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r},${g},${b},${Math.round(Math.max(0, Math.min(1, a)) * 1000) / 1000})`;
 };
 
-// The look: soft tinted chrome, the page floating on a card. One set of values, tuned once.
+// Calm Air: chart paper. The window frame is one flat tint and the page lies on it like a
+// sheet. `base` is the paper before a Space colours it; the Space's first colour is mixed in
+// by `tint` (weakest to strongest, following Intensity). The default Space colour at the
+// default intensity gives exactly the Calm Air shell. `top` is the lightest paper a label
+// can lie on (--surface-3 in foundations.css; a unit test keeps the two the same).
+// `inks` are the strengths of secondary, tertiary and decorative text.
 const TONE = {
-  light: { base: '#f4f1ec', card: '#ffffff', ink: '#1e1c1a', tint: [0.18, 0.62] as const },
-  dark: { base: '#16171c', card: '#1f2027', ink: '#f1efea', tint: [0.12, 0.38] as const },
+  light: { ...CALM_AIR.light, base: '#fafcfc', top: '#ffffff', tint: [0.04, 0.44] as const, inks: [0.76, 0.67, 0.44] as const },
+  dark: { ...CALM_AIR.dark, base: '#0a0f16', top: '#27333d', tint: [0.04, 0.34] as const, inks: [0.74, 0.62, 0.4] as const },
 };
-const BORDER = 0.35;
-const SHADOW = 0.5;
-const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
-const DUR = 220;
+/** The weakest strength, from `alpha` up, at which see-through ink still reads as text (4.5:1) on every surface given. */
+function textStrength(ink: string, alpha: number, surfaces: string[]): number {
+  let a = alpha;
+  while (a < 1 && surfaces.some((bg) => contrast(mix(bg, ink, a), bg) < 4.5)) a = Math.min(1, Math.round((a + 0.02) * 100) / 100);
+  return a;
+}
+
+/** The label colour for something filled with the accent: white or a near-black in the accent's hue, whichever reads better. */
+function inkOn(accent: string): string {
+  const dark = accent === CALM_AIR.dark.accent ? CALM_AIR.dark.accentInk : hslToHex(hexToHsl(accent)[0], 0.45, 0.07);
+  if (contrast('#ffffff', accent) >= 4.5) return '#ffffff';
+  return contrast(dark, accent) >= contrast('#ffffff', accent) ? dark : '#ffffff';
+}
+
+/**
+ * The accent a Space shows, from its second colour. It has to work as a link (4.5:1) on
+ * the frame and on every sheet of paper, and carry a readable label when it fills a button,
+ * so it is deepened by day and lifted at night, keeping its hue, until it does. Chart
+ * magenta is drawn by hand for both modes and starts from its night value in the dark.
+ */
+function fitAccent(source: string, dark: boolean, surfaces: string[]): string {
+  let c = source.toLowerCase() === CALM_AIR.light.accent && dark ? CALM_AIR.dark.accent : source.toLowerCase();
+  const [h, s] = hexToHsl(c);
+  let l = hexToHsl(c)[2];
+  const ok = () => surfaces.every((bg) => contrast(c, bg) >= 4.5) && contrast(inkOn(c), c) >= 4.5;
+  for (let i = 0; i < 50 && !ok(); i++) {
+    l = dark ? Math.min(1, l + 0.02) : Math.max(0, l - 0.02);
+    c = hslToHex(h, s, l);
+  }
+  return c;
+}
 
 /**
  * A Space's pattern as CSS background layers: light marks on dark themes, dark marks on
@@ -81,7 +127,7 @@ const DUR = 220;
 export function patternCss(pattern: PatternId | undefined, dark: boolean, strength = DEFAULT_PATTERN_STRENGTH): { image: string; size: string } {
   if (!pattern) return { image: 'none', size: 'auto' };
   const k = Math.max(0, Math.min(1, strength)) * 2;
-  const c = (a: number) => `rgba(${dark ? '255,255,255' : '40,30,20'},${Math.round(Math.min(0.6, a * k) * 1000) / 1000})`;
+  const c = (a: number) => `rgba(${dark ? '255,255,255' : hexToRgb(CALM_AIR.light.ink).join(',')},${Math.round(Math.min(0.6, a * k) * 1000) / 1000})`;
   switch (pattern) {
     case 'glow':
       return { image: `radial-gradient(60% 50% at 16% 0%, ${c(0.11)}, transparent 70%), radial-gradient(50% 45% at 100% 100%, ${c(0.08)}, transparent 70%)`, size: 'auto, auto' };
@@ -96,78 +142,60 @@ export function patternCss(pattern: PatternId | undefined, dark: boolean, streng
   }
 }
 
-/** How the selected tab and hovered rows look: a lifted card. */
-function rowSurfaces(dark: boolean): Record<string, string> {
-  return {
-    '--hover': dark ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.42)',
-    '--active': dark ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.78)',
-    '--active-shadow': dark ? '0 1px 0 rgba(255,255,255,.06) inset, 0 2px 10px rgba(0,0,0,.25)' : '0 1px 2px rgba(60,40,20,.08), 0 2px 10px rgba(60,40,20,.06)',
-  };
-}
-
 /**
  * Everything the window's look needs, as CSS variables: the Space's colours and
- * light/dark mode, and the layout settings.
+ * light/dark mode, and the layout settings. The fixed scales (type, shape, fills, surfaces,
+ * depth, motion) are in foundations.css.
  */
 export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boolean, opts: { photoUrl?: string | null } = {}): Record<string, string> {
   const dark = resolveDark(theme, systemDark);
   const tone = dark ? TONE.dark : TONE.light;
   const base = tone.base;
   const t = Math.max(0, Math.min(1, theme.intensity));
-  // In dark mode the tint is held back so colours glow instead of shout.
   const k = tone.tint[0] + t * (tone.tint[1] - tone.tint[0]);
   // Every colour is drawn mixed with the base, by the intensity, so text stays readable.
   const paint = (c: string) => mix(base, c, k);
   const g = theme.gradient;
-  // A gradient you made is painted like the plain colours: its stops mixed with the base by the intensity.
+  // A gradient you made is painted like the plain colour: its stops mixed with the base by the intensity.
   const stops = g ? g.colors.map(paint) : null;
-  const a = stops ? stops[0] : paint(theme.colors[0]);
-  const b = stops ? stops[stops.length - 1] : paint(theme.colors[1]);
-  const chromeMid = stops ? stops.reduce((acc, c, i) => mix(acc, c, 1 / (i + 1))) : mix(a, b, 0.5);
+  // Plain colours: the frame is one flat tint of the first colour. The second is the accent only.
+  const shell = paint(theme.colors[0]);
+  const a = stops ? stops[0] : shell;
+  const b = stops ? stops[stops.length - 1] : shell;
+  const chromeMid = stops ? stops.reduce((acc, c, i) => mix(acc, c, 1 / (i + 1))) : shell;
   const ink = tone.ink;
-  // The accent is the Space's second colour; it must stay readable on the chrome, so it is
-  // pushed toward the ink colour until it is.
-  let accent = theme.colors[1];
-  for (let i = 0; i < 8 && contrast(accent, chromeMid) < 3; i++) accent = mix(accent, ink, 0.18);
-  const lineA = dark ? 0.02 + BORDER * 0.2 : 0.02 + BORDER * 0.2286;
-  const lineRgb = dark ? '255,255,255' : '40,30,20';
-  const ringA = 0.06 * (BORDER / 0.35);
-  const depth = SHADOW / 0.5;
-  // A hairline ring, a tight contact shadow and a soft ambient one: depth without a grey halo.
-  const shadow = dark
-    ? `0 0 0 1px rgba(255,255,255,${Math.min(0.2, ringA).toFixed(3)}), 0 1px 2px rgba(0,0,0,${Math.min(0.5, 0.3 * depth).toFixed(3)}), 0 14px 36px -8px rgba(0,0,0,${Math.min(0.8, 0.5 * depth).toFixed(3)})`
-    : `0 0 0 1px rgba(60,40,20,${Math.min(0.2, ringA).toFixed(3)}), 0 1px 2px rgba(60,40,20,${Math.min(0.12, 0.05 * depth).toFixed(3)}), 0 14px 36px -8px rgba(60,40,20,${Math.min(0.32, 0.15 * depth).toFixed(3)})`;
-  const overlayA = 0.94;
+  const papers = [a, b, chromeMid, tone.card, tone.top];
+  const accent = fitAccent(theme.colors[1], dark, [chromeMid, tone.card, tone.top]);
   const picture = theme.photo ? opts.photoUrl ?? undefined : theme.backdrop ? backdropUrl(theme.backdrop) : undefined;
   const gradientCss = stops ? `linear-gradient(${g!.angle}deg, ${stops.map((c, i) => `${c} ${Math.round((i / (stops.length - 1)) * 100)}%`).join(', ')})` : null;
-  const springy = settings.motionFeel === 'spring';
+  const feel = FEEL[settings.motionFeel];
+  const press = PRESS[settings.motionFeel];
+  const speed = settings.motionSpeed || 1;
   const pat = patternCss(theme.pattern, dark, theme.patternStrength);
   return {
-    ...scaleVars(dark),
     '--chrome-a': a,
     '--chrome-b': b,
     '--chrome-mid': chromeMid,
-    '--backdrop': picture ? `url("${picture}") center / cover no-repeat, ${chromeMid}` : gradientCss ?? `linear-gradient(165deg, ${a} 0%, ${chromeMid} 55%, ${b} 100%)`,
+    '--backdrop': picture ? `url("${picture}") center / cover no-repeat, ${chromeMid}` : gradientCss ?? shell,
     // Over a picture the sidebar is frosted glass: the more intensity, the more picture shows.
-    '--wash': dark ? `rgba(14,15,20,${(0.62 - t * 0.36).toFixed(3)})` : `rgba(255,255,255,${(0.66 - t * 0.38).toFixed(3)})`,
+    '--wash': dark ? rgba(CALM_AIR.dark.shell, 0.62 - t * 0.36) : `rgba(255,255,255,${(0.66 - t * 0.38).toFixed(3)})`,
     '--ink': ink,
-    // Readable greys: --ink-2 and --ink-3 both reach 4.5:1 (WCAG AA for text) on the
-    // card and on the sidebar. --ink-4 is fainter and only for decoration (chevrons, arrows).
-    '--ink-2': rgba(ink, dark ? 0.78 : 0.72),
-    '--ink-3': rgba(ink, dark ? 0.6 : 0.62),
-    '--ink-4': rgba(ink, dark ? 0.42 : 0.4),
-    ...rowSurfaces(dark),
-    '--line': `rgba(${lineRgb},${lineA.toFixed(3)})`,
+    // The ink at lower strength, so it carries the frame's hue. --ink-2 and --ink-3 are still
+    // text: both reach 4.5:1 (WCAG AA) on the frame, the page card and every raised sheet,
+    // and are strengthened if a Space's colour would take them under. --ink-4 is decoration
+    // only (chevrons, placeholder glyphs, the contour lines).
+    '--ink-2': rgba(ink, textStrength(ink, tone.inks[0], papers)),
+    '--ink-3': rgba(ink, textStrength(ink, tone.inks[1], papers)),
+    '--ink-4': rgba(ink, tone.inks[2]),
+    // A true hairline, drawn from the ink.
+    '--line': rgba(ink, dark ? 0.12 : 0.1),
     '--card': tone.card,
-    '--overlay': dark ? rgba(mix(tone.card, '#000000', 0.15), overlayA - 0.02) : rgba(mix(tone.card, base, 0.3), overlayA),
-    '--blur': '8px',
-    '--scrim': dark ? 'rgba(0,0,0,.45)' : 'rgba(40,30,20,.22)',
+    '--scrim': dark ? 'rgba(4,8,11,.34)' : rgba(ink, 0.24),
     '--accent': accent,
-    '--accent-ink': luminance(accent) > 0.45 ? '#1e1c1a' : '#ffffff',
+    '--accent-ink': inkOn(accent),
     '--accent-soft': rgba(accent, dark ? 0.22 : 0.14),
     '--tint-1': theme.colors[0],
     '--tint-2': theme.colors[1],
-    '--shadow': shadow,
     '--grain-opacity': theme.grain ? (dark ? '.10' : '.16') : '0',
     '--pattern': pat.image,
     '--pattern-size': pat.size,
@@ -175,13 +203,11 @@ export function themeVars(theme: SpaceTheme, settings: Settings, systemDark: boo
     '--scale': String(settings.fontScale),
     '--radius': `${settings.radius}px`,
     '--gap': `${settings.gap}px`,
-    '--sidebar-w': `${settings.sidebarWidth}px`,
-    '--row-h': `${ROW[settings.density]}px`,
-    '--ease': FEEL[settings.motionFeel]?.ease ?? EASE,
-    '--dur': `${Math.round((FEEL[settings.motionFeel]?.ms ?? DUR) / (settings.motionSpeed || 1))}ms`,
-    '--speed': String(1 / (settings.motionSpeed || 1)),
-    '--press-ease': springy ? PRESS.ease : 'cubic-bezier(0.16, 1, 0.3, 1)',
-    '--press-dur': `${Math.round((springy ? PRESS.ms : 160) / (settings.motionSpeed || 1))}ms`,
+    '--ease': feel?.ease ?? EASE,
+    '--dur': `${Math.round((feel?.ms ?? DUR) / speed)}ms`,
+    '--speed': String(1 / speed),
+    '--press-ease': press?.ease ?? EASE,
+    '--press-dur': `${Math.round((press?.ms ?? 120) / speed)}ms`,
     colorScheme: dark ? 'dark' : 'light',
   };
 }

@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <title>Kite</title>
+    <!-- The Calm Air shell, before any stylesheet has loaded, so the window opens on its own paper. -->
+    <style>
+      html { background: #e9f0ee; }
+      @media (prefers-color-scheme: dark) { html { background: #141c22; } }
+    </style>
   </head>
   <body>
     <div id="root"></div>

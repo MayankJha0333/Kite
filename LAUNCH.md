@@ -3,6 +3,39 @@
 What was checked for the public launch, what shipped, and what is knowingly left out.
 Last audit: 17 November 2026, against Arc 1.171 as the behaviour and design reference.
 
+## The "Calm Air" redesign (26 Nov 2026)
+
+The whole window was redesigned to feel like a first-party Mac app, with its own identity.
+Product decisions are in `PRODUCT.md`; the direction contract in `.impeccable/surfaces/`.
+
+- **One design language.** Tokens for type (six sizes, three weights, 13px regular body),
+  radii, control heights, fills, surfaces, three elevations, layers and motion live at the top
+  of `src/renderer/styles/foundations.css`. The stylesheet is one file per surface
+  (`styles/app.css` lists them); a surface's styles live only in its file.
+- **Calm Air.** A flat sea-glass shell by day and night-chart slate after dark, following the
+  system; one magenta accent used only for focus, the primary action, switches, links and the
+  string. The start page, first run and error pages lie on the contour lines of a calm pressure
+  field (`scripts/backgrounds/contour.mjs`). Spaces keep their own colors, pictures and
+  gradients; untouched Spaces moved to Calm Air once (`THEME_VERSION = 3`).
+- **The string.** A 2px magenta line along the top of the page while it loads, the only thing in
+  the chrome that moves by itself; downloads and the focus timer use it too.
+- **Keyboard is instant.** Tab switches, ⌘T and menus never animate; sheets and popovers settle
+  in with no bounce; Reduce Motion fades only.
+- **First run.** Three steps beside the real sidebar on a new profile; once only.
+- **Sidebar.** 28/32/36px rows, a selected row that reads at a glance, no shrinking on press, no
+  dimmed sleeping tabs, dark icons (GitHub, Vercel) on a plate, one "New Tab", teaching hints.
+- **Command bar.** Open tabs first, the tab you are on never listed, short queries match word
+  starts only, every action reachable; opens above sheets.
+- **Menus** match macOS metrics and are shorter ("More" submenu). **Settings** has five tabs,
+  Appearance on one screen, Privacy led by the Shields switch, an Updates group.
+- **One of each control** (`controls.css`): button, icon button, field, search field, segmented,
+  switch, slider, select, checkbox, list row, sheet (fixed at 12vh, three widths).
+- **Behavior:** cookie notices hidden by default for new profiles; opening a page in Split View
+  moves the tab already open on it instead of duplicating it; pages see a plain Chrome user
+  agent (no "Electron"); a daily update check against GitHub releases (Settings → Updates).
+- **Engine:** Electron 45.5 (Chromium 156), up from 38. Website notifications need a signed
+  build from Electron 42 on; macOS 13 is the minimum.
+
 ## Readiness checklist
 
 | Area | State |
@@ -137,7 +170,7 @@ Laid out after Arc's floating-video controls (names read from Arc 1.171's binary
 ## Known limitations
 
 - **Unsigned builds.** There is no Apple Developer ID or Windows code-signing certificate in this repository. macOS users must right-click → Open the first time; Windows SmartScreen will warn. To sign: set `CSC_LINK`/`CSC_KEY_PASSWORD` (and `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` for notarisation) in CI and remove `CSC_IDENTITY_AUTO_DISCOVERY: 'false'` from the workflow.
-- **No auto-update.** Kite is offline by design; new versions are downloaded by hand. If that changes, `electron-updater` with GitHub Releases is the natural fit.
+- **Updates are offered, not installed.** Kite checks GitHub releases daily (can be switched off) and hands over the installer. Installing in place (`electron-updater`) needs a signed build.
 - **Windows and Linux are built but less exercised.** CI runs the full test suite on all three systems, but the floating-video window (panel level, mouse pass-through) is macOS-only; elsewhere the video simply floats as a normal window. The Linux build target is a directory in CI; AppImage/deb packaging is configured but not yet produced by CI.
 - **Passwords and autofill** are not built in; the system password manager (Passwords on macOS) works in pages.
 - **Private windows** do not exist; a Space with "separate logins" is the closest thing and keeps no history exemption.

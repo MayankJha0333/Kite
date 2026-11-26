@@ -4,18 +4,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { findAction } from '@shared/shortcuts';
-import { ArrowLeft, ArrowRight, RotateCw, ChevronDown, Search, Maximize2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Ellipsis, Search } from 'lucide-react';
 import { loadState } from '@shared/persistence';
-import { normalizeInput, displayUrl } from '@shared/url';
+import { normalizeInput, displayUrl, hostOf } from '@shared/url';
 import { activeSpace } from '@shared/tree';
 import type { AppState } from '@shared/types';
 import { bridge, isElectron, isMac } from './platform';
 import { themeVars, resolveDark } from './theme';
 import { useSystemDark } from './App';
-import { WebSurface } from './components/WebSurface';
+import { PageThread, WebSurface } from './components/WebSurface';
 import { surface } from './surfaces';
 import { linkCatcherScript } from '@shared/links';
-import { KiteLogo } from './components/KiteLogo';
 import { NONCE } from './nonce';
 import { SiteIcon } from './components/SiteIcon';
 import { applyBoostsWith } from './boostRuntime';
@@ -49,6 +48,14 @@ export function LittleApp() {
     };
     const off = bridge.onShortcut(run);
     const key = (e: KeyboardEvent) => {
+      // Esc backs out one step at a time: the menu, then the address being edited, then the window.
+      if (e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        if (menu) setMenu(false);
+        else if (editing && url) setEditing(false);
+        else window.close();
+        return;
+      }
       if (!state) return;
       const a = findAction(e, state.settings.shortcuts, isMac);
       if (a && ['closeTab', 'commandBar', 'editUrl', 'reload', 'back', 'forward'].includes(a)) {
@@ -61,7 +68,7 @@ export function LittleApp() {
       off();
       window.removeEventListener('keydown', key, true);
     };
-  }, [state]);
+  }, [state, menu, editing, url]);
 
   // Little windows archive themselves after sitting unused (Settings → Little window).
   useEffect(() => {
@@ -101,55 +108,76 @@ export function LittleApp() {
     if (url) bridge.moveLittleToMain(url, spaceId);
   };
 
+  // The address as the bar shows it: the site in full ink, the rest of it quieter.
+  const shownUrl = displayUrl(url);
+  const host = hostOf(url);
+  const rest = host && shownUrl.startsWith(host) ? shownUrl.slice(host.length) : '';
+  const pick = (run: () => void) => () => {
+    setMenu(false);
+    run();
+  };
+
   return (
     <div className="app little-app" style={vars as React.CSSProperties} data-theme={dark ? 'dark' : 'light'} data-testid="little" data-electron={isElectron || undefined} data-mac={isMac || undefined}>
       <div className="pattern" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
       <header className="little-bar drag">
         <div className="little-bar-inner no-drag">
-          <button className="icon-btn" aria-label="Back" disabled={!nav.back} onClick={() => surface(ID)?.back()}>
-            <ArrowLeft size={15} />
+          <button className="icon-btn" aria-label="Back" title="Back" disabled={!nav.back} onClick={() => surface(ID)?.back()}>
+            <ArrowLeft size={16} />
           </button>
-          <button className="icon-btn" aria-label="Forward" disabled={!nav.forward} onClick={() => surface(ID)?.forward()}>
-            <ArrowRight size={15} />
-          </button>
-          <button className="icon-btn" aria-label="Reload" disabled={!url} onClick={() => surface(ID)?.reload()}>
-            <RotateCw size={14} className={loading ? 'spin' : undefined} />
+          <button className="icon-btn" aria-label="Forward" title="Forward" disabled={!nav.forward} onClick={() => surface(ID)?.forward()}>
+            <ArrowRight size={16} />
           </button>
           {editing ? (
             <form
-              className="little-url editing"
+              className="search-field little-field"
               onSubmit={(e) => {
                 e.preventDefault();
                 go(new FormData(e.currentTarget).get('q') as string);
               }}
             >
-              <Search size={13} />
-              <input name="q" autoFocus defaultValue={url} placeholder="Search or enter address" data-testid="little-input" onKeyDown={(e) => e.key === 'Escape' && url && setEditing(false)} />
+              <Search size={14} aria-hidden="true" />
+              <input name="q" autoFocus defaultValue={url} placeholder="Search or enter address" aria-label="Search or enter address" data-testid="little-input" spellCheck={false} onFocus={(e) => e.currentTarget.select()} />
             </form>
           ) : (
-            <button className="little-url" data-testid="little-url" onClick={() => setEditing(true)} title={url}>
-              {url && <SiteIcon url={url} title={title} size={14} />}
-              <span>{title || displayUrl(url)}</span>
+            <button className="little-url" data-testid="little-url" onClick={() => setEditing(true)} title={title ? `${title}\n${url}` : url}>
+              <SiteIcon url={url} title={title} size={16} />
+              <span className="little-url-text">
+                <b>{host || shownUrl}</b>{rest}
+              </span>
             </button>
           )}
-          <div className="little-open">
-            <button className="btn small primary" disabled={!url} data-testid="little-open-main" onClick={() => openIn(null)} title="Move this page into Kite's main window">
-              <Maximize2 size={13} /> Open in Kite
-            </button>
-            <button className="btn small primary little-open-more" disabled={!url} aria-label="Choose a Space" data-testid="little-open-menu" onClick={() => setMenu((m) => !m)}>
-              <ChevronDown size={13} />
+          <button className="btn small primary" disabled={!url} data-testid="little-open-main" onClick={() => openIn(null)} title="Move this page into Kite’s main window">
+            Open in Kite
+          </button>
+          <div className="little-more">
+            <button className="icon-btn" aria-label="More" title="More" aria-haspopup="menu" aria-expanded={menu} data-active={menu || undefined} data-testid="little-open-menu" onClick={() => setMenu((m) => !m)}>
+              <Ellipsis size={16} />
             </button>
             {menu && (
-              <div className="menu little-menu" role="menu">
-                {state.spaces.map((sp) => (
-                  <button key={sp.id} role="menuitem" className="menu-item" data-testid={`little-space-${sp.name}`} onClick={() => openIn(sp.id)}>
-                    <span>
-                      {sp.icon} {sp.name}
-                    </span>
+              <>
+                <div className="little-menu-catcher" onMouseDown={() => setMenu(false)} />
+                <div className="menu little-menu" role="menu">
+                  {state.spaces.map((sp) => (
+                    <button key={sp.id} role="menuitem" className="menu-item" disabled={!url} data-testid={`little-space-${sp.name}`} onClick={() => openIn(sp.id)}>
+                      <span>Open in {sp.icon} {sp.name}</span>
+                    </button>
+                  ))}
+                  <div className="menu-sep" role="separator" />
+                  <button role="menuitem" className="menu-item" disabled={!url} onClick={pick(() => surface(ID)?.reload())}>
+                    <span>Reload</span>
                   </button>
-                ))}
-              </div>
+                  <button role="menuitem" className="menu-item" disabled={!url} data-testid="little-copy" onClick={pick(() => void navigator.clipboard?.writeText(url).catch(() => undefined))}>
+                    <span>Copy link</span>
+                  </button>
+                  <div className="menu-sep" role="separator" />
+                  <button role="menuitem" className="menu-item" onClick={pick(() => window.close())}>
+                    <span>Close window</span>
+                    <span className="menu-hint">esc</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -158,6 +186,7 @@ export function LittleApp() {
         <div className="card">
           {url ? (
             <div className="surface-slot" data-visible="true">
+              <PageThread loading={loading} />
               <WebSurface
                 id={ID}
                 initialUrl={url}
@@ -176,9 +205,9 @@ export function LittleApp() {
               />
             </div>
           ) : (
-            <div className="empty little-empty">
-              <KiteLogo size={44} />
-              <p>Quick look-up. Type above and press Enter.</p>
+            <div className="little-empty">
+              <div className="contour-field" aria-hidden="true" />
+              <p>A quick look-up. Type an address or a search above and press Return.</p>
             </div>
           )}
         </div>

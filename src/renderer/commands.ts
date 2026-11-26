@@ -17,6 +17,8 @@ import type { AppState } from '@shared/types';
 import { surface } from './surfaces';
 import { bridge, now } from './platform';
 import { sleepAllBut } from '@shared/sleep';
+import { addRoute, updateRoute } from '@shared/routing';
+import { checkForUpdateNow, openUpdate } from './updateRuntime';
 
 export type OpenWhere = 'current' | 'new' | 'background' | 'peek' | 'little' | 'split';
 
@@ -340,6 +342,33 @@ export function muteAll(mute: boolean) {
   toast(mute ? 'All tabs muted' : 'All tabs unmuted');
 }
 
+/**
+ * "Always open <site> in this Space": a link-routing rule for a tab's site, made in one
+ * step from where the tab already lives. A rule the site already has is pointed here
+ * instead of adding a second one that would never be reached.
+ */
+export function routeSiteToSpace(tabId?: ID) {
+  const s = getS();
+  const t = tabId ? s.items[tabId] : ops.activeTab(s);
+  const host = t?.kind === 'tab' && /^https?:/i.test(t.url) ? hostOf(t.url) : '';
+  if (!t || !host) return toast('Open a website first');
+  const sp = s.spaces.find((x) => x.id === (locate(s, t.id)?.spaceId ?? s.activeSpaceId));
+  if (!sp) return;
+  const target = { type: 'space' as const, spaceId: sp.id };
+  undoable(`Links to ${host} now open in ${sp.name}`, (d) => {
+    const rule = d.routes.find((r) => r.matchType === 'host' && r.value.trim().toLowerCase().replace(/^www\./, '') === host);
+    if (rule) updateRoute(d, rule.id, { target, enabled: true });
+    else addRoute(d, { matchType: 'host', value: host, target });
+  });
+}
+
+/** Ask now whether a newer Kite exists, and say what was found. */
+export async function checkUpdatesCmd() {
+  const { text, update } = await checkForUpdateNow();
+  if (update) toast(text, 'Download', () => openUpdate(update), 12_000);
+  else toast(text);
+}
+
 export async function copyActiveUrl() {
   const t = ops.activeTab(getS());
   if (!t) return;
@@ -429,6 +458,16 @@ export const actions: Record<string, () => void> = {
     const id = activeId();
     if (id && getS().items[id]?.kind === 'split') act((d) => void ops.unsplit(d, id, now()));
   },
+  flipSplit: () => {
+    const it = getS().items[activeId() ?? ''];
+    if (it?.kind !== 'split') return toast('Open a Split View first');
+    act((d) => split.setOrientation(d, it.id, it.orientation === 'row' ? 'column' : 'row'));
+  },
+  duplicateTab: () => {
+    const t = ops.activeTab(getS());
+    const copy = t ? act((d) => ops.duplicateTab(d, t.id, now())) : null;
+    if (copy) selectItem(copy);
+  },
   newSpace: () => {
     const id = act((d) => createSpace(d, {}));
     setUi({ panel: 'space', panelArg: id });
@@ -437,6 +476,20 @@ export const actions: Record<string, () => void> = {
     const t = ops.activeTab(getS());
     if (t && act((d) => ops.addFavorite(d, t.id))) toast('Added to Favorites');
   },
+  removeFavorite: () => {
+    const t = ops.activeTab(getS());
+    toast(t && act((d) => ops.removeFavorite(d, t.id)) ? 'Removed from Favorites' : 'This tab is not in Favorites');
+  },
+  setHomeHere: () => {
+    const t = ops.activeTab(getS());
+    if (!t?.homeUrl) return toast('Pin this tab first');
+    act((d) => ops.setHomeHere(d, t.id));
+    toast('This page is now the pinned page');
+  },
+  routeSiteHere: () => routeSiteToSpace(),
+  checkUpdates: () => void checkUpdatesCmd(),
+  renameSpace: () => setUi({ renamingSpace: getS().activeSpaceId }),
+  editSpace: () => setUi({ panel: 'space', panelArg: getS().activeSpaceId }),
   toggleTheme: () =>
     act((d) => {
       const sp = d.spaces.find((x) => x.id === d.activeSpaceId)!;
@@ -480,6 +533,7 @@ export const actions: Record<string, () => void> = {
   routingPanel: () => setUi({ panel: 'routing' }),
   importArc: () => setUi({ panel: 'import' }),
   welcome: () => setUi({ panel: 'welcome' }),
+  customize: () => setUi({ panel: 'customize' }),
   downloadsPanel: () => setUi({ panel: 'downloads' }),
   extensionsPanel: () => setUi({ panel: 'extensions' }),
   privacyPanel: () => setUi({ panel: 'settings', panelArg: 'privacy' }),

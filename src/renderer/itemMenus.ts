@@ -5,7 +5,8 @@ import { locate } from '@shared/tree';
 import type { ID } from '@shared/types';
 import type { ContextMenuItem } from './store';
 import { act, getS, getUi, setUi } from './store';
-import { closeItemCmd, selectItem, copyActiveUrl, copyActiveMarkdown, sleepTab, navigateTab, newFolderCmd, deleteFolderCmd, splitWithCmd, switchSpaceCmd, undoable } from './commands';
+import { closeItemCmd, selectItem, copyActiveUrl, copyActiveMarkdown, sleepTab, navigateTab, newFolderCmd, deleteFolderCmd, routeSiteToSpace, splitWithCmd, switchSpaceCmd, undoable } from './commands';
+import { hostOf } from '@shared/url';
 import { toast } from './store';
 import { visibleRows } from './selection';
 import { setOrientation } from '@shared/split';
@@ -21,93 +22,121 @@ function shortcutHint(action: string) {
   return formatShortcut(getS().settings.shortcuts[action] ?? '', isMac);
 }
 
+const SEP: ContextMenuItem = { separator: true, label: '' };
+
+/** Groups of items, with one separator between the groups that have anything in them. */
+function grouped(...groups: ContextMenuItem[][]): ContextMenuItem[] {
+  return groups.filter((g) => g.length).flatMap((g, i) => (i ? [SEP, ...g] : g));
+}
+
+/**
+ * The menu for one sidebar item. Four groups, in the order of intent: open and arrange,
+ * organize, copy, and closing last. What is used less often waits under "More", so the menu
+ * stays short enough to read at a glance.
+ */
 export function itemMenu(id: ID): ContextMenuItem[] {
   const s = getS();
   const it = s.items[id];
   if (!it) return [];
   const loc = locate(s, id);
-  const items: ContextMenuItem[] = [];
-
   const activeNow = ops.activeItemId(s);
+  const arrange: ContextMenuItem[] = [];
+  const organize: ContextMenuItem[] = [];
+  const copy: ContextMenuItem[] = [];
+  const more: ContextMenuItem[] = [];
+  const last: ContextMenuItem[] = [];
+  const rename: ContextMenuItem = { label: 'Rename', testId: 'menu-rename', onSelect: () => setUi({ renaming: id }) };
+
   if (it.kind === 'tab' && activeNow && activeNow !== id && ['tab', 'split'].includes(s.items[activeNow]?.kind)) {
-    items.push({ label: 'Open in Split View', testId: 'menu-split-with', onSelect: () => splitWithCmd(id) });
+    arrange.push({ label: 'Open in Split View', testId: 'menu-split-with', onSelect: () => splitWithCmd(id) });
   }
   if (it.kind === 'split') {
-    items.push(
+    arrange.push(
       { label: it.orientation === 'row' ? 'Stack Vertically' : 'Side by Side', testId: 'menu-split-flip', onSelect: () => act((d) => setOrientation(d, id, it.orientation === 'row' ? 'column' : 'row')) },
       { label: 'Separate All Pages', testId: 'menu-unsplit', onSelect: () => act((d) => void ops.unsplit(d, id, now())) },
-      { separator: true, label: '' },
-    );
-  }
-  if (it.kind === 'tab') {
-    items.push(
-      { label: 'Copy URL', testId: 'menu-copy-url', onSelect: () => { selectItem(id); void copyActiveUrl(); } },
-      { label: 'Copy as Markdown Link', testId: 'menu-copy-md', onSelect: () => void copyActiveMarkdown(id) },
-      ...(getUi().loaded.includes(id) && activeNow !== id ? [{ label: 'Put to Sleep', testId: 'menu-sleep', onSelect: () => sleepTab(id) }] : []),
-      { label: 'Duplicate', testId: 'menu-duplicate', onSelect: () => { const n = act((d) => ops.duplicateTab(d, id, now())); if (n) selectItem(n); } },
-    );
-  }
-  items.push({ label: 'Rename…', testId: 'menu-rename', onSelect: () => setUi({ renaming: id }) });
-  items.push({ separator: true, label: '' });
-  if (loc?.list === 'favorites') {
-    items.push(
-      { label: 'Remove from Favorites', testId: 'menu-unfavorite', onSelect: () => act((d) => ops.removeFavorite(d, id)) },
-      { label: 'Move to Pinned', testId: 'menu-fav-to-pinned', onSelect: () => act((d) => ops.removeFavorite(d, id, 'pinned')) },
-    );
-  } else if (it.kind !== 'folder') {
-    if (it.kind === 'tab') items.push({ label: 'Add to Favorites', testId: 'menu-favorite', onSelect: () => act((d) => ops.addFavorite(d, id)) });
-    items.push(
-      loc?.list === 'today'
-        ? { label: 'Pin', hint: shortcutHint('togglePin'), testId: 'menu-pin', onSelect: () => act((d) => ops.pinItem(d, id)) }
-        : { label: 'Unpin', hint: shortcutHint('togglePin'), testId: 'menu-unpin', onSelect: () => act((d) => ops.unpinItem(d, id)) },
     );
   }
   if (it.kind === 'tab' && it.homeUrl && it.url !== it.homeUrl) {
-    items.push(
+    arrange.push(
       { label: 'Back to Pinned Page', testId: 'menu-go-home', onSelect: () => navigateTab(id, it.homeUrl!) },
       { label: 'Make This Page the Pinned Page', testId: 'menu-set-home', onSelect: () => act((d) => ops.setHomeHere(d, id)) },
     );
   }
-  items.push({ separator: true, label: '' });
-  if (it.kind !== 'folder' && loc?.list !== 'favorites') {
+  if (it.kind === 'folder') {
+    arrange.push(
+      { label: it.collapsed ? 'Open Folder' : 'Close Folder', testId: 'menu-folder-toggle', onSelect: () => act((d) => ops.toggleFolder(d, id)) },
+      { label: 'New Nested Folder', testId: 'menu-subfolder', onSelect: () => newFolderCmd({ parentId: id }) },
+    );
+  }
+
+  if (loc?.list === 'favorites') {
+    organize.push(
+      { label: 'Remove from Favorites', testId: 'menu-unfavorite', onSelect: () => act((d) => ops.removeFavorite(d, id)) },
+      { label: 'Move to Pinned', testId: 'menu-fav-to-pinned', onSelect: () => act((d) => ops.removeFavorite(d, id, 'pinned')) },
+    );
+  } else if (it.kind !== 'folder') {
+    organize.push(
+      loc?.list === 'today'
+        ? { label: 'Pin', hint: shortcutHint('togglePin'), testId: 'menu-pin', onSelect: () => act((d) => ops.pinItem(d, id)) }
+        : { label: 'Unpin', hint: shortcutHint('togglePin'), testId: 'menu-unpin', onSelect: () => act((d) => ops.unpinItem(d, id)) },
+    );
+    if (it.kind === 'tab') organize.push({ label: 'Add to Favorites', testId: 'menu-favorite', onSelect: () => act((d) => ops.addFavorite(d, id)) });
+  }
+  if (it.kind === 'folder') {
+    organize.push(rename, { label: 'Duplicate Folder', testId: 'menu-duplicate-folder', onSelect: () => act((d) => duplicateItem(d, id, now())) });
+  } else if (loc?.list !== 'favorites') {
     const folders = foldersIn(loc?.spaceId ?? s.activeSpaceId).filter((f) => f.id !== loc?.parentId);
-    items.push({
+    organize.push({
       label: 'Move to Folder',
       testId: 'menu-move-folder',
       submenu: [
-        { label: 'New Folder…', testId: 'menu-new-folder-with', onSelect: () => newFolderCmd({ items: [id] }) },
-        ...(folders.length ? [{ separator: true, label: '' }] : []),
+        { label: 'New Folder', testId: 'menu-new-folder-with', onSelect: () => newFolderCmd({ items: [id] }) },
+        ...(folders.length ? [SEP] : []),
         ...folders.map((f) => ({ label: `${'  '.repeat(f.depth)}${f.title}`, testId: `menu-folder-${f.id}`, onSelect: () => act((d) => dropItem(d, id, { type: 'into', folderId: f.id })) })),
       ],
     });
   }
+  const spaces = moveToSpaceMenu([id]);
+  if (spaces) organize.push(spaces);
   if (it.kind === 'folder') {
+    organize.push(
+      { label: 'Turn into Space', testId: 'menu-folder-to-space', onSelect: () => undoable(`“${it.title}” is now a Space`, (d) => void folderToSpace(d, id)) },
+      { label: 'Ungroup', testId: 'menu-ungroup', onSelect: () => act((d) => ungroupFolder(d, id)) },
+    );
+  }
+
+  if (it.kind === 'tab') {
+    // "Always open github.com in Work": link routing in one step, from the tab that prompted it.
+    // With one Space there is little to choose between, so it waits under More.
+    const host = /^https?:/i.test(it.url) ? hostOf(it.url) : '';
+    const home = s.spaces.find((sp) => sp.id === (loc?.spaceId ?? s.activeSpaceId));
+    if (host && home) (s.spaces.length > 1 ? organize : more).push({ label: `Always Open ${host} in ${home.name}`, testId: 'menu-route-here', onSelect: () => routeSiteToSpace(id) });
+    copy.push({ label: 'Copy URL', testId: 'menu-copy-url', onSelect: () => { selectItem(id); void copyActiveUrl(); } });
+    more.push(
+      { label: 'Copy as Markdown Link', testId: 'menu-copy-md', onSelect: () => void copyActiveMarkdown(id) },
+      { label: 'Duplicate', testId: 'menu-duplicate', onSelect: () => { const n = act((d) => ops.duplicateTab(d, id, now())); if (n) selectItem(n); } },
+      rename,
+      ...(getUi().loaded.includes(id) && activeNow !== id ? [{ label: 'Put to Sleep', testId: 'menu-sleep', onSelect: () => sleepTab(id) }] : []),
+    );
+  } else if (it.kind === 'folder') {
     const links = folderLinks(s, id);
-    items.push(
-      { label: 'New Nested Folder', testId: 'menu-subfolder', onSelect: () => newFolderCmd({ parentId: id }) },
-      { label: it.collapsed ? 'Open Folder' : 'Close Folder', testId: 'menu-folder-toggle', onSelect: () => act((d) => ops.toggleFolder(d, id)) },
-      { separator: true, label: '' },
+    copy.push(
       { label: 'Copy Links', testId: 'menu-copy-links', disabled: links.length === 0, onSelect: () => void copyText(links.map((l) => l.url).join('\n'), `Copied ${links.length} link${links.length === 1 ? '' : 's'}`) },
       { label: 'Copy Links as Markdown', testId: 'menu-copy-links-md', disabled: links.length === 0, onSelect: () => void copyText(links.map((l) => `- [${l.title.replace(/([\[\]])/g, '\\$1')}](${l.url.replace(/\)/g, '%29')})`).join('\n'), 'Copied as Markdown') },
-      { label: 'Duplicate Folder', testId: 'menu-duplicate-folder', onSelect: () => act((d) => duplicateItem(d, id, now())) },
-      { separator: true, label: '' },
-      { label: 'Turn into Space', testId: 'menu-folder-to-space', onSelect: () => undoable(`“${it.title}” is now a Space`, (d) => void folderToSpace(d, id)) },
-      { label: 'Ungroup (keep contents)', testId: 'menu-ungroup', onSelect: () => act((d) => ungroupFolder(d, id)) },
     );
+  } else {
+    // A note or a split view has nothing to copy: Rename stands with the other ways to organize it.
+    organize.unshift(rename);
   }
-  const spaces = moveToSpaceMenu([id]);
-  if (spaces) items.push(spaces);
+  if (more.length) copy.push({ label: 'More', testId: 'menu-more', submenu: more });
+
   if (it.kind === 'folder') {
-    items.push(
-      { separator: true, label: '' },
-      { label: 'Delete Folder…', danger: true, testId: 'menu-delete-folder', onSelect: () => deleteFolderCmd(id) },
-    );
-  }
-  if (it.kind !== 'folder') {
+    last.push({ label: 'Delete Folder', danger: true, testId: 'menu-delete-folder', onSelect: () => deleteFolderCmd(id) });
+  } else {
     const keeps = it.kind === 'tab' && (loc?.list === 'pinned' || loc?.list === 'favorites');
-    items.push({ label: keeps ? 'Close (keep in sidebar)' : 'Close', hint: '', testId: 'menu-close', onSelect: () => closeItemCmd(id) });
+    last.push({ label: keeps ? 'Close (keep in sidebar)' : 'Close', testId: 'menu-close', onSelect: () => closeItemCmd(id) });
   }
-  return items;
+  return grouped(arrange, organize, copy, last);
 }
 
 /** Every folder in a Space, depth-first, for the "Move to Folder" menu. */
@@ -187,7 +216,7 @@ export function selectionMenu(id: ID): ContextMenuItem[] {
   const spaces = moveToSpaceMenu(ids);
   if (spaces && !inFavorites) items.push(spaces);
   items.push(
-    { separator: true, label: '' },
+    SEP,
     {
       label: `Archive ${n} Items`,
       testId: 'menu-sel-archive',

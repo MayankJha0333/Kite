@@ -5,6 +5,7 @@ import { newId } from './ids';
 import type { AppState, ArchiveEntry, ID, Item } from './types';
 import { attach, descendants, detach, locate } from './tree';
 import { newTab } from './ops';
+import { dayLabel, startOfDay } from './history';
 
 const MAX_ARCHIVE = 2000;
 
@@ -106,21 +107,13 @@ export function runAutoArchive(s: AppState, now: number): number {
   return n;
 }
 
-/** Group archive entries for display: Today, Yesterday, then by date. */
+/** Group archive entries for display, by day, with the same day labels History uses. */
 export function groupArchive(entries: ArchiveEntry[], now: number, query = ''): { label: string; items: ArchiveEntry[] }[] {
   const q = query.trim().toLowerCase();
-  const startOfDay = (t: number) => {
-    const d = new Date(t);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-  const today = startOfDay(now);
   const groups = new Map<string, ArchiveEntry[]>();
   for (const e of entries) {
     if (q && !e.title.toLowerCase().includes(q) && !e.url.toLowerCase().includes(q)) continue;
-    const day = startOfDay(e.archivedAt);
-    const label =
-      day === today ? 'Today' : day === startOfDay(today - 1) ? 'Yesterday' : new Date(day).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: new Date(day).getFullYear() === new Date(now).getFullYear() ? undefined : 'numeric' });
+    const label = dayLabel(startOfDay(e.archivedAt), now);
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label)!.push(e);
   }

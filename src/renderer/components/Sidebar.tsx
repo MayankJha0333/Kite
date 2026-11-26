@@ -1,21 +1,64 @@
-import { ArrowDown, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, RotateCw, PanelLeft, Plus, Search, ShieldCheck, Settings2, SlidersHorizontal, Archive, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Info, RotateCw, PanelLeft, Plus, Search, ShieldCheck, SlidersHorizontal, Archive, Wand2 } from 'lucide-react';
 import { boostsFor } from '@shared/boosts';
 import * as ops from '@shared/ops';
 import { displayUrl, hostOf, isNewTabUrl } from '@shared/url';
 import { activeSpace } from '@shared/tree';
+import { ARCHIVE_CHOICES } from '@shared/defaults';
+import type { Item } from '@shared/types';
 import { act, setUi, useKite } from '../store';
-import { actions } from '../commands';
+import { actions, focusStartPage, selectItem } from '../commands';
 import { desktopChrome, isMac } from '../platform';
 import { ItemRow } from './ItemRow';
 import { Favorites } from './Favorites';
 import { SpaceBar, SpaceHeader, useSpaceSwipe } from './Spaces';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFlip } from '../flip';
 import { formatShortcut } from '@shared/shortcuts';
 import { openMenu } from './ContextMenu';
 import { DropZone } from '../dnd';
 import { SecurityIcon, SiteInfo, useSecurity } from './SiteInfo';
 import { DownloadsButton } from './Downloads';
+
+/** A tab still showing the start page: opened by "New Tab" and not used yet. */
+const isBlankTab = (it: Item | undefined) => it?.kind === 'tab' && isNewTabUrl(it.url);
+
+/**
+ * The one-line hints in the empty Pinned and Today areas show until that area has been
+ * used once, and never again. That memory is about this person's first minutes, not about
+ * their tabs, so it is kept beside the saved state rather than in it.
+ */
+const TAUGHT_KEY = 'kite-taught';
+
+function readTaught(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(TAUGHT_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+
+function useTaught(area: 'pinned' | 'today', used: boolean): boolean {
+  const [taught, setTaught] = useState(() => !!readTaught()[area]);
+  useEffect(() => {
+    if (!used || taught) return;
+    setTaught(true);
+    try {
+      localStorage.setItem(TAUGHT_KEY, JSON.stringify({ ...readTaught(), [area]: true }));
+    } catch {
+      /* no storage: the hint comes back next launch, nothing worse */
+    }
+  }, [used, taught, area]);
+  return taught || used;
+}
+
+/** "after 12 hours", from the Space's own auto-archive time or the one in Settings; empty when tabs are never archived. */
+function tidiesAfter(ms: number | null): string {
+  if (ms === null) return '';
+  const known = ARCHIVE_CHOICES.find((c) => c.ms === ms);
+  if (known) return ` and tidy themselves after ${known.label}`;
+  const hours = Math.max(1, Math.round(ms / 3_600_000));
+  return ` and tidy themselves after ${hours} hour${hours === 1 ? '' : 's'}`;
+}
 
 export function Sidebar() {
   // With nothing open, the empty page's big search box is the one place to start:
@@ -38,8 +81,27 @@ export function Sidebar() {
   });
   // Rows glide to their new place when the tree changes (see flip.ts): render on every
   // change to items or Favorites, so the measurement runs after each commit.
-  useKite((st) => st.s.items);
+  const items = useKite((st) => st.s.items);
   useKite((st) => st.s.favorites);
+  const activeId = useKite((st) => st.s.activeBySpace[st.s.activeSpaceId] ?? null);
+  // "New Tab" is one thing in the sidebar. The empty tab it opens has no row of its own in
+  // Today: while it is the tab on screen, the "New Tab" row is the selected row, and a row
+  // appears only once a page has loaded in it.
+  const blankId = space.today.find((id) => isBlankTab(items[id])) ?? null;
+  const onBlank = blankId !== null && activeId === blankId;
+  const today = space.today.filter((id) => id !== blankId);
+  const openNewTab = () => {
+    if (blankId === null || onBlank) return actions.newTabPage();
+    selectItem(blankId);
+    requestAnimationFrame(focusStartPage);
+  };
+  const archiveAfter = useKite((st) => (space.archiveAfterMs === undefined ? st.s.settings.archiveAfterMs : space.archiveAfterMs));
+  const pinnedTaught = useTaught('pinned', useKite((st) => st.s.spaces.some((sp) => sp.pinned.length > 0)));
+  const todayTaught = useTaught('today', useKite((st) => st.s.history.length > 0 || st.s.archive.length > 0 || st.s.spaces.some((sp) => sp.today.some((id) => !isBlankTab(st.s.items[id])))));
+  // The footer's sliders button is the front door to how Kite looks; it stays lit while
+  // Customize, or the Settings it leads to, is open.
+  const customizing = useKite((st) => st.ui.panel === 'customize');
+  const inSettings = useKite((st) => st.ui.panel === 'settings' || st.ui.panel === 'shortcuts');
   const scroll = useRef<HTMLDivElement>(null);
   useFlip(scroll, space.id);
   const lastIndex = useRef(spaceIndex);
@@ -73,43 +135,34 @@ export function Sidebar() {
             </div>
           )}
           {!space.pinnedCollapsed && (
-            <DropZone zone={{ type: 'end', list: 'pinned', spaceId: space.id }} className="list-end" testId="pinned-end">
-              {space.pinned.length === 0 && <span className="hint drop-hint">Drop here to pin</span>}
+            <DropZone zone={{ type: 'end', list: 'pinned', spaceId: space.id }} className="list-end" testId="pinned-end" data-empty={space.pinned.length === 0 || undefined}>
+              {/* Never pinned anything: say how. After that an empty Pinned area takes no room, and a drop slot shows only mid-drag. */}
+              {space.pinned.length === 0 && !pinnedTaught && <p className="hint" data-testid="hint-pinned">Drag a tab here to pin it</p>}
+              {space.pinned.length === 0 && pinnedTaught && <span className="pin-slot">Drop here to pin</span>}
             </DropZone>
           )}
         </section>
 
-        <div className="sb-divider" data-collapsed={space.pinnedCollapsed || undefined}>
-          {space.pinned.length > 0 && (
-            <button
-              className="sb-pin-toggle"
-              data-testid="pinned-toggle"
-              aria-expanded={!space.pinnedCollapsed}
-              title={space.pinnedCollapsed ? 'Expand Pinned Section' : 'Collapse Pinned Section'}
-              onClick={() => actions.togglePinnedSection?.()}
-            >
-              {space.pinnedCollapsed ? <ChevronDown size={12} strokeWidth={2.4} /> : <ChevronUp size={12} strokeWidth={2.4} />}
-              {space.pinnedCollapsed && <span>{space.pinned.length} pinned</span>}
-            </button>
-          )}
-          <span className="sb-divider-line" />
-          {space.today.length > 0 && (
+        <div className="sb-head">
+          <span className="section-label">Today</span>
+          {today.length > 0 && (
             <button className="sb-clear" data-testid="btn-clear-today" onClick={() => actions.clearToday?.()} title="Archive all unpinned tabs">
-              <ArrowDown size={11} strokeWidth={2.4} /> Clear
+              Clear
             </button>
           )}
         </div>
 
-        <button className="row new-tab" data-testid="btn-new-tab" onClick={actions.newTabPage}>
-          <Plus size={15} className="row-glyph" />
+        <button className="row new-tab" data-testid="btn-new-tab" data-active={onBlank || undefined} aria-current={onBlank ? 'page' : undefined} title="New Tab" onClick={openNewTab}>
+          <Plus size={16} className="row-glyph" />
           <span className="row-title">New Tab</span>
           <kbd>{formatShortcut(shortcuts.commandBar, isMac)}</kbd>
         </button>
 
         <section className="sb-section" aria-label="Today" data-testid="today-list" role="tree">
-          {space.today.map((id) => (
+          {today.map((id) => (
             <ItemRow key={id} id={id} list="today" depth={0} />
           ))}
+          {today.length === 0 && !todayTaught && <p className="hint" data-testid="hint-today">New tabs appear here{tidiesAfter(archiveAfter)}</p>}
           <DropZone zone={{ type: 'end', list: 'today', spaceId: space.id }} className="list-end grow" testId="today-end" />
         </section>
         </div>
@@ -121,8 +174,8 @@ export function Sidebar() {
         </IconBtn>
         <DownloadsButton onClick={actions.downloadsPanel} />
         <SpaceBar />
-        <IconBtn label="Settings" testId="btn-settings" onClick={actions.settings}>
-          <Settings2 size={16} />
+        <IconBtn label="Customize" testId="btn-settings" active={customizing || inSettings} onClick={() => (customizing ? setUi({ panel: null, panelArg: undefined }) : actions.customize())}>
+          <SlidersHorizontal size={16} />
         </IconBtn>
       </footer>
       <SidebarResizer />
@@ -142,7 +195,7 @@ function NavButtons() {
         <ArrowRight size={16} />
       </IconBtn>
       <IconBtn label="Reload" testId="btn-reload" disabled={!tab} onClick={actions.reload}>
-        <RotateCw size={15} />
+        <RotateCw size={16} />
       </IconBtn>
     </>
   );
@@ -158,7 +211,7 @@ function UrlPill() {
   const { level } = useSecurity();
   const blocked = useKite((st) => (tab ? st.ui.blocked[tab.id] ?? 0 : 0));
   const zoom = useKite((st) => (tab ? st.ui.zoom[tab.id] ?? 100 : 100));
-  // Like Arc: a secure page shows just its address; site controls wait on the right.
+  // A secure page shows its address first and the way into its site controls at the end.
   // Anything less than secure keeps its warning up front.
   const warn = level === 'insecure' || level === 'broken';
   const siteButton = (
@@ -175,7 +228,7 @@ function UrlPill() {
         actions.siteInfo();
       }}
     >
-      {warn ? <SecurityIcon level={level} /> : <SlidersHorizontal size={12} className="url-lock" />}
+      {warn ? <SecurityIcon level={level} /> : <Info size={14} className="url-lock" />}
     </span>
   );
   return (
@@ -186,23 +239,25 @@ function UrlPill() {
       onContextMenu={(e) => tab && openMenu(e, [{ label: 'Copy URL', onSelect: actions.copyUrl }])}
       title={tab?.url ?? 'Search or enter address'}
     >
-      {!tab && <Search size={12} className="url-lock" />}
+      {!tab && <Search size={14} className="url-lock" />}
       {tab && warn && siteButton}
       <UrlText url={tab?.url ?? null} />
       {tab && blocked > 0 && (
-        <span className="url-shield" role="button" title={`${blocked} blocked on this page`} data-testid="url-blocked" onClick={(e) => { e.stopPropagation(); actions.siteInfo(); }}>
-          <ShieldCheck size={11} /> {blocked > 99 ? '99+' : blocked}
+        <span className="url-shield" role="button" aria-label={`${blocked} blocked on this page`} title={`${blocked} blocked on this page`} data-testid="url-blocked" onClick={(e) => { e.stopPropagation(); actions.siteInfo(); }}>
+          <ShieldCheck size={12} />
+          <span className="badge">{blocked > 99 ? '99+' : blocked}</span>
         </span>
       )}
       {tab && zoom !== 100 && (
         <span className="url-shield url-zoom" role="button" title="Zoomed · click for actual size" data-testid="url-zoom" onClick={(e) => { e.stopPropagation(); actions.zoomReset(); }}>
-          {zoom}%
+          <span className="badge">{zoom}%</span>
         </span>
       )}
       {boosted && (
         <span
           className="url-boost"
           role="button"
+          aria-label="A Boost is changing this site"
           title="A Boost is changing this site"
           data-testid="url-boost"
           onClick={(e) => {
@@ -210,7 +265,7 @@ function UrlPill() {
             actions.boostEditor();
           }}
         >
-          <Wand2 size={12} />
+          <Wand2 size={14} />
         </span>
       )}
       {tab && !warn && siteButton}
